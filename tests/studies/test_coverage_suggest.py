@@ -180,8 +180,7 @@ def test_a_repeated_integer_value_is_allowed_beside_a_continuous_axis() -> None:
         for a, b in zip(points.values("ply_count"), points.values("thickness"), strict=True)
     }
     proposed = {
-        (round(float(p["ply_count"]), 6), round(float(p["thickness"]), 6))
-        for p in batch.points
+        (round(float(p["ply_count"]), 6), round(float(p["thickness"]), 6)) for p in batch.points
     }
     assert not (existing & proposed), "a whole run was proposed twice"
 

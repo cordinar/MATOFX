@@ -495,9 +495,7 @@ class EmailNotifier:
         from matofx.users.orm import User  # noqa: PLC0415
         from matofx.users.permissions import Permission, user_has_permission  # noqa: PLC0415
 
-        effective = await self._gated_effective(
-            session, gate_key="licence_alert_emails_enabled"
-        )
+        effective = await self._gated_effective(session, gate_key="licence_alert_emails_enabled")
         if effective is None:
             return
 
@@ -568,9 +566,7 @@ class EmailNotifier:
 
         # Account-lifecycle warning: rides the job-state switch (not the
         # approvals switch) — it's the same "operational email" class.
-        effective = await self._gated_effective(
-            session, gate_key="job_email_notifications_enabled"
-        )
+        effective = await self._gated_effective(session, gate_key="job_email_notifications_enabled")
         if effective is None:
             await self._audit_grace(
                 session,
@@ -856,8 +852,7 @@ async def _describe_approval_target(  # noqa: PLR0911 — one return per target 
         return _ApprovalTargetInfo(
             "approval_email_studies",
             f"Parametric study awaiting your approval: {name}",
-            "A parametric study needs your approval before it can run."
-            f"\n\nStudy — {name} — {by}",
+            f"A parametric study needs your approval before it can run.\n\nStudy — {name} — {by}",
         )
 
     if request.optimisation_study_id is not None:
@@ -887,8 +882,8 @@ async def _describe_approval_target(  # noqa: PLR0911 — one return per target 
     if request.material_version_id is not None:
         from matofx.materials.orm import Material, MaterialVersion  # noqa: PLC0415
 
-        version = await session.get(MaterialVersion, request.material_version_id)
-        mat_id = getattr(version, "material_id", None) if version is not None else None
+        mat_version = await session.get(MaterialVersion, request.material_version_id)
+        mat_id = getattr(mat_version, "material_id", None) if mat_version is not None else None
         name = await _name_for(session, Material, mat_id)
         return _ApprovalTargetInfo(
             "approval_email_materials",
@@ -900,8 +895,10 @@ async def _describe_approval_target(  # noqa: PLR0911 — one return per target 
     if request.surrogate_model_version_id is not None:
         from matofx.models.orm import SurrogateModel, SurrogateModelVersion  # noqa: PLC0415
 
-        version = await session.get(SurrogateModelVersion, request.surrogate_model_version_id)
-        model_id = getattr(version, "surrogate_model_id", None) if version is not None else None
+        sm_version = await session.get(SurrogateModelVersion, request.surrogate_model_version_id)
+        model_id = (
+            getattr(sm_version, "surrogate_model_id", None) if sm_version is not None else None
+        )
         name = await _name_for(session, SurrogateModel, model_id)
         return _ApprovalTargetInfo(
             "approval_email_models",

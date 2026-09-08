@@ -45,9 +45,7 @@ def _view(rows: list[tuple[dict[str, float], dict[str, float]]]) -> StudyResults
         )
         for i, (inputs, scalars) in enumerate(rows)
     ]
-    return StudyResultsView(
-        study_id=1, tool_alias="t", tool_version_id=None, children=children
-    )
+    return StudyResultsView(study_id=1, tool_alias="t", tool_version_id=None, children=children)
 
 
 def _grid_rows() -> list[tuple[dict[str, float], dict[str, float]]]:
@@ -102,10 +100,7 @@ async def test_plackett_burman_selects_screening_effects() -> None:
 
 
 async def test_lhs_selects_src_regression() -> None:
-    rows = [
-        ({"x": float(i), "y": float(10 - i)}, {"t": 2.0 * i + 1.0})
-        for i in range(8)
-    ]
+    rows = [({"x": float(i), "y": float(10 - i)}, {"t": 2.0 * i + 1.0}) for i in range(8)]
     facts = await _facts(_study("lhs"), _view(rows))
     analysis = facts.details["analysis"]
     assert analysis["kind"] == "src_regression"
@@ -114,10 +109,7 @@ async def test_lhs_selects_src_regression() -> None:
 
 async def test_each_response_gets_a_top_driver() -> None:
     # t rises with x; mass rises with y → each response's dominant driver differs.
-    rows = [
-        ({"x": float(i), "y": float(2 * i)}, {"t": 3.0 * i, "mass": 5.0 * i})
-        for i in range(8)
-    ]
+    rows = [({"x": float(i), "y": float(2 * i)}, {"t": 3.0 * i, "mass": 5.0 * i}) for i in range(8)]
     facts = await _facts(_study("lhs"), _view(rows))
     responses = {r["label"]: r for r in facts.details["responses"]}
     assert responses["t"]["top_driver"] is not None

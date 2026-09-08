@@ -62,9 +62,9 @@ def upgrade() -> None:
     now = _dt.datetime.now(tz=_dt.UTC)
     for key, default in _DEFAULTS:
         exists = bind.execute(
-            sa.text(
-                "SELECT 1 FROM runtime_setting WHERE domain = :d AND key = :k"
-            ).bindparams(d=_DOMAIN, k=key)
+            sa.text("SELECT 1 FROM runtime_setting WHERE domain = :d AND key = :k").bindparams(
+                d=_DOMAIN, k=key
+            )
         ).fetchone()
         if exists is not None:
             continue
@@ -86,7 +86,7 @@ def downgrade() -> None:
     """Remove the seeded rows (the loader falls back to the catalog default)."""
     for key, _ in _DEFAULTS:
         op.execute(
-            sa.text(
-                "DELETE FROM runtime_setting WHERE domain = :d AND key = :k"
-            ).bindparams(d=_DOMAIN, k=key)
+            sa.text("DELETE FROM runtime_setting WHERE domain = :d AND key = :k").bindparams(
+                d=_DOMAIN, k=key
+            )
         )

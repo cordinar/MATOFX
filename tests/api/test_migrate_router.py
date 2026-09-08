@@ -27,7 +27,6 @@ from fastapi import FastAPI
 from matofx.api.deps import get_install_key_pair
 from matofx.migrate.signing import KeyPair, compute_fingerprint, display_fingerprint
 
-
 # ---------------------------------------------------------------------------
 # Local fixtures
 # ---------------------------------------------------------------------------
@@ -136,9 +135,7 @@ async def test_add_then_list_trusted_peer(
     assert created["label"] == "Staging"
     assert created["notes"] == "prod-network MTX-412"
 
-    listing = await migrate_client.get(
-        "/api/admin/migrate/trusted-peers", headers=auth_headers
-    )
+    listing = await migrate_client.get("/api/admin/migrate/trusted-peers", headers=auth_headers)
     assert listing.status_code == 200
     rows = listing.json()
     assert len(rows) == 1
@@ -221,9 +218,7 @@ async def test_remove_trusted_peer(
         json={"reason": "Decommissioning Staging install"},
     )
     assert delete.status_code == 204
-    listing = await migrate_client.get(
-        "/api/admin/migrate/trusted-peers", headers=auth_headers
-    )
+    listing = await migrate_client.get("/api/admin/migrate/trusted-peers", headers=auth_headers)
     assert listing.json() == []
 
 
@@ -261,9 +256,7 @@ async def test_export_returns_gzipped_bundle_with_filename_header(
         "workflow_aliases": [],
         "notes": "test bundle",
     }
-    r = await migrate_client.post(
-        "/api/admin/migrate/export", headers=auth_headers, json=body
-    )
+    r = await migrate_client.post("/api/admin/migrate/export", headers=auth_headers, json=body)
     assert r.status_code == 200, r.text
     assert r.headers["content-type"] == "application/gzip"
     cd = r.headers["content-disposition"]
@@ -283,9 +276,7 @@ async def test_export_returns_gzipped_bundle_with_filename_header(
         assert manifest["source_fingerprint"] == expected_fp
         assert manifest["created_by"] == "root@example.com"
         assert manifest["notes"] == "test bundle"
-        assert [(t["alias"], t["version"]) for t in manifest["tools"]] == [
-            (tool_alias, "1.0.0")
-        ]
+        assert [(t["alias"], t["version"]) for t in manifest["tools"]] == [(tool_alias, "1.0.0")]
 
 
 @pytest.mark.asyncio
@@ -304,7 +295,10 @@ async def test_export_unknown_tool_returns_404(
         },
     )
     assert r.status_code == 404
-    assert "no_such_tool" in r.json()["detail"].lower() or "not installed" in r.json()["detail"].lower()
+    assert (
+        "no_such_tool" in r.json()["detail"].lower()
+        or "not installed" in r.json()["detail"].lower()
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -474,7 +468,5 @@ async def test_regular_user_denied(
     assert login.status_code == 200
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
 
-    r = await migrate_client.get(
-        "/api/admin/migrate/trusted-peers", headers=headers
-    )
+    r = await migrate_client.get("/api/admin/migrate/trusted-peers", headers=headers)
     assert r.status_code == 403

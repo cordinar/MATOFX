@@ -140,9 +140,18 @@ def test_layered_coupon_matches_clt() -> None:
 
 def test_stacking_sequence_matters_on_bracket() -> None:
     common = {
-        "e1": _E1, "e2": _E2, "g12": _G12, "nu12": _NU12, "alpha1": 0.02, "alpha2": 22.5,
-        "thickness_m": 0.004, "t_ref": 25.0, "mech_load": 200.0,
-        "n_span": 12, "n_depth": 3, "n_layers": 8,
+        "e1": _E1,
+        "e2": _E2,
+        "g12": _G12,
+        "nu12": _NU12,
+        "alpha1": 0.02,
+        "alpha2": 22.5,
+        "thickness_m": 0.004,
+        "t_ref": 25.0,
+        "mech_load": 200.0,
+        "n_span": 12,
+        "n_depth": 3,
+        "n_layers": 8,
     }
     br = bs.bmod.build_bracket(0.004, n_span=12, n_depth=3, n_layers=8)
     temp = np.full(br.n_nodes, 25.0)  # isothermal — isolate the mechanical response

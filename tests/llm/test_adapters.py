@@ -63,9 +63,7 @@ def test_factory_dispatches_each_provider() -> None:
 
 @pytest.mark.asyncio
 async def test_ollama_returns_text() -> None:
-    settings = LlmSettings(
-        provider="ollama", base_url="http://localhost:11434/v1", model="m"
-    )
+    settings = LlmSettings(provider="ollama", base_url="http://localhost:11434/v1", model="m")
     client = OllamaClient(
         settings,
         transport=httpx.MockTransport(lambda _r: httpx.Response(200, json=_chat_ok())),

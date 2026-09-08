@@ -12,7 +12,6 @@ from matofx.ui.pages.job import (
     _format_kpi_value,
 )
 
-
 # ---- Value formatting -----------------------------------------------
 
 

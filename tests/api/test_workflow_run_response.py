@@ -52,8 +52,10 @@ def _run(**kw: object) -> SimpleNamespace:
 def test_build_run_response_maps_names_children_and_state() -> None:
     resp = _build_run_response(
         _run(),
-        [_child(id=11, tool_alias="alpha", state="complete"),
-         _child(id=12, workflow_position=2, tool_alias="beta", state="complete")],
+        [
+            _child(id=11, tool_alias="alpha", state="complete"),
+            _child(id=12, workflow_position=2, tool_alias="beta", state="complete"),
+        ],
         wf=SimpleNamespace(alias="chain", name="Thermo Chain"),
         scenario=SimpleNamespace(name="Scenario 1", project_id=9),
         project=SimpleNamespace(name="Demo testing"),

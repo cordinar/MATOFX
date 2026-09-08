@@ -479,6 +479,7 @@ def _table_validator(
     Raises a friendly :class:`ValueError` naming the column and row on the
     first offending cell (the same UX as scalar field errors).
     """
+
     def _check(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         # Pydantic has already validated the ``list[dict]`` shape before this
         # AfterValidator runs, so only cell-level checks remain.

@@ -106,9 +106,7 @@ async def test_summary_member_chain_matches_positions_and_graph_edges(
     assert len(chain) == len(aliases) == 2
 
     # Cross-reference the structure graph for the canonical names + edges.
-    graph = (
-        await client.get(f"/api/workflows/{workflow_id}/graph", headers=auth_headers)
-    ).json()
+    graph = (await client.get(f"/api/workflows/{workflow_id}/graph", headers=auth_headers)).json()
     name_by_alias = {
         n["tool_alias"]: (n["label"].split(". ", 1)[1] if ". " in n["label"] else n["label"])
         for n in graph["nodes"]

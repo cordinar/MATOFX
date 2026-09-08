@@ -283,9 +283,7 @@ async def get_broadcast_audience_options(
         rid
         for (rid,) in (
             await db.execute(
-                _select(RolePermission.role_id).where(
-                    RolePermission.permission.in_(group_slugs)
-                )
+                _select(RolePermission.role_id).where(RolePermission.permission.in_(group_slugs))
             )
         ).all()
     }
@@ -300,8 +298,7 @@ async def get_broadcast_audience_options(
     return BroadcastAudienceOptions(
         teams=[BroadcastAudienceOption(id=str(tid), label=name) for tid, name in team_rows],
         roles=[
-            BroadcastAudienceOption(id=str(rid), label=_humanise_role(name))
-            for rid, name in roles
+            BroadcastAudienceOption(id=str(rid), label=_humanise_role(name)) for rid, name in roles
         ],
         curators=[
             BroadcastAudienceOption(id=key, label=label)
@@ -372,8 +369,7 @@ async def send_broadcast(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
-                "Select at least one team, access-rights group, or "
-                "curator group for this audience."
+                "Select at least one team, access-rights group, or curator group for this audience."
             ),
         )
     if not subject.strip():

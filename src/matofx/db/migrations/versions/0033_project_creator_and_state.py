@@ -32,6 +32,8 @@ batch.
 
 from __future__ import annotations
 
+from typing import Any
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -43,7 +45,7 @@ depends_on: str | None = None
 _PROJECT_STATE_CHECK = "state IN ('active','archived','cancelled')"
 
 
-def _bigint() -> sa.types.TypeEngine:
+def _bigint() -> sa.types.TypeEngine[Any]:
     return sa.BigInteger().with_variant(sa.Integer(), "sqlite")
 
 

@@ -75,9 +75,11 @@ def _licensed_app(
     """
     from matofx.api.deps import get_audit, get_factory, get_settings  # noqa: PLC0415
 
-    public = issuer.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
-    ).hex()
+    public = (
+        issuer.public_key()
+        .public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+        .hex()
+    )
     licensed = settings.model_copy(
         update={
             "licence": LicenceSettings(file=path),
@@ -201,9 +203,7 @@ async def test_regular_user_at_the_cap_gets_503_and_no_session(
         assert created.status_code in (200, 201)
 
         async with session_scope(api_factory) as db:
-            before = int(
-                (await db.execute(sa.select(sa.func.count(AuthSession.id)))).scalar_one()
-            )
+            before = int((await db.execute(sa.select(sa.func.count(AuthSession.id)))).scalar_one())
 
         refused = await client.post(
             "/api/auth/login", json={"username": "engineer", "password": "Engineerpass1!"}
@@ -218,9 +218,7 @@ async def test_regular_user_at_the_cap_gets_503_and_no_session(
 
 
 @pytest.mark.asyncio
-async def test_unlicensed_install_reports_no_cap(
-    app: FastAPI, seeded: dict[str, Any]
-) -> None:
+async def test_unlicensed_install_reports_no_cap(app: FastAPI, seeded: dict[str, Any]) -> None:
     """The default test app has no licence — logins stay unmetered."""
     response = await _login(app, seeded["username"], seeded["password"])
     body = response.json()
@@ -250,14 +248,10 @@ async def test_admin_can_list_and_revoke_sessions(
         assert body["in_use"] >= 2
         target = body["sessions"][0]["id"]
 
-        revoked = await client.post(
-            f"/api/admin/sessions/{target}/revoke", headers=auth_headers
-        )
+        revoked = await client.post(f"/api/admin/sessions/{target}/revoke", headers=auth_headers)
         assert revoked.status_code == _HTTP_NO_CONTENT
 
-        again = await client.post(
-            f"/api/admin/sessions/{target}/revoke", headers=auth_headers
-        )
+        again = await client.post(f"/api/admin/sessions/{target}/revoke", headers=auth_headers)
         assert again.status_code == 404
 
 

@@ -45,9 +45,7 @@ def _percent(name: str, *, with_check: bool = True) -> InputField:
         minimum=0.0,
         maximum=100.0,
         sum_check=(
-            SumCheck(value=_TOTAL, sum_parameters=["p1", "p2", "p3"])
-            if with_check
-            else None
+            SumCheck(value=_TOTAL, sum_parameters=["p1", "p2", "p3"]) if with_check else None
         ),
     )
 

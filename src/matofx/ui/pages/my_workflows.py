@@ -113,7 +113,7 @@ async def _render_workspace(client: ApiClient) -> None:
         with ui.row().classes("items-center gap-2"):
             archived_toggle = ui.switch("Show archived", value=False)
 
-            async def _on_toggle(_e=None) -> None:
+            async def _on_toggle(_e: Any = None) -> None:
                 show_archived["value"] = bool(archived_toggle.value)
                 await refresh()
 
@@ -140,7 +140,7 @@ def _render_list(
     tool_options: list[dict[str, Any]],
     tool_label_by_alias: dict[str, str],
     share_candidates: list[dict[str, Any]],
-    on_changed,  # noqa: ANN001
+    on_changed: Any,
 ) -> None:
     """Render the list of workflow cards or an empty-state message."""
     if not rows:
@@ -167,11 +167,11 @@ def _render_workflow_card(
     client: ApiClient,
     row: dict[str, Any],
     *,
-    me: str,
+    me: str,  # noqa: ARG001 - kept so every row renderer takes the same arguments
     tool_options: list[dict[str, Any]],
     tool_label_by_alias: dict[str, str],
     share_candidates: list[dict[str, Any]],
-    on_changed,  # noqa: ANN001
+    on_changed: Any,
 ) -> None:
     """One row card: identity + members + share list + actions."""
     is_owner = bool(row.get("is_owner"))
@@ -280,7 +280,7 @@ def _render_badges(
 # ----- actions -----------------------------------------------------------
 
 
-async def _do_copy(client: ApiClient, workflow_id: int, on_changed) -> None:  # noqa: ANN001
+async def _do_copy(client: ApiClient, workflow_id: int, on_changed: Any) -> None:
     """Copy the workflow + refresh the list."""
     try:
         result = await client.copy_custom_workflow(workflow_id)
@@ -294,7 +294,7 @@ async def _do_copy(client: ApiClient, workflow_id: int, on_changed) -> None:  # 
     await on_changed()
 
 
-async def _do_unarchive(client: ApiClient, workflow_id: int, on_changed) -> None:  # noqa: ANN001
+async def _do_unarchive(client: ApiClient, workflow_id: int, on_changed: Any) -> None:
     """Unarchive the workflow + refresh the list."""
     try:
         await client.unarchive_custom_workflow(workflow_id)
@@ -305,7 +305,7 @@ async def _do_unarchive(client: ApiClient, workflow_id: int, on_changed) -> None
     await on_changed()
 
 
-async def _confirm_archive(client: ApiClient, workflow_id: int, on_changed) -> None:  # noqa: ANN001
+async def _confirm_archive(client: ApiClient, workflow_id: int, on_changed: Any) -> None:
     """Confirm dialog → archive request → refresh."""
     with ui.dialog() as dialog, ui.card():
         ui.label("Archive this workflow?").style("font-size: 1.05rem; font-weight: 600;")
@@ -339,7 +339,7 @@ async def _open_workflow_dialog(
     tool_options: list[dict[str, Any]],
     tool_label_by_alias: dict[str, str],
     share_candidates: list[dict[str, Any]],
-    on_saved,  # noqa: ANN001
+    on_saved: Any,
 ) -> None:
     """Open the unified create / edit dialog.
 

@@ -190,17 +190,13 @@ async def test_class_property_unique_per_class(materials_engine: AsyncEngine) ->
         mc = await _new_class(session)
         class_id = mc.id
         session.add(
-            MaterialClassProperty(
-                class_id=class_id, slug="cp", prop_name="cp", unit="J/kg/K"
-            )
+            MaterialClassProperty(class_id=class_id, slug="cp", prop_name="cp", unit="J/kg/K")
         )
         await session.flush()
     with pytest.raises(IntegrityError):
         async with session_scope(factory) as session:
             session.add(
-                MaterialClassProperty(
-                    class_id=class_id, slug="cp", prop_name="cp", unit="J/kg/K"
-                )
+                MaterialClassProperty(class_id=class_id, slug="cp", prop_name="cp", unit="J/kg/K")
             )
 
 

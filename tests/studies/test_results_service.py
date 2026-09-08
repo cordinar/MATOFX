@@ -141,8 +141,12 @@ async def test_record_stamps_valid_when_in_bounds(
         session.add(job)
         await session.flush()
         await record_study_result(
-            _audit(), session, job=job, tool=tool,
-            outputs_doc=_outputs(_scalar("fi_max", "number", 2.5)), succeeded=True,
+            _audit(),
+            session,
+            job=job,
+            tool=tool,
+            outputs_doc=_outputs(_scalar("fi_max", "number", 2.5)),
+            succeeded=True,
         )
         row = (
             await session.execute(
@@ -176,7 +180,10 @@ async def test_record_flags_non_finite_and_out_of_bounds(
         session.add(job)
         await session.flush()
         await record_study_result(
-            _audit(), session, job=job, tool=tool,
+            _audit(),
+            session,
+            job=job,
+            tool=tool,
             outputs_doc=_outputs(
                 _scalar("fi_max", "number", 1.0e6),  # above max
                 _scalar("mass", "number", float("nan")),  # non-finite
@@ -212,8 +219,12 @@ async def test_record_allow_non_finite_stays_valid(
         session.add(job)
         await session.flush()
         await record_study_result(
-            _audit(), session, job=job, tool=tool,
-            outputs_doc=_outputs(_scalar("x", "number", float("inf"))), succeeded=True,
+            _audit(),
+            session,
+            job=job,
+            tool=tool,
+            outputs_doc=_outputs(_scalar("x", "number", float("inf"))),
+            succeeded=True,
         )
         row = (
             await session.execute(

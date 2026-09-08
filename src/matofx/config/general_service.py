@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from matofx.audit import AuditWriter
 
 
-SECRET_REDACTED_SENTINEL: Final[str] = "***REDACTED***"
+SECRET_REDACTED_SENTINEL: Final[str] = "***REDACTED***"  # noqa: S105 - a redaction sentinel, not a secret
 """Value substituted for secret-kind settings on read and in audit payloads."""
 
 _DOMAIN: Final[str] = "general"
@@ -99,16 +99,13 @@ async def load_general_setting_delegations(session: AsyncSession) -> dict[str, s
     Never raises; an unreachable DB returns an empty map.
     """
     rows = (
-        (
-            await session.execute(
-                select(RuntimeSetting.key, RuntimeSetting.delegated_to_role).where(
-                    RuntimeSetting.domain == _DOMAIN,
-                    RuntimeSetting.delegated_to_role.is_not(None),
-                )
+        await session.execute(
+            select(RuntimeSetting.key, RuntimeSetting.delegated_to_role).where(
+                RuntimeSetting.domain == _DOMAIN,
+                RuntimeSetting.delegated_to_role.is_not(None),
             )
         )
-        .all()
-    )
+    ).all()
     out: dict[str, str] = {}
     for row in rows:
         key = str(row[0])
@@ -154,7 +151,7 @@ async def load_general_settings(session: AsyncSession) -> dict[str, Any]:
     }
 
 
-def _coerce_for_read(value: object, spec: SettingSpec) -> Any:
+def _coerce_for_read(value: object, spec: SettingSpec) -> Any:  # noqa: PLR0911 - a flat dispatch; splitting it would hide the mapping
     """Best-effort coerce a JSON-decoded value to the spec's expected shape.
 
     A wrong-typed override returns the catalog default so the loader

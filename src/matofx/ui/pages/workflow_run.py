@@ -95,9 +95,7 @@ async def _refresh_summary_card(state: dict[str, Any]) -> None:
     summary_box: ui.column = state["summary_box"]
     summary_box.clear()
     with summary_box:
-        rendered = await render_summary_card(
-            state["client"], "workflow_run", int(state["run_id"])
-        )
+        rendered = await render_summary_card(state["client"], "workflow_run", int(state["run_id"]))
     state["summary_done"] = rendered
 
 
@@ -371,9 +369,7 @@ def _render_tabs_strip(state: dict[str, Any]) -> None:
             position = int(child.get("workflow_position") or 0)
             tool_name = str(child.get("tool_name") or alias)
             child_state = str(child.get("state") or "created")
-            is_active = (
-                view_kind == "tool" and state.get("active_position") == position
-            )
+            is_active = view_kind == "tool" and state.get("active_position") == position
 
             ready = _all_upstream_ready(state, child)
             tab_status = _tab_status_for(child_state, ready)

@@ -36,18 +36,14 @@ def _facts(**overrides: Any) -> SummaryFacts:
 
 async def _row_count(factory: SessionFactory) -> int:
     async with session_scope(factory) as session:
-        return int(
-            (await session.execute(select(func.count(ResultSummary.id)))).scalar_one()
-        )
+        return int((await session.execute(select(func.count(ResultSummary.id)))).scalar_one())
 
 
 async def _row_generated_at(factory: SessionFactory, surface_id: int) -> Any:
     async with session_scope(factory) as session:
         return (
             await session.execute(
-                select(ResultSummary.generated_at).where(
-                    ResultSummary.surface_id == surface_id
-                )
+                select(ResultSummary.generated_at).where(ResultSummary.surface_id == surface_id)
             )
         ).scalar_one()
 

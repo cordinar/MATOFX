@@ -51,10 +51,14 @@ class _Signer:
         return self._private.sign(payload)
 
     def public_hex(self) -> str:
-        return self._private.public_key().public_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PublicFormat.Raw,
-        ).hex()
+        return (
+            self._private.public_key()
+            .public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
+            .hex()
+        )
 
 
 @pytest.fixture
@@ -238,9 +242,7 @@ def test_truncation_is_invisible_to_the_chain_alone(
     # The marker is what notices. Same truncation, signed ledger.
     signed_path = tmp_path / "signed.jsonl"
     entries = _build(signed_path, signer)
-    with_marker = verify_ledger(
-        entries[:2], public_keys=keys, marker=read_head_marker(signed_path)
-    )
+    with_marker = verify_ledger(entries[:2], public_keys=keys, marker=read_head_marker(signed_path))
     assert not with_marker.ok
     assert "SHORT" in with_marker.head_detail
 
@@ -267,9 +269,7 @@ def test_a_replaced_final_entry_fails_the_marker(
     assert not result.ok
 
 
-def test_a_tampered_marker_fails(
-    tmp_path: Path, signer: _Signer, keys: dict[str, str]
-) -> None:
+def test_a_tampered_marker_fails(tmp_path: Path, signer: _Signer, keys: dict[str, str]) -> None:
     """Re-pointing the marker at a shorter ledger must not launder it."""
     path = tmp_path / "heads.jsonl"
     entries = _build(path, signer)
@@ -282,9 +282,7 @@ def test_a_tampered_marker_fails(
 # ----- keys -----------------------------------------------------------
 
 
-def test_an_unknown_key_fails_rather_than_skipping(
-    tmp_path: Path, signer: _Signer
-) -> None:
+def test_an_unknown_key_fails_rather_than_skipping(tmp_path: Path, signer: _Signer) -> None:
     """A signature nobody can check is not evidence.
 
     Passing it silently would be the false reassurance this whole file
@@ -312,9 +310,7 @@ def test_a_signature_from_the_wrong_key_fails(tmp_path: Path, signer: _Signer) -
 # ----- no silent downgrade --------------------------------------------
 
 
-def test_unsigned_append_to_a_signed_ledger_is_refused(
-    tmp_path: Path, signer: _Signer
-) -> None:
+def test_unsigned_append_to_a_signed_ledger_is_refused(tmp_path: Path, signer: _Signer) -> None:
     """Otherwise signing is bypassed by simply not passing a key."""
     path = tmp_path / "heads.jsonl"
     append_entry(path, _entry(1), signer=signer)
@@ -340,9 +336,7 @@ def test_signing_may_begin_on_a_previously_unsigned_ledger(
     assert result.signed == 1
 
 
-def test_marker_is_rewritten_to_match_after_each_append(
-    tmp_path: Path, signer: _Signer
-) -> None:
+def test_marker_is_rewritten_to_match_after_each_append(tmp_path: Path, signer: _Signer) -> None:
     path = tmp_path / "heads.jsonl"
     for expected in (1, 2, 3):
         append_entry(path, _entry(expected), signer=signer)

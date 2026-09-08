@@ -10,7 +10,6 @@ from matofx.db import make_session_factory, session_scope
 from matofx.tools import ToolService
 from matofx.users import UserService
 from matofx.workflows import (
-    Workflow,
     WorkflowMember,
     WorkflowService,
     WorkflowShare,
@@ -25,7 +24,6 @@ from matofx.workflows.errors import (
 from matofx.workflows.service import CustomWorkflowDraft, WorkflowDraft
 
 from .conftest import install_released_tool, make_tool_descriptor
-
 
 # ----- archive_custom ----------------------------------------------------
 
@@ -205,9 +203,7 @@ async def test_archive_idempotent(
     # matters for idempotency.
     assert first.archived_at is not None
     assert again.archived_at is not None
-    assert first.archived_at.replace(tzinfo=None) == again.archived_at.replace(
-        tzinfo=None
-    )
+    assert first.archived_at.replace(tzinfo=None) == again.archived_at.replace(tzinfo=None)
 
 
 @pytest.mark.asyncio
@@ -238,9 +234,7 @@ async def test_owner_unarchives_and_state_returns(
             ),
         )
     async with session_scope(factory) as session:
-        await workflow_service.archive_custom(
-            session, actor_user_id=owner_id, workflow_id=wf.id
-        )
+        await workflow_service.archive_custom(session, actor_user_id=owner_id, workflow_id=wf.id)
     async with session_scope(factory) as session:
         revived = await workflow_service.unarchive_custom(
             session, actor_user_id=owner_id, workflow_id=wf.id
@@ -288,9 +282,7 @@ async def test_unarchive_non_owner_refused(
             ),
         )
     async with session_scope(factory) as session:
-        await workflow_service.archive_custom(
-            session, actor_user_id=owner_id, workflow_id=wf.id
-        )
+        await workflow_service.archive_custom(session, actor_user_id=owner_id, workflow_id=wf.id)
     async with session_scope(factory) as session:
         with pytest.raises(NotOwnerError):
             await workflow_service.unarchive_custom(
@@ -429,12 +421,14 @@ async def test_share_recipient_copies_to_their_own_list(
     # Source share list untouched.
     async with session_scope(factory) as session:
         copy_shares = (
-            await session.execute(
-                select(WorkflowShare.user_id).where(
-                    WorkflowShare.workflow_id == copy.id
+            (
+                await session.execute(
+                    select(WorkflowShare.user_id).where(WorkflowShare.workflow_id == copy.id)
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert copy_shares == []
 
     # Members preserved.
@@ -695,9 +689,7 @@ async def test_list_returns_owned_and_shared_only(
 
     # Bob's view: his own + Alice's shared, NOT Alice's private.
     async with session_scope(factory) as session:
-        rows = await workflow_service.list_for_user(
-            session, actor_user_id=bob_id
-        )
+        rows = await workflow_service.list_for_user(session, actor_user_id=bob_id)
     ids = {wf.id for wf in rows}
     assert ids == {shared.id, bobs_own.id}
     assert private.id not in ids
@@ -746,9 +738,7 @@ async def test_list_excludes_archived_by_default(
         )
 
     async with session_scope(factory) as session:
-        active_only = await workflow_service.list_for_user(
-            session, actor_user_id=owner_id
-        )
+        active_only = await workflow_service.list_for_user(session, actor_user_id=owner_id)
         with_archived = await workflow_service.list_for_user(
             session, actor_user_id=owner_id, include_archived=True
         )
@@ -797,9 +787,7 @@ async def test_list_excludes_admin_workflows(
             ),
         )
     async with session_scope(factory) as session:
-        rows = await workflow_service.list_for_user(
-            session, actor_user_id=owner_id
-        )
+        rows = await workflow_service.list_for_user(session, actor_user_id=owner_id)
     assert [wf.id for wf in rows] == [custom.id]
     assert all(wf.kind == "custom" for wf in rows)
 
@@ -855,9 +843,7 @@ async def test_list_for_admin_returns_every_custom_workflow(
             ),
         )
     async with session_scope(factory) as session:
-        rows = await workflow_service.list_for_admin(
-            session, actor_user_id=admin_id
-        )
+        rows = await workflow_service.list_for_admin(session, actor_user_id=admin_id)
     owners = {wf.owner_id for wf in rows}
     assert owners == {alice_id, bob_id}
 
@@ -1051,6 +1037,4 @@ async def test_list_for_admin_refused_without_inspect_permission(
     owner_id = seed_roles["regular_user"]
     async with session_scope(factory) as session:
         with pytest.raises(WorkflowStateError, match="custom_workflows.inspect"):
-            await workflow_service.list_for_admin(
-                session, actor_user_id=owner_id
-            )
+            await workflow_service.list_for_admin(session, actor_user_id=owner_id)

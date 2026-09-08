@@ -375,3 +375,41 @@ rescale per goal → flip maximise → weight → sum), which was undocumented.
 
 Full account in `ARCHITECTURE.md` § *"Track only" was recorded everywhere except
 where it was declared*.
+
+### Repository extraction + a clean lint/type gate — 2026-09-08
+
+The application moved out of the development working tree into this standalone
+repository (the former `OUTPUTS/matofx/` subtree is now the root), and the CI
+gate was made green for the first time:
+
+- **ruff** — clean across `src`, `tests` and `scripts`. Rules that fight the
+  house style are documented exemptions in `pyproject.toml` (ambiguous-unicode
+  on prose, pytest idioms in tests, lazy imports); `example_tools/` is excluded
+  because a tool bundle is a customer-shaped artefact, not framework code.
+- **mypy** — `src` is **clean under strict mode**, down from 127 findings.
+  Scoped to `src` in `pyproject.toml`; `tests/` still carries ~870 findings,
+  almost all "a typed test calls an untyped local helper". Bringing `tests`
+  under the gate is the tracked follow-up.
+
+Four real defects surfaced while doing it, each fixed:
+
+- `LiveJobItem.kind` / `LiveJobsCancelOutcome.kind` declared only three of the
+  four kinds `live_jobs.service.LiveKind` emits, so **the Live Jobs endpoint
+  raised a ValidationError whenever an optimisation study was running**;
+- `_attempt_disable` recorded an inactivity skip with `outcome="skipped"`,
+  which is not a valid `AuditOutcome`;
+- a dead `_alembic_config` helper in the migrate e2e test referenced an
+  undefined `Config`;
+- five fire-and-forget `asyncio.create_task` calls kept no reference, so the
+  loop could garbage-collect them mid-flight — they now go through
+  `matofx.ui._background.spawn`, which holds one until completion;
+- `OptimisationService.configure` read `precisions` unconditionally but bound
+  it only in the tool branch, so **configuring a workflow-target optimisation
+  raised `UnboundLocalError`**. Same shape as the wizard's shared-step locals:
+  initialise before the branch. `test_optimisation_workflow_runtime.py` had
+  been failing on it.
+
+Three tests still fail, all pre-existing and all in the design-space coverage
+suggestion engine (`test_coverage_suggest_design.py` x2,
+`test_coverage_study_from_suggestions.py` x1) — untouched by this work and
+noted in the coverage section above.

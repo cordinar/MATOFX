@@ -354,9 +354,7 @@ def test_depth_sliders_have_help_tooltips(nicegui_client: Client) -> None:
     # One per depth slider (Upstream + Downstream).
     assert len(help_icons) == 2
 
-    tooltip_texts = [
-        e.text for e in nicegui_client.elements.values() if isinstance(e, Tooltip)
-    ]
+    tooltip_texts = [e.text for e in nicegui_client.elements.values() if isinstance(e, Tooltip)]
     # Both depth sliders contribute an explanatory tooltip ("…to trace…").
     trace_tips = [t for t in tooltip_texts if "to trace" in t]
     assert len(trace_tips) == 2
@@ -366,9 +364,7 @@ def test_depth_sliders_have_help_tooltips(nicegui_client: Client) -> None:
 
 def test_friendly_error_404_is_not_found_copy() -> None:
     """A 404 maps to plain-English 'nothing here yet' copy — no HTTP jargon."""
-    headline, body, icon, _colour = _friendly_lineage_error(
-        ApiError(404, "Not Found"), kind="job"
-    )
+    headline, body, icon, _colour = _friendly_lineage_error(ApiError(404, "Not Found"), kind="job")
     assert headline == "Nothing to show here yet"
     assert "job" in body.lower()
     assert "http" not in (headline + body).lower()
@@ -388,9 +384,7 @@ def test_friendly_error_403_is_permission_copy() -> None:
 
 def test_friendly_error_500_is_try_again_copy() -> None:
     """A 5xx maps to a reassuring try-again message in the error colour."""
-    headline, body, icon, colour = _friendly_lineage_error(
-        ApiError(500, "boom"), kind="job"
-    )
+    headline, body, icon, colour = _friendly_lineage_error(ApiError(500, "boom"), kind="job")
     assert "went wrong" in headline.lower()
     assert "try" in body.lower()
     assert icon == "error_outline"

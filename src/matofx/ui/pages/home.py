@@ -36,6 +36,7 @@ from typing import Any
 from nicegui import ui
 
 from matofx.ui import metadata_form, share_form
+from matofx.ui._background import spawn
 from matofx.ui._features import (
     optimisation_framework_enabled,
     parametric_studies_enabled,
@@ -111,8 +112,10 @@ async def home_page() -> None:
                     await _render_approvals_card(client, approvals_summary)
 
         _render_section_label("My Work")
-        with ui.element("div").classes("w-full").style(
-            "display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;"
+        with (
+            ui.element("div")
+            .classes("w-full")
+            .style("display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;")
         ):
             await _render_my_projects_table(client)
             await _render_my_jobs_table(client)
@@ -186,9 +189,7 @@ def _render_section_label(text: str) -> None:
             "font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.09em; "
             "font-weight: 700; color: var(--matofx-muted-text);"
         )
-        ui.element("div").style(
-            "flex: 1 1 0; height: 1px; background: var(--matofx-card-border);"
-        )
+        ui.element("div").style("flex: 1 1 0; height: 1px; background: var(--matofx-card-border);")
 
 
 # ---------- action tiles -----------------------------------------------------
@@ -341,9 +342,10 @@ async def _render_quick_access_card(
     Tutorials button (only when active tutorials exist), and a Launch
     hover-menu (in existing / in new project).
     """
-    with ui.card().classes("w-full").style("overflow: hidden;"), ui.column().classes(
-        "w-full gap-2"
-    ).style("min-width: 0;"):
+    with (
+        ui.card().classes("w-full").style("overflow: hidden;"),
+        ui.column().classes("w-full gap-2").style("min-width: 0;"),
+    ):
         seg_buttons: dict[str, Any] = {}
         with ui.row().classes("w-full items-center no-wrap").style("gap: 0.7rem;"):
             ui.icon("star").style("color: var(--matofx-accent);")
@@ -351,7 +353,11 @@ async def _render_quick_access_card(
             # Segmented filter pill, right next to the title (mockup .qaseg).
             current_filter = current_quick_access_filter()
             with ui.element("div").classes("matofx-qaseg"):
-                for kind, kind_label in (("tool", "Tools"), ("workflow", "Workflows"), ("all", "All")):
+                for kind, kind_label in (
+                    ("tool", "Tools"),
+                    ("workflow", "Workflows"),
+                    ("all", "All"),
+                ):
                     btn = ui.element("div").classes("seg-btn")
                     if kind == current_filter:
                         btn.classes(add="on")
@@ -411,9 +417,9 @@ async def _render_quick_access_card(
             .classes("w-full matofx-scroll")
             .style("max-height: 320px; overflow-y: auto;")
         )
-        empty = ui.label(
-            "No tools or workflows are available to you yet."
-        ).style("color: var(--matofx-muted-text); font-size: 0.85rem; padding: 0.5rem 0;")
+        empty = ui.label("No tools or workflows are available to you yet.").style(
+            "color: var(--matofx-muted-text); font-size: 0.85rem; padding: 0.5rem 0;"
+        )
 
         rows: list[dict[str, Any]] = []
 
@@ -478,12 +484,14 @@ def _persist_quick_access_filter(kind: str) -> None:
         with contextlib.suppress(Exception):
             await client.set_ui_preferences(quick_access_filter=kind)
 
-    asyncio.create_task(_write())
+    spawn(_write())
 
 
 def _tutorial_icon(tutorial: dict[str, Any]) -> str:
     """Material icon for a tutorial by media type (PDF vs video)."""
-    return "picture_as_pdf" if str(tutorial.get("media_type") or "") == "document" else "play_circle"
+    return (
+        "picture_as_pdf" if str(tutorial.get("media_type") or "") == "document" else "play_circle"
+    )
 
 
 def _render_qa_tutorials_button(client: ApiClient, tutorials: list[dict[str, Any]]) -> None:
@@ -495,8 +503,10 @@ def _render_qa_tutorials_button(client: ApiClient, tutorials: list[dict[str, Any
     """
     if len(tutorials) == 1:
         tid = int(tutorials[0]["id"])
-        with ui.element("div").classes("matofx-tbtn").on(
-            "click", lambda _e=None, _id=tid: _open_tutorial(client, _id)
+        with (
+            ui.element("div")
+            .classes("matofx-tbtn")
+            .on("click", lambda _e=None, _id=tid: _open_tutorial(client, _id))
         ):
             ui.icon("school").style("font-size: 0.95rem;")
             ui.label("Tutorials")
@@ -511,8 +521,10 @@ def _render_qa_tutorials_button(client: ApiClient, tutorials: list[dict[str, Any
             for tut in tutorials:
                 tid = int(tut["id"])
                 title = str(tut.get("title") or tut.get("original_filename") or "Tutorial")
-                with ui.element("div").classes("matofx-launchitem").on(
-                    "click", lambda _e=None, _id=tid: _open_tutorial(client, _id)
+                with (
+                    ui.element("div")
+                    .classes("matofx-launchitem")
+                    .on("click", lambda _e=None, _id=tid: _open_tutorial(client, _id))
                 ):
                     ui.icon(_tutorial_icon(tut)).style("font-size: 0.95rem;")
                     ui.label(title)
@@ -792,7 +804,7 @@ def _toggle_favourite(
             resort()
             ui.notify(f"Couldn't update favourite: {exc.detail}", type="negative")
 
-    asyncio.create_task(_reconcile())
+    spawn(_reconcile())
 
 
 async def _resolve_greeting_name(client: ApiClient) -> str:
@@ -1004,8 +1016,9 @@ async def _render_approvals_card(client: ApiClient, summary: dict[str, Any]) -> 
     surface); a footer link opens the full queue. An empty queue shows a
     quiet "all caught up" line.
     """
-    with ui.card().classes("w-full").style("overflow: visible;"), ui.column().classes(
-        "w-full gap-2"
+    with (
+        ui.card().classes("w-full").style("overflow: visible;"),
+        ui.column().classes("w-full gap-2"),
     ):
         with ui.row().classes("w-full items-center no-wrap").style("gap: 0.6rem;"):
             ui.icon("fact_check").style("color: var(--matofx-accent);")
@@ -1032,9 +1045,15 @@ async def _render_approvals_card(client: ApiClient, summary: dict[str, Any]) -> 
         for item in items[:6]:
             _render_approval_row(item)
 
-        with ui.row().classes("w-full items-center cursor-pointer").style(
-            "padding-top: 0.4rem; color: var(--matofx-accent); font-size: 0.8rem; font-weight: 600;"
-        ).on("click", lambda: ui.navigate.to("/approvals")):
+        with (
+            ui.row()
+            .classes("w-full items-center cursor-pointer")
+            .style(
+                "padding-top: 0.4rem; color: var(--matofx-accent); "
+                "font-size: 0.8rem; font-weight: 600;"
+            )
+            .on("click", lambda: ui.navigate.to("/approvals"))
+        ):
             ui.label("Open approvals queue")
             ui.icon("chevron_right")
 
@@ -1051,12 +1070,21 @@ def _render_approval_row(item: dict[str, Any]) -> None:
     age = _relative_age(item.get("requested_at"))
     sub = " · ".join(p for p in (requester, where, age) if p)
     request_id = int(item.get("request_id") or 0)
-    with ui.row().classes("items-center w-full no-wrap").style(
-        "gap: 0.7rem; padding: 0.5rem 0.25rem; border-bottom: 1px solid var(--matofx-card-border);"
+    with (
+        ui.row()
+        .classes("items-center w-full no-wrap")
+        .style(
+            "gap: 0.7rem; padding: 0.5rem 0.25rem; "
+            "border-bottom: 1px solid var(--matofx-card-border);"
+        )
     ):
-        with ui.element("div").classes("items-center justify-center").style(
-            "width: 30px; height: 30px; border-radius: 8px; flex: none; display: flex; "
-            "background: rgba(214,169,59,0.16); color: #d6a93b;"
+        with (
+            ui.element("div")
+            .classes("items-center justify-center")
+            .style(
+                "width: 30px; height: 30px; border-radius: 8px; flex: none; display: flex; "
+                "background: rgba(214,169,59,0.16); color: #d6a93b;"
+            )
         ):
             ui.icon(icon).style("font-size: 1rem;")
         with ui.column().classes("gap-0").style("flex: 1 1 0; min-width: 0;"):
@@ -1172,9 +1200,13 @@ def _render_work_table_card(
     """
     with ui.card().classes("w-full").style("height: 420px; overflow: hidden; padding: 0;"):
         with ui.column().classes("w-full no-wrap").style("height: 100%; gap: 0;"):
-            with ui.row().classes("w-full items-center no-wrap").style(
-                "gap: 0.55rem; padding: 12px 15px; flex: none; "
-                "border-bottom: 1px solid var(--matofx-card-border);"
+            with (
+                ui.row()
+                .classes("w-full items-center no-wrap")
+                .style(
+                    "gap: 0.55rem; padding: 12px 15px; flex: none; "
+                    "border-bottom: 1px solid var(--matofx-card-border);"
+                )
             ):
                 ui.icon(icon).style("color: var(--matofx-accent); font-size: 1.15rem;")
                 ui.label(title).style("font-size: 0.95rem; font-weight: 650;")
@@ -1188,8 +1220,10 @@ def _render_work_table_card(
                     "outline color=primary no-caps"
                 ).style("font-size: 12px; padding: 4px 11px;")
             if not rows:
-                with ui.element("div").classes("matofx-colhead").style(
-                    f"grid-template-columns: {grid};"
+                with (
+                    ui.element("div")
+                    .classes("matofx-colhead")
+                    .style(f"grid-template-columns: {grid};")
                 ):
                     for label, _key, _kind in columns:
                         ui.label(label)
@@ -1200,8 +1234,10 @@ def _render_work_table_card(
             with ui.element("div").classes("matofx-tablescroll matofx-scroll"):
                 # Sticky header inside the scroll → identical content width
                 # to the rows, so columns line up exactly.
-                with ui.element("div").classes("matofx-colhead").style(
-                    f"grid-template-columns: {grid};"
+                with (
+                    ui.element("div")
+                    .classes("matofx-colhead")
+                    .style(f"grid-template-columns: {grid};")
                 ):
                     for label, _key, _kind in columns:
                         ui.label(label)
@@ -1354,7 +1390,7 @@ async def _render_parametric_studies_table(client: ApiClient) -> None:
                 "id": int(s.get("id") or 0),
                 "study": str(s.get("name") or "—"),
                 "study_sub": (
-                    f"{tool_names.get(str(s.get('tool_alias') or ''), '')} · #{int(s.get('id') or 0)}"
+                    f"{tool_names.get(str(s.get('tool_alias') or ''), '')} · #{int(s.get('id') or 0)}"  # noqa: E501 - one indivisible value
                 ),
                 "project": project_names.get(int(s.get("project_id") or 0), "—"),
                 "runs": f"{generated}" + (f" (+{skipped} skipped)" if skipped else ""),
@@ -1395,8 +1431,7 @@ async def _render_optimisations_table(client: ApiClient) -> None:
             str(t["alias"]): str(t.get("name") or t["alias"]) for t in await client.list_tools()
         }
         wf_names = {
-            str(w["alias"]): str(w.get("name") or w["alias"])
-            for w in await client.list_workflows()
+            str(w["alias"]): str(w.get("name") or w["alias"]) for w in await client.list_workflows()
         }
     except ApiError:
         tool_names, wf_names = {}, {}
@@ -1535,7 +1570,13 @@ async def _render_job_status_table(client: ApiClient) -> None:
             return
 
         columns = [
-            {"name": "id", "label": "Job ID", "field": "id_text", "align": "left", "sortable": True},
+            {
+                "name": "id",
+                "label": "Job ID",
+                "field": "id_text",
+                "align": "left",
+                "sortable": True,
+            },
             {"name": "tool", "label": "Tool", "field": "tool", "align": "left", "sortable": True},
             {
                 "name": "workflow",
@@ -1544,7 +1585,13 @@ async def _render_job_status_table(client: ApiClient) -> None:
                 "align": "left",
                 "sortable": True,
             },
-            {"name": "state", "label": "State", "field": "state", "align": "left", "sortable": True},
+            {
+                "name": "state",
+                "label": "State",
+                "field": "state",
+                "align": "left",
+                "sortable": True,
+            },
             {
                 "name": "created",
                 "label": "Created",
@@ -1754,9 +1801,7 @@ async def _render_parametric_studies_card(client: ApiClient) -> None:
     """
     with ui.card().classes("w-full"), ui.column().classes("w-full gap-2"):
         with ui.row().classes("w-full items-center justify-between"):
-            ui.label("Parametric Studies").style(
-                "font-size: 1.05rem; font-weight: 600;"
-            )
+            ui.label("Parametric Studies").style("font-size: 1.05rem; font-weight: 600;")
             ui.button(
                 "New study",
                 icon="science",
@@ -1783,9 +1828,7 @@ async def _render_parametric_studies_card(client: ApiClient) -> None:
             except ApiError:
                 continue
         if not studies:
-            ui.label("No studies yet — click 'New study' to start one.").style(
-                "color: #888;"
-            )
+            ui.label("No studies yet — click 'New study' to start one.").style("color: #888;")
             return
         studies.sort(key=lambda s: str(s.get("created_at") or ""), reverse=True)
 
@@ -2104,8 +2147,10 @@ def _render_workflow_chain(chain: list[dict[str, Any]]) -> None:
     """
     if not chain:
         return
-    with ui.row().classes("items-center gap-1").style(
-        "flex-wrap: wrap; row-gap: 0.15rem; font-size: 0.8rem;"
+    with (
+        ui.row()
+        .classes("items-center gap-1")
+        .style("flex-wrap: wrap; row-gap: 0.15rem; font-size: 0.8rem;")
     ):
         for idx, entry in enumerate(chain):
             if idx > 0:
@@ -2963,7 +3008,9 @@ def _launch_existing_project(alias: str, display_label: str) -> None:
         launch_btn = (
             ui.button(
                 "Launch",
-                on_click=lambda: _launch_now(),
+                # ``_launch_now`` is defined below, so the lambda defers the
+                # lookup to call time; a bare reference raises NameError.
+                on_click=lambda: _launch_now(),  # noqa: PLW0108 - deferred lookup
             )
             .props("color=primary disable")
             .classes("w-32")
@@ -3087,7 +3134,7 @@ def _launch_existing_project(alias: str, display_label: str) -> None:
         project_select.on_value_change(lambda _e: _load_scenarios())
         scenario_select.on_value_change(lambda _e: _refresh_launch_state())
         new_scenario_name.on_value_change(lambda _e: _refresh_launch_state())
-        new_scenario_btn.on_click(lambda: _show_new_scenario_panel())
+        new_scenario_btn.on_click(_show_new_scenario_panel)
 
         with ui.row().classes("w-full justify-end gap-2"):
             ui.button("Cancel", on_click=dialog.close).props("flat")

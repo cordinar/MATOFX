@@ -125,9 +125,7 @@ def test_chain_contiguity_preserved_under_mixed_inputs() -> None:
         "heat_transfer": {},
         "qa_check": {},
     }
-    result = compute_order(
-        ["qa_check", "heat_transfer", "material_properties"], descriptors
-    )
+    result = compute_order(["qa_check", "heat_transfer", "material_properties"], descriptors)
     assert result.index("heat_transfer") == result.index("material_properties") + 1
 
 

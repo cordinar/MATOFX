@@ -50,10 +50,12 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+# LAUNCHER_FILENAME lives in ``launcher``; ``staging`` only re-imports it, so
+# take it from its home rather than relying on an implicit re-export.
+from matofx.tools.exec.launcher import LAUNCHER_FILENAME
 from matofx.tools.exec.staging import (
     HEARTBEAT_DIRNAME,
     INPUTS_DIRNAME,
-    LAUNCHER_FILENAME,
     LOGS_DIRNAME,
     OUTPUTS_DIRNAME,
 )

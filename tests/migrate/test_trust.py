@@ -35,7 +35,7 @@ from matofx.migrate.trust import TrustedPeerService
 
 # A canonical 64-char hex fingerprint and a few cosmetic variants of it.
 CANONICAL = "9f2ea17b043d8ce1556a2f97cb0d187c0123456789abcdef0123456789abcdef"
-PRETTY = "9F:2E:A1:7B:04:3D:8C:E1:55:6A:2F:97:CB:0D:18:7C:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF"
+PRETTY = "9F:2E:A1:7B:04:3D:8C:E1:55:6A:2F:97:CB:0D:18:7C:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF"  # noqa: E501 - one indivisible value
 
 
 # ---------------------------------------------------------------------------
@@ -152,10 +152,14 @@ async def test_add_peer_writes_audit_event(
 
     async with session_scope(factory) as session:
         events = (
-            await session.execute(
-                select(AuditLog).where(AuditLog.action == "migrate.peer.trusted")
+            (
+                await session.execute(
+                    select(AuditLog).where(AuditLog.action == "migrate.peer.trusted")
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(events) == 1
         event = events[0]
         assert event.actor == f"user:{seed_admin_user_id}"
@@ -276,10 +280,14 @@ async def test_remove_peer_deletes_row_and_audits(
         rows = await trust_service.list_all(session)
         assert rows == []
         events = (
-            await session.execute(
-                select(AuditLog).where(AuditLog.action == "migrate.peer.untrusted")
+            (
+                await session.execute(
+                    select(AuditLog).where(AuditLog.action == "migrate.peer.untrusted")
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(events) == 1
         assert events[0].reason == "Decommissioning Staging install"
         assert events[0].payload["fingerprint"] == CANONICAL

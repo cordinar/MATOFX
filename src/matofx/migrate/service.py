@@ -43,10 +43,10 @@ from __future__ import annotations
 import datetime as _dt
 import hashlib
 import json
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -73,7 +73,6 @@ from matofx.migrate.errors import (
 )
 from matofx.migrate.progress import (
     OnEvent,
-    ProgressEvent,
     emit,
     imported_tool,
     imported_workflow,
@@ -85,7 +84,6 @@ from matofx.migrate.progress import (
 )
 from matofx.migrate.signing import (
     KeyPair,
-    canonicalise_fingerprint,
     compute_fingerprint,
     display_fingerprint,
     public_key_from_hex,
@@ -123,7 +121,7 @@ _DESCRIPTOR_BUNDLE_FILENAMES: tuple[str, ...] = ("descriptor.toml", "descriptor.
 _AUTHORITATIVE_DESCRIPTOR_FILENAME = "descriptor.json"
 
 
-def _authoritative_descriptor_bytes(descriptor: dict | None) -> bytes:
+def _authoritative_descriptor_bytes(descriptor: dict[str, Any] | None) -> bytes:
     """Serialise the DB descriptor blob to deterministic, readable JSON bytes."""
     return (
         json.dumps(dict(descriptor or {}), indent=2, ensure_ascii=False, sort_keys=True) + "\n"
@@ -151,8 +149,11 @@ class ImportItemOutcome:
 
 @dataclass(frozen=True, slots=True)
 class ImportResult:
-    """Returned by :meth:`ImportService.import_bundle`. Mirrors what the
-    UI summarises and what ``migrate.bundle.imported`` audits."""
+    """The outcome of one bundle import.
+
+    Returned by :meth:`ImportService.import_bundle`, and mirrors what the UI
+    summarises and what ``migrate.bundle.imported`` audits.
+    """
 
     source_fingerprint: str
     """Canonical (lowercase, no separators) hex."""
@@ -177,14 +178,17 @@ class ImportResult:
 
     @property
     def imported_count(self) -> int:
+        """How many items were imported."""
         return sum(1 for i in self.items if i.outcome == "imported")
 
     @property
     def skipped_count(self) -> int:
+        """How many items were skipped, with a reason recorded against each."""
         return sum(1 for i in self.items if i.outcome == "skipped")
 
     @property
     def noop_count(self) -> int:
+        """How many items were already present and needed no change."""
         return sum(1 for i in self.items if i.outcome == "no-op")
 
 
@@ -240,7 +244,8 @@ class ExportService:
             Aliases of admin-released workflows to include. Custom
             workflows are not exportable in v1 — the service refuses
             silently if the alias resolves to a ``kind='custom'`` row.
-        notes
+
+        Notes:
             Optional free-text exporter note. Shown in the destination's
             import preview.
         actor_label
@@ -250,7 +255,7 @@ class ExportService:
         on_event
             Optional :class:`ProgressEvent` sink.
 
-        Returns
+        Returns:
         -------
         bytes
             The signed gzipped-tarball bytes. Caller (router / CLI)
@@ -321,7 +326,7 @@ class ExportService:
         session: AsyncSession,
         tool_specs: list[tuple[str, str]],
         *,
-        on_event: OnEvent,
+        on_event: OnEvent,  # noqa: ARG002 - part of the resolver signature the caller dispatches on
     ) -> list[ToolPayload]:
         out: list[ToolPayload] = []
         for alias, version in tool_specs:
@@ -417,11 +422,13 @@ class ExportService:
         )
         return list((await session.execute(stmt)).scalars())
 
-    async def _serialise_tool_settings(self, session: AsyncSession, tool: Tool) -> dict:
-        """Translate ID-keyed FKs on a Tool row into the by-name shape
-        the manifest stores. Caller can pass the result through to
-        :class:`ToolManifestEntry.settings`."""
-        settings: dict = {
+    async def _serialise_tool_settings(self, session: AsyncSession, tool: Tool) -> dict[str, Any]:
+        """Translate a Tool row's ID-keyed FKs into the manifest's by-name shape.
+
+        The caller can pass the result straight through to
+        :class:`ToolManifestEntry.settings`.
+        """
+        settings: dict[str, Any] = {
             "execution_target": tool.execution_target,
             "requires_gpu": tool.requires_gpu,
             "resource_request": dict(tool.resource_request or {}),
@@ -455,10 +462,10 @@ def make_export_service(audit: AuditWriter) -> ExportService:
 
 @dataclass(frozen=True)
 class ImportService:
-    """Verify a bundle, look up the trust list, and reconstruct each
-    item on this install with by-name reference resolution.
+    """Verify a bundle and reconstruct each item on this install.
 
-    Construct one per process. Audit + trust + bundle-root config
+    Looks up the trust list and resolves references by name. Construct one per
+    process. Audit + trust + bundle-root config
     injected at construction.
     """
 
@@ -538,10 +545,10 @@ class ImportService:
         # present, or imported in this same run). Cascading skips are
         # the most common failure mode here.
         emit(on_event, info("Importing workflows..."))
-        for payload in unpacked.workflows:
+        for wf_payload in unpacked.workflows:
             outcome = await self._try_import_workflow(
                 session,
-                payload=payload,
+                payload=wf_payload,
                 actor_user_id=actor_user_id,
                 dry_run=dry_run,
                 imported_tool_aliases=imported_tool_aliases,
@@ -707,7 +714,7 @@ class ImportService:
         """
         entry = payload.entry
         settings = dict(entry.settings or {})
-        descriptor_dict: dict = dict(settings.get("descriptor") or {})
+        descriptor_dict: dict[str, Any] = dict(settings.get("descriptor") or {})
 
         # 1. Resolve every by-name FK reference. A missing one is a
         # skip for this item — the operator must create the missing
@@ -956,7 +963,7 @@ class ImportService:
         self,
         session: AsyncSession,
         name: str | None,
-        entry: ToolManifestEntry,
+        entry: ToolManifestEntry,  # noqa: ARG002 - part of the resolver signature the caller dispatches on
     ) -> int | None:
         if not name:
             return None
@@ -1038,16 +1045,17 @@ class ImportService:
     async def _filter_approver_usernames(
         self,
         session: AsyncSession,
-        descriptor_dict: dict,
-        entry: ToolManifestEntry,
+        descriptor_dict: dict[str, Any],
+        entry: ToolManifestEntry,  # noqa: ARG002 - part of the resolver signature the caller dispatches on
         *,
-        on_event: OnEvent,
+        on_event: OnEvent,  # noqa: ARG002 - part of the resolver signature the caller dispatches on
     ) -> list[str]:
         """Drop approver usernames that don't exist on the destination.
 
         Mutates ``descriptor_dict`` in place. Returns the list of dropped
         usernames so the caller can decide whether to skip the tool (if
-        the resulting list is empty with a non-none policy)."""
+        the resulting list is empty with a non-none policy).
+        """
         raw = descriptor_dict.get("approver_usernames") or []
         if not raw:
             return []
@@ -1120,12 +1128,13 @@ def _write_bundle_dir(target: Path, files: dict[str, bytes]) -> None:
         dest.write_bytes(data)
 
 
-def _descriptor_hash(descriptor: dict | None) -> str:
+def _descriptor_hash(descriptor: dict[str, Any] | None) -> str:
     """SHA-256 of the canonical-JSON form of a descriptor.
 
     Used to decide whether a re-imported (alias, version) is byte-for-byte
-    identical (no-op) or different (refuse with conflict)."""
-    import json
+    identical (no-op) or different (refuse with conflict).
+    """
+    import json  # noqa: PLC0415 - imported lazily to keep module import cheap
 
     payload = descriptor or {}
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")

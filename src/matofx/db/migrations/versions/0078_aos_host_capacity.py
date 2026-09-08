@@ -38,12 +38,8 @@ def upgrade() -> None:
         batch.add_column(sa.Column("cpu_cores", sa.Integer(), nullable=True))
         batch.add_column(sa.Column("memory_mb", sa.Integer(), nullable=True))
         batch.create_check_constraint("aos_host_max_concurrency", "max_concurrency >= 1")
-        batch.create_check_constraint(
-            "aos_host_cpu_cores", "cpu_cores IS NULL OR cpu_cores > 0"
-        )
-        batch.create_check_constraint(
-            "aos_host_memory_mb", "memory_mb IS NULL OR memory_mb > 0"
-        )
+        batch.create_check_constraint("aos_host_cpu_cores", "cpu_cores IS NULL OR cpu_cores > 0")
+        batch.create_check_constraint("aos_host_memory_mb", "memory_mb IS NULL OR memory_mb > 0")
 
 
 def downgrade() -> None:

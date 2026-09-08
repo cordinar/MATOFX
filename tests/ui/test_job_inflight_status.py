@@ -22,8 +22,8 @@ import pytest
 from nicegui import Client, ui
 from nicegui.page import page as page_decorator
 
-from matofx.ui.pages.job import _cancel_pending_changed, _render_inflight
 from matofx.ui.pages.job import _TERMINAL_STATES as TERMINAL
+from matofx.ui.pages.job import _cancel_pending_changed, _render_inflight
 
 TOOL_META = {"name": "Batch Mixing", "version": "1.2.0"}
 
@@ -83,9 +83,7 @@ def _timer(container: Any) -> Any:
 
 
 def _badges(container: Any) -> list[str]:
-    return [
-        str(e.text) for e in container.descendants() if isinstance(e, ui.badge) and e.text
-    ]
+    return [str(e.text) for e in container.descendants() if isinstance(e, ui.badge) and e.text]
 
 
 def _labels(container: Any) -> list[str]:
@@ -162,7 +160,7 @@ def test_cancelled_counts_as_terminal() -> None:
     cancelled job that was never coming back until the slower outer
     timer noticed. One set, two callers.
     """
-    assert TERMINAL == {"complete", "failed", "cancelled"}
+    assert {"complete", "failed", "cancelled"} == TERMINAL
 
 
 # ---- the repaint trigger --------------------------------------------

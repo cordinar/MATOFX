@@ -155,11 +155,10 @@ class VersionHashConflictError(ItemSkippedError):
 
 
 class MissingReferenceError(ItemSkippedError):
-    """A by-name reference (AOS host / HPC cluster / Python env / storage
-    location / licence) the imported tool needs does not exist on the
-    destination.
+    """A by-name reference the imported tool needs is absent here.
 
-    Wording matches MIGRATE_GUIDE.md §6.3.
+    The reference is an AOS host, HPC cluster, Python env, storage location
+    or licence that does not exist on the destination. Wording matches MIGRATE_GUIDE.md §6.3.
     """
 
     def __init__(
@@ -188,10 +187,11 @@ class MissingReferenceError(ItemSkippedError):
 
 
 class ApproverListEmptyError(ItemSkippedError):
-    """A tool's approver list is empty after dropping unmatched usernames,
-    and its ``approvals_policy`` requires at least one approver.
+    """A tool needs an approver and has none left after name matching.
 
-    The descriptor validator refuses an empty approver list when the
+    Its ``approvals_policy`` requires at least one, and the list came back
+    empty once unmatched usernames were dropped. The descriptor validator
+    refuses an empty approver list when the
     policy is anything other than ``"none"``. Rather than coerce the
     policy down to ``"none"`` (which would be a security regression —
     the source admin set the policy deliberately), we skip the tool
@@ -251,8 +251,7 @@ class WorkflowAliasCollisionError(ItemSkippedError):
 
 
 class WorkflowDependencyMissingError(ItemSkippedError):
-    """A workflow's member tool was not imported and is not already
-    present on the destination.
+    """A workflow's member tool is neither imported nor already here.
 
     Cascading skip — fires when a tool earlier in the same bundle was
     itself skipped, or when the bundle references a tool that simply

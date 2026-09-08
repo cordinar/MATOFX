@@ -45,9 +45,7 @@ from matofx.ui.pages.compare.page import (
         ("", "txt", False),
     ],
 )
-def test_is_previewable_output(
-    file_type: str, extension: str, expected: bool
-) -> None:
+def test_is_previewable_output(file_type: str, extension: str, expected: bool) -> None:
     assert _is_previewable_output(file_type, extension) is expected
 
 

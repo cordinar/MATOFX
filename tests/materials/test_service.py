@@ -435,9 +435,7 @@ async def test_class_management_is_curate_only_but_contributing_is_base_tier(
 @pytest.mark.asyncio
 async def _revoke_permission(session, user_id: int, permission: Permission) -> None:
     """Drop ``permission`` from the user's base role, to prove the gate bites."""
-    role_id = (
-        await session.execute(select(User.role_id).where(User.id == user_id))
-    ).scalar_one()
+    role_id = (await session.execute(select(User.role_id).where(User.id == user_id))).scalar_one()
     await session.execute(
         delete(RolePermission).where(
             RolePermission.role_id == role_id,

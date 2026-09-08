@@ -127,10 +127,14 @@ def _render_table(data: dict[str, Any], refresh: Any) -> None:
 
 
 def _header_row() -> None:
-    with ui.row().classes("w-full items-center no-wrap").style(
-        "padding: 0.55rem 1.1rem; gap: 0.75rem; font-size: 0.78rem; font-weight: 650; "
-        "letter-spacing: 0.02em; text-transform: uppercase; "
-        "color: var(--matofx-muted-text); border-bottom: 1px solid var(--matofx-border);"
+    with (
+        ui.row()
+        .classes("w-full items-center no-wrap")
+        .style(
+            "padding: 0.55rem 1.1rem; gap: 0.75rem; font-size: 0.78rem; font-weight: 650; "
+            "letter-spacing: 0.02em; text-transform: uppercase; "
+            "color: var(--matofx-muted-text); border-bottom: 1px solid var(--matofx-border);"
+        )
     ):
         ui.label("User").style("flex: 2 1 0;")
         ui.label("Role").style("flex: 1 1 0;")
@@ -143,9 +147,7 @@ def _header_row() -> None:
 def _session_row(row: dict[str, Any], refresh: Any) -> None:
     idle_minutes = int(row.get("idle_minutes") or 0)
     is_you = bool(row.get("is_you"))
-    idle_colour = (
-        "#d6a93b" if idle_minutes >= _IDLE_WARN_MINUTES else "var(--matofx-muted-text)"
-    )
+    idle_colour = "#d6a93b" if idle_minutes >= _IDLE_WARN_MINUTES else "var(--matofx-muted-text)"
 
     async def revoke() -> None:
         client = ApiClient(get_app(), token=current_token())
@@ -157,9 +159,13 @@ def _session_row(row: dict[str, Any], refresh: Any) -> None:
         ui.notify(f"Signed {row.get('username')} out — their place is free.", type="positive")
         await refresh()
 
-    with ui.row().classes("w-full items-center no-wrap").style(
-        "padding: 0.6rem 1.1rem; gap: 0.75rem; font-size: 0.88rem; "
-        "border-bottom: 1px solid var(--matofx-border);"
+    with (
+        ui.row()
+        .classes("w-full items-center no-wrap")
+        .style(
+            "padding: 0.6rem 1.1rem; gap: 0.75rem; font-size: 0.88rem; "
+            "border-bottom: 1px solid var(--matofx-border);"
+        )
     ):
         with ui.column().classes("gap-0").style("flex: 2 1 0; min-width: 0;"):
             ui.label(str(row.get("full_name") or row.get("username") or "")).style(
@@ -195,9 +201,7 @@ def _session_row(row: dict[str, Any], refresh: Any) -> None:
                     "color: var(--matofx-muted-text); font-size: 0.8rem; font-style: italic;"
                 )
             else:
-                ui.button("Sign out", on_click=revoke).props(
-                    "flat dense no-caps color=negative"
-                )
+                ui.button("Sign out", on_click=revoke).props("flat dense no-caps color=negative")
 
 
 def _idle_label(minutes: int) -> str:

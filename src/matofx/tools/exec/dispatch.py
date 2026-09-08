@@ -83,9 +83,7 @@ class HpcDispatchTarget:
             staged=staged, resource_request=resource_request, context=context
         )
 
-    async def poll(
-        self, *, staged: StagedWorkingDir, context: TargetContext
-    ) -> JobObservation:
+    async def poll(self, *, staged: StagedWorkingDir, context: TargetContext) -> JobObservation:
         """Delegate poll to the scheduler-specific backend."""
         target = await self._select(context)
         return await target.poll(staged=staged, context=context)
@@ -107,9 +105,7 @@ class HpcDispatchTarget:
             context=context,
         )
 
-    async def fetch_logs(
-        self, *, staged: StagedWorkingDir, context: TargetContext
-    ) -> LogsRef:
+    async def fetch_logs(self, *, staged: StagedWorkingDir, context: TargetContext) -> LogsRef:
         """Delegate fetch_logs to the scheduler-specific backend."""
         target = await self._select(context)
         return await target.fetch_logs(staged=staged, context=context)
@@ -160,9 +156,7 @@ class AosDispatchTarget:
             staged=staged, resource_request=resource_request, context=context
         )
 
-    async def poll(
-        self, *, staged: StagedWorkingDir, context: TargetContext
-    ) -> JobObservation:
+    async def poll(self, *, staged: StagedWorkingDir, context: TargetContext) -> JobObservation:
         """Delegate poll to the transport-specific backend."""
         target = await self._select(context)
         return await target.poll(staged=staged, context=context)
@@ -184,9 +178,7 @@ class AosDispatchTarget:
             context=context,
         )
 
-    async def fetch_logs(
-        self, *, staged: StagedWorkingDir, context: TargetContext
-    ) -> LogsRef:
+    async def fetch_logs(self, *, staged: StagedWorkingDir, context: TargetContext) -> LogsRef:
         """Delegate fetch_logs to the transport-specific backend."""
         target = await self._select(context)
         return await target.fetch_logs(staged=staged, context=context)

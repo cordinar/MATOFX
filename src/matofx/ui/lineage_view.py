@@ -897,18 +897,30 @@ def _render_section(
         # to its own content and pushing State around).
         columns: list[dict[str, Any]] = [
             {
-                "name": "label", "label": "Name", "field": "label",
-                "sortable": True, "align": "left",
-                "headerStyle": "width: 66%", "style": "width: 66%",
+                "name": "label",
+                "label": "Name",
+                "field": "label",
+                "sortable": True,
+                "align": "left",
+                "headerStyle": "width: 66%",
+                "style": "width: 66%",
             },
             {
-                "name": "state", "label": "State", "field": "state",
-                "sortable": True, "align": "left",
-                "headerStyle": "width: 28%", "style": "width: 28%",
+                "name": "state",
+                "label": "State",
+                "field": "state",
+                "sortable": True,
+                "align": "left",
+                "headerStyle": "width: 28%",
+                "style": "width: 28%",
             },
             {
-                "name": "open", "label": "", "field": "open", "align": "right",
-                "headerStyle": "width: 6%", "style": "width: 6%",
+                "name": "open",
+                "label": "",
+                "field": "open",
+                "align": "right",
+                "headerStyle": "width: 6%",
+                "style": "width: 6%",
             },
         ]
         table = (
@@ -922,10 +934,10 @@ def _render_section(
             "body-cell-label",
             "<q-td :props=\"props\" :style=\"props.row.viewable ? 'cursor: pointer;' : ''\">"
             '<div class="row items-center" style="min-height: 1.5rem;">'
-            "<span :style=\"props.row.viewable"
+            '<span :style="props.row.viewable'
             " ? 'color: var(--matofx-accent); font-weight: 500;'"
             " : 'color: var(--matofx-body-text);'\">{{ props.row.label }}</span>"
-            "<q-badge v-if=\"props.row.archived\" color=\"grey-6\" outline"
+            '<q-badge v-if="props.row.archived" color="grey-6" outline'
             ' class="q-ml-sm" label="Archived" />'
             "</div>"
             "</q-td>",
@@ -936,7 +948,7 @@ def _render_section(
             '<div class="row items-center" style="min-height: 1.5rem;">'
             '<q-badge v-if="props.row.state" :color="props.row.state_colour"'
             ' :label="props.row.state" />'
-            "<span v-else style=\"color: var(--matofx-muted-text);\">—</span>"
+            '<span v-else style="color: var(--matofx-muted-text);">—</span>'
             "</div>"
             "</q-td>",
         )

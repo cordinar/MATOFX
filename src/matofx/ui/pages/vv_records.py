@@ -176,11 +176,7 @@ async def vv_records_page(tab: str = "") -> None:
             .classes("w-full items-end justify-between no-wrap")
             .style("border-bottom: 1px solid var(--matofx-card-border);")
         ):
-            with (
-                ui.tabs().props(
-                    "align=left active-color=primary indicator-color=primary"
-                ) as tabs
-            ):
+            with ui.tabs().props("align=left active-color=primary indicator-color=primary") as tabs:
                 register_tab = ui.tab("All records", icon="fact_check").props("no-caps")
                 queue_tab = (
                     ui.tab("Review queue", icon="inbox").props("no-caps") if is_curator else None
@@ -417,8 +413,7 @@ async def _render_review_queue(client: ApiClient) -> None:
             )
             return
         ui.label(
-            "Records you authored are excluded — the directed-approver gate forbids "
-            "self-approval."
+            "Records you authored are excluded — the directed-approver gate forbids self-approval."
         ).style("color: var(--matofx-muted-text); font-size: 0.82rem;")
         for entry in rows:
             _render_register_row(entry)
@@ -494,9 +489,9 @@ def open_vv_create_dialog(
         # ---- applicable range (validation-of-a-tool only) ----
         # The input envelope the validation covers. Shown only for a tool
         # *validation* claim; drives the submit-time envelope soft-warning.
-        range_expansion = ui.expansion(
-            "Applicable range (optional)", icon="straighten"
-        ).classes("w-full")
+        range_expansion = ui.expansion("Applicable range (optional)", icon="straighten").classes(
+            "w-full"
+        )
         with range_expansion:
             ui.label(
                 "The input envelope this validation covers. Running the tool with "
@@ -796,9 +791,7 @@ def _add_evidence_row(
         row_state["approver_sel"] = None
         with input_area:
             if row_state["kind"] == "url":
-                row_state["url_input"] = (
-                    ui.input("URL").props("dense outlined").classes("w-full")
-                )
+                row_state["url_input"] = ui.input("URL").props("dense outlined").classes("w-full")
             elif row_state["kind"] == "library":
                 _build_library_row(client, row_state)
             else:
@@ -873,9 +866,9 @@ def _build_upload_row(client: ApiClient, row_state: dict[str, Any]) -> None:
             name_in.value = name
         file_label.set_text(f"Selected: {name} ({len(data):,} bytes)")
 
-    ui.upload(
-        on_upload=_on_upload, label="Upload evidence", auto_upload=True, max_files=1
-    ).props("flat").classes("w-full")
+    ui.upload(on_upload=_on_upload, label="Upload evidence", auto_upload=True, max_files=1).props(
+        "flat"
+    ).classes("w-full")
     approver_sel = (
         ui.select({}, label="Reviewer for the global publish (if required)")
         .props("dense outlined")
@@ -1012,9 +1005,7 @@ def open_vv_migrate_dialog(client: ApiClient) -> None:
                 .classes("flex-1")
             )
             target_sel = (
-                ui.select({}, label="To version (target)")
-                .props("dense outlined")
-                .classes("flex-1")
+                ui.select({}, label="To version (target)").props("dense outlined").classes("flex-1")
             )
 
         ui.label("Approved records to bring forward").style(
@@ -1140,9 +1131,9 @@ def open_vv_migrate_dialog(client: ApiClient) -> None:
                 return
             # Some skips — keep the dialog open and report them.
             with result_box:
-                ui.label(
-                    f"Migrated {len(migrated)}; skipped {len(skipped)}:"
-                ).style("font-weight: 600; font-size: 0.85rem; color: var(--matofx-text);")
+                ui.label(f"Migrated {len(migrated)}; skipped {len(skipped)}:").style(
+                    "font-weight: 600; font-size: 0.85rem; color: var(--matofx-text);"
+                )
                 for sk in skipped:
                     ui.label(f"• Record #{sk.get('source_record_id')}: {sk.get('reason')}").style(
                         "color: var(--matofx-muted-text); font-size: 0.8rem;"
@@ -1184,8 +1175,10 @@ async def vv_tool_detail_page(record_id: int) -> None:
     is_author = is_curator or _VV_CREATE in perms
     my_user_id = int(me.get("user_id") or 0)
 
-    with ui.column().classes("w-full max-w-4xl mx-auto gap-3").style(
-        "padding: 0.85rem 1.5rem 1.5rem;"
+    with (
+        ui.column()
+        .classes("w-full max-w-4xl mx-auto gap-3")
+        .style("padding: 0.85rem 1.5rem 1.5rem;")
     ):
         body = ui.column().classes("w-full gap-3")
     await _render_tool_detail(client, int(record_id), body, is_curator, is_author, my_user_id)
@@ -1207,8 +1200,10 @@ async def vv_job_detail_page(record_id: int) -> None:
     is_author = is_curator or _VV_CREATE in perms
     my_user_id = int(me.get("user_id") or 0)
 
-    with ui.column().classes("w-full max-w-4xl mx-auto gap-3").style(
-        "padding: 0.85rem 1.5rem 1.5rem;"
+    with (
+        ui.column()
+        .classes("w-full max-w-4xl mx-auto gap-3")
+        .style("padding: 0.85rem 1.5rem 1.5rem;")
     ):
         body = ui.column().classes("w-full gap-3")
     await _render_job_detail(client, int(record_id), body, is_curator, is_author, my_user_id)

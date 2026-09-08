@@ -295,9 +295,7 @@ def _raw_evidence(row: ToolVVRecord | JobVVRecord) -> list[dict[str, Any]]:
     return synth
 
 
-def _evidence_views(
-    items: list[dict[str, Any]], ev_label: dict[int, str]
-) -> list[VVEvidenceItem]:
+def _evidence_views(items: list[dict[str, Any]], ev_label: dict[int, str]) -> list[VVEvidenceItem]:
     """Turn raw evidence entries into resolved views (library name / the URL)."""
     views: list[VVEvidenceItem] = []
     for it in items:

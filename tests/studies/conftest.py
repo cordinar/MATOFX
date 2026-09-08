@@ -168,9 +168,7 @@ async def basics(
                     default="medium",
                 )
             ],
-            outputs=[
-                OutputField(name="peak_temperature", label="Peak temperature", type="number")
-            ],
+            outputs=[OutputField(name="peak_temperature", label="Peak temperature", type="number")],
         ).model_dump(mode="json")
         session.add(
             Tool(

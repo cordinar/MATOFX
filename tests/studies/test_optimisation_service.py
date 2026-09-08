@@ -461,9 +461,7 @@ async def test_extend_budget_continues_a_completed_study(
         assert result.state == "running"
         assert result.stop_reason is None
         budget = next(
-            c["value"]
-            for c in result.config_json["stopping_criteria"]
-            if c["kind"] == "max_runs"
+            c["value"] for c in result.config_json["stopping_criteria"] if c["kind"] == "max_runs"
         )
         assert budget == 55  # 40 + 15
 

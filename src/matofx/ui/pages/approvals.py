@@ -120,9 +120,9 @@ async def approvals_page() -> None:
                 )
                 with ui.row().classes("w-full justify-end gap-2"):
                     ui.button("Cancel", on_click=lambda: dialog.submit(False)).props("flat")
-                    ui.button(
-                        "Approve all shown", on_click=lambda: dialog.submit(True)
-                    ).props("color=primary")
+                    ui.button("Approve all shown", on_click=lambda: dialog.submit(True)).props(
+                        "color=primary"
+                    )
             if await dialog:
                 for c in shown:
                     _set_decision(c, "approve", "")
@@ -157,9 +157,7 @@ async def approvals_page() -> None:
                 return
             for c in shown:
                 _set_decision(c, "deny", reason.strip())
-            ui.notify(
-                f"{len(shown)} marked to deny — review and Submit decisions.", type="warning"
-            )
+            ui.notify(f"{len(shown)} marked to deny — review and Submit decisions.", type="warning")
 
         with ui.row().classes("w-full items-center gap-2"):
             ui.label("Select all shown:").style("color: #888; font-size: 0.85rem;")
@@ -226,9 +224,7 @@ async def approvals_page() -> None:
             ui.button("Submit decisions", on_click=_submit).props("color=primary")
 
 
-def _render_row(
-    client: ApiClient, item: dict[str, Any], state: dict[str, Any]
-) -> dict[str, Any]:
+def _render_row(client: ApiClient, item: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
     """One pending request: header + decision controls + lazy review.
 
     Returns a control handle (``card`` / ``radio`` / ``reason`` widgets +
@@ -539,9 +535,7 @@ def _render_footprint(fp: dict[str, Any]) -> None:
         return
     lo, hi = fp.get("est_runs_min"), fp.get("est_runs_max")
     runs = (
-        f"≈ {lo} to {hi} runs"
-        if lo is not None and hi is not None and lo != hi
-        else f"≈ {hi} runs"
+        f"≈ {lo} to {hi} runs" if lo is not None and hi is not None and lo != hi else f"≈ {hi} runs"
     )
     per = f"{fp.get('cpu_cores_per_run', 0)} CPU · {fp.get('ram_mb_per_run', 0)} MB RAM"
     if fp.get("gpu_memory_mb_per_run"):

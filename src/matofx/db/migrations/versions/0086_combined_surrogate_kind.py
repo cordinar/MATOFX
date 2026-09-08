@@ -33,9 +33,7 @@ def upgrade() -> None:
     """Widen the kind CHECK to admit ``combined``."""
     with op.batch_alter_table("surrogate_model_version", recreate="always") as batch:
         batch.drop_constraint(op.f("ck_surrogate_model_version_kind"), type_="check")
-        batch.create_check_constraint(
-            op.f("ck_surrogate_model_version_kind"), _check(_NEW_KINDS)
-        )
+        batch.create_check_constraint(op.f("ck_surrogate_model_version_kind"), _check(_NEW_KINDS))
 
 
 def downgrade() -> None:
@@ -48,6 +46,4 @@ def downgrade() -> None:
     op.execute("DELETE FROM surrogate_model_version WHERE kind = 'combined'")
     with op.batch_alter_table("surrogate_model_version", recreate="always") as batch:
         batch.drop_constraint(op.f("ck_surrogate_model_version_kind"), type_="check")
-        batch.create_check_constraint(
-            op.f("ck_surrogate_model_version_kind"), _check(_OLD_KINDS)
-        )
+        batch.create_check_constraint(op.f("ck_surrogate_model_version_kind"), _check(_OLD_KINDS))

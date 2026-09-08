@@ -147,9 +147,7 @@ def render_job(facts: SummaryFacts) -> SummaryText:
     elif facts.state == "cancelled":
         paragraphs.append(f"The {tool} job was cancelled after {duration}.")
     else:
-        paragraphs.append(
-            f"The {tool} job finished in state {facts.state!r} after {duration}."
-        )
+        paragraphs.append(f"The {tool} job finished in state {facts.state!r} after {duration}.")
 
     return SummaryText(title="Summary", paragraphs=tuple(paragraphs))
 
@@ -160,8 +158,7 @@ def _output_tally(details: Any) -> str | None:
     files = int(details["output_file_count"])
     scalars = int(details.get("output_scalar_count", 0))
     return (
-        f"It produced {pluralise(files, 'output file')} and "
-        f"{pluralise(scalars, 'scalar result')}."
+        f"It produced {pluralise(files, 'output file')} and {pluralise(scalars, 'scalar result')}."
     )
 
 
@@ -200,8 +197,7 @@ def render_workflow(facts: SummaryFacts) -> SummaryText:
             lead = f"Workflow {name} failed before completing all {total} steps."
         completed = int(details.get("completed_count", 0))
         lead += (
-            f" {pluralise(completed, 'step')} completed before the halt; "
-            f"elapsed time {duration}."
+            f" {pluralise(completed, 'step')} completed before the halt; elapsed time {duration}."
         )
         paragraphs.append(lead)
     elif facts.state == "cancelled":
@@ -211,9 +207,7 @@ def render_workflow(facts: SummaryFacts) -> SummaryText:
             f"{completed} of {total} steps had completed."
         )
     else:
-        paragraphs.append(
-            f"Workflow {name} finished in state {facts.state!r} after {duration}."
-        )
+        paragraphs.append(f"Workflow {name} finished in state {facts.state!r} after {duration}.")
 
     return SummaryText(title="Summary", paragraphs=tuple(paragraphs))
 
@@ -230,8 +224,7 @@ def _final_results_sentence(details: Any) -> str:
         return ""
     label = str(details.get("final_step_label") or "final step")
     figures = ", ".join(
-        f"{str(r['label']).lower()} {format_number(r['value'], r.get('unit'))}"
-        for r in results
+        f"{str(r['label']).lower()} {format_number(r['value'], r.get('unit'))}" for r in results
     )
     return f"The final step ({label}) produced {figures}."
 
@@ -276,10 +269,7 @@ def render_parametric(facts: SummaryFacts) -> SummaryText:
         opening += f", varying {join_list(factors)}"
     skipped = int(details.get("skipped_invalid") or 0)
     if skipped > 0:
-        opening += (
-            f" ({pluralise(skipped, 'candidate point')} skipped as failing "
-            "input validation)"
-        )
+        opening += f" ({pluralise(skipped, 'candidate point')} skipped as failing input validation)"
     opening += "."
     if responses:
         clause = _range_clause(responses[0])
@@ -307,9 +297,7 @@ def _secondary_responses_paragraph(responses: list[Any]) -> str:
         if not label or minimum is None or maximum is None:
             continue
         suffix = unit_suffix(r.get("unit"))
-        clause = (
-            f"{label} ranged {format_number(minimum)} to {format_number(maximum)}{suffix}"
-        )
+        clause = f"{label} ranged {format_number(minimum)} to {format_number(maximum)}{suffix}"
         driver = r.get("top_driver")
         if isinstance(driver, dict) and driver.get("label"):
             verb = "raised by" if driver.get("sign") == "positive" else "lowered by"
@@ -327,9 +315,7 @@ def _range_clause(response: Any) -> str:
     minimum, maximum = response.get("min"), response.get("max")
     if minimum is None or maximum is None:
         return ""
-    clause = (
-        f"{label} ranged {format_number(minimum)} to {format_number(maximum)}{suffix}"
-    )
+    clause = f"{label} ranged {format_number(minimum)} to {format_number(maximum)}{suffix}"
     mean = response.get("mean")
     if mean is not None:
         clause += f" (mean {format_number(mean)}{suffix})"
@@ -375,10 +361,7 @@ def _src_paragraph(analysis: Any) -> str:
     parts += [f"{f['factor']} ({format_number(f['src'])})" for f in top[1:]]
     r2 = analysis.get("r2")
     quality = f" (model R-squared {format_number(r2)})" if r2 is not None else ""
-    sentence = (
-        f"A standardised-regression sensitivity ranking{quality} puts "
-        f"{join_list(parts)}."
-    )
+    sentence = f"A standardised-regression sensitivity ranking{quality} puts {join_list(parts)}."
     sentence += _direction_clause(top[0], str(analysis.get("response", "the response")))
     return sentence
 
@@ -389,10 +372,7 @@ def _direction_clause(driver: Any, response_label: str) -> str:
     if sign not in ("positive", "negative"):
         return ""
     verb = "raises" if sign == "positive" else "lowers"
-    return (
-        f" Raising {str(driver.get('factor', 'it')).lower()} {verb} "
-        f"{response_label.lower()}."
-    )
+    return f" Raising {str(driver.get('factor', 'it')).lower()} {verb} {response_label.lower()}."
 
 
 def _sobol_paragraph(analysis: Any) -> str:
@@ -409,8 +389,7 @@ def _sobol_paragraph(analysis: Any) -> str:
     if len(top) > 1:
         rest = join_list(
             [
-                f"{x['factor']} (S1 = {format_number(x['s1'])}, "
-                f"St = {format_number(x['st'])})"
+                f"{x['factor']} (S1 = {format_number(x['s1'])}, St = {format_number(x['st'])})"
                 for x in top[1:]
             ]
         )
@@ -428,17 +407,14 @@ def _rsm_paragraph(analysis: Any) -> str:
         adj = analysis.get("r2_adj")
         adj_text = f", adjusted {format_number(adj)}" if adj is not None else ""
         sentence = (
-            f"A quadratic model fits {response} with R-squared "
-            f"{format_number(r2)}{adj_text}."
+            f"A quadratic model fits {response} with R-squared {format_number(r2)}{adj_text}."
         )
     stationary = analysis.get("stationary")
     value = analysis.get("stationary_value")
     if stationary and value is not None:
         unit = analysis.get("unit")
         suffix = f" {unit}" if unit else ""
-        coords = join_list(
-            [f"{name} {format_number(v)}" for name, v in stationary.items()]
-        )
+        coords = join_list([f"{name} {format_number(v)}" for name, v in stationary.items()])
         kind = str(analysis.get("stationary_kind") or "stationary")
         sentence += (
             f" The fitted surface places a {kind} point at {coords}, "
@@ -633,8 +609,7 @@ def _best_design_outcome(details: Any) -> str:
     if design:
         coords = join_list(
             [
-                f"{str(d['label']).lower()} {format_number(d['value'])}"
-                f"{unit_suffix(d.get('unit'))}"
+                f"{str(d['label']).lower()} {format_number(d['value'])}{unit_suffix(d.get('unit'))}"
                 for d in design
             ]
         )
@@ -695,20 +670,15 @@ def _optimisation_sensitivity(facts: SummaryFacts) -> str:
     drivers = list(sens.get("drivers") or [])
     frozen = [str(f) for f in (details.get("frozen_factors") or [])]
     if drivers:
-        clauses = [
-            f"{str(d['label']).lower()} (CoP {format_number(d['cop'])})" for d in drivers
-        ]
-        sentence = (
-            f"Sensitivity analysis attributes most of the response to {join_list(clauses)}"
-        )
+        clauses = [f"{str(d['label']).lower()} (CoP {format_number(d['cop'])})" for d in drivers]
+        sentence = f"Sensitivity analysis attributes most of the response to {join_list(clauses)}"
         q2 = sens.get("q2")
         if q2 is not None:
             sentence += f" (metamodel quality Q-squared {format_number(q2)})"
         sentence += "."
         if frozen:
             sentence += (
-                f" Low-influence factors ({join_list(frozen)}) were frozen "
-                "before the search."
+                f" Low-influence factors ({join_list(frozen)}) were frozen before the search."
             )
         return sentence
     if frozen:
@@ -726,9 +696,7 @@ def _optimisation_convergence(facts: SummaryFacts) -> str:
     if first is None or best is None or first == best or not batches:
         return ""
     metric = (
-        "the hypervolume"
-        if facts.details.get("multi_objective")
-        else "the best objective value"
+        "the hypervolume" if facts.details.get("multi_objective") else "the best objective value"
     )
     return (
         f"Over {pluralise(int(batches), 'batch')}, {metric} moved from "

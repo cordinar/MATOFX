@@ -197,17 +197,13 @@ async def _enrich(  # noqa: PLR0915 — a flat batch-resolver: one fetch + one b
     }
     # Surrogate publish gates (ADR-0008): version → owning model for name + tool.
     sm_version_ids = {
-        r.surrogate_model_version_id
-        for r in requests
-        if r.surrogate_model_version_id is not None
+        r.surrogate_model_version_id for r in requests if r.surrogate_model_version_id is not None
     }
     sm_versions = {
         v.id: v
         for v in (
             await db.execute(
-                select(SurrogateModelVersion).where(
-                    SurrogateModelVersion.id.in_(sm_version_ids)
-                )
+                select(SurrogateModelVersion).where(SurrogateModelVersion.id.in_(sm_version_ids))
             )
         ).scalars()
     }
@@ -729,16 +725,27 @@ def _study_factor_variable(name: str, spec: Any, maps: DescriptorMaps) -> Approv
         var_type = None
     if spec.get("role") != "vary":
         return ApprovalVariable(
-            name=name, label=label, unit=unit, role="constant",
-            var_type=var_type, value=spec.get("value"),
+            name=name,
+            label=label,
+            unit=unit,
+            role="constant",
+            var_type=var_type,
+            value=spec.get("value"),
         )
     raw_vary = spec.get("vary")
     lower, upper, levels, value = _study_vary_domain(
         raw_vary if isinstance(raw_vary, dict) else None, ftype
     )
     return ApprovalVariable(
-        name=name, label=label, unit=unit, role="vary",
-        var_type=var_type, lower=lower, upper=upper, levels=levels, value=value,
+        name=name,
+        label=label,
+        unit=unit,
+        role="vary",
+        var_type=var_type,
+        lower=lower,
+        upper=upper,
+        levels=levels,
+        value=value,
     )
 
 
@@ -1353,9 +1360,7 @@ async def _optimisation_approval_detail(
     )
 
 
-async def _surrogate_approval_detail(
-    db: AsyncSession, request: ApprovalRequest
-) -> ApprovalDetail:
+async def _surrogate_approval_detail(db: AsyncSession, request: ApprovalRequest) -> ApprovalDetail:
     """Review panel for a surrogate-model publish gate (ADR-0008 §6.2, D5)."""
     version = await db.get(SurrogateModelVersion, request.surrogate_model_version_id)
     if version is None:
@@ -1918,9 +1923,7 @@ async def submit_decisions(  # noqa: PLR0912, PLR0915 — a flat dispatch: one b
                         **common,  # type: ignore[arg-type]
                     )
                     result_job_id, result_state = None, opt_study.state
-                    notify_entry = _notice(
-                        opt_study.id, opt_study.name, request, item.decision
-                    )
+                    notify_entry = _notice(opt_study.id, opt_study.name, request, item.decision)
                 else:
                     request, job = await job_service.decide_approval(
                         db,

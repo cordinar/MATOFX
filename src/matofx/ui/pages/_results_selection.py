@@ -120,10 +120,7 @@ class SelectionState:
             return CompareAction(
                 enabled=False,
                 label=label,
-                tooltip=(
-                    f"Compare is limited to {COMPARE_MAX} rows — "
-                    "narrow your selection"
-                ),
+                tooltip=(f"Compare is limited to {COMPARE_MAX} rows — narrow your selection"),
             )
         # 2 ≤ n ≤ 6 — surface the deep-link.
         return CompareAction(

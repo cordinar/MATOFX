@@ -33,9 +33,7 @@ _SINGLE_CONFIG = {
         {"name": "q", "goal": "maximise", "spec": {"kind": "scalar"}},
         {"name": "t_max", "goal": "track"},
     ],
-    "constraints": [
-        {"kind": "output", "response": "t_max", "op": "<=", "value": 100.0}
-    ],
+    "constraints": [{"kind": "output", "response": "t_max", "op": "<=", "value": 100.0}],
 }
 
 _TRACE = [

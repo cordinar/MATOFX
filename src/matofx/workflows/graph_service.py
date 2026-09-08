@@ -22,7 +22,7 @@ the graph and the badge on the tab strip read the same word.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
 
@@ -103,7 +103,6 @@ class WorkflowGraphService:
           existence-hides (:class:`NotFoundError` → 404).
 
         Raises:
-
         - :class:`WorkflowNotFoundError` — workflow doesn't exist, or
           the caller can't see it.
         - :class:`NotFoundError` — ``run_id`` supplied but the run
@@ -127,8 +126,7 @@ class WorkflowGraphService:
                     .where(WorkflowMember.workflow_id == workflow.id)
                     .order_by(WorkflowMember.position)
                 )
-            )
-            .scalars()
+            ).scalars()
         )
         member_aliases = [m.tool_alias for m in members]
 
@@ -213,7 +211,6 @@ class WorkflowGraphService:
             run_state=run_rollup,
         )
 
-
     async def build_preview(
         self,
         session: AsyncSession,
@@ -252,7 +249,9 @@ class WorkflowGraphService:
         combos people preview before committing.
         """
         if not tool_aliases:
-            raise UnknownToolMemberError("")  # pragma: no cover — Pydantic min_length=1 catches first
+            raise UnknownToolMemberError(
+                ""
+            )  # pragma: no cover — Pydantic min_length=1 catches first
 
         # Dedup check — mirrors WorkflowService.install / create_custom.
         seen: set[str] = set()
@@ -417,7 +416,7 @@ def _resolve_node_run_state(
     *,
     child: Job,
     completed_aliases: set[str],
-    descriptors_by_alias: dict[str, dict],
+    descriptors_by_alias: dict[str, dict[str, Any]],
     workflow_aliases: set[str],
 ) -> WorkflowNodeRunState:
     """Map a child job's state into the closed graph-node vocabulary.
@@ -512,12 +511,9 @@ async def _load_run_and_children(
     children = list(
         (
             await session.execute(
-                select(Job)
-                .where(Job.workflow_run_id == run_id)
-                .order_by(Job.workflow_position)
+                select(Job).where(Job.workflow_run_id == run_id).order_by(Job.workflow_position)
             )
-        )
-        .scalars()
+        ).scalars()
     )
     return run, children
 

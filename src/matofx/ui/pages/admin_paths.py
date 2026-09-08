@@ -87,9 +87,9 @@ async def _render_storage_section() -> None:
     try:
         rows = await client.list_storage_locations()
     except ApiError as exc:
-        ui.label(
-            f"We couldn't load storage locations: {exc.detail}"
-        ).style("color: var(--matofx-error-text);")
+        ui.label(f"We couldn't load storage locations: {exc.detail}").style(
+            "color: var(--matofx-error-text);"
+        )
         return
 
     with ui.row().classes("w-full items-center justify-between"):
@@ -181,9 +181,9 @@ async def _render_python_envs_section() -> None:
         rows = await client.list_python_envs()
         storage_rows = await client.list_storage_locations()
     except ApiError as exc:
-        ui.label(
-            f"We couldn't load Python envs: {exc.detail}"
-        ).style("color: var(--matofx-error-text);")
+        ui.label(f"We couldn't load Python envs: {exc.detail}").style(
+            "color: var(--matofx-error-text);"
+        )
         return
 
     storage_choices = {f"{r['name']} ({r['mount_path']})": int(r["id"]) for r in storage_rows}
@@ -249,8 +249,8 @@ def _render_python_env_card(row: dict[str, Any], storage_label_by_id: dict[int, 
 def _open_new_python_env_dialog(storage_choices: dict[str, int]) -> None:
     with ui.dialog() as dialog, ui.card().style("min-width: 520px;"):
         ui.label("New Python env").style("font-size: 1.2rem; font-weight: 600;")
-        name = ui.input("Friendly name (e.g. 'matofx-py312') *").props("autofocus").classes(
-            "w-full"
+        name = (
+            ui.input("Friendly name (e.g. 'matofx-py312') *").props("autofocus").classes("w-full")
         )
         interpreter_path = ui.input(
             "Interpreter path (e.g. '/opt/envs/py312/bin/python') *"
@@ -302,9 +302,9 @@ def _render_secret_status(row: dict[str, Any]) -> None:
     if row.get("secret_present"):
         ui.label(f"Credential '{ref}': set ✓").style("color: #3fb950; font-size: 0.8rem;")
     else:
-        ui.label(
-            f"Credential '{ref}': NOT set — run  matofx secrets set {ref}"
-        ).style("color: var(--matofx-error-text); font-size: 0.8rem;")
+        ui.label(f"Credential '{ref}': NOT set — run  matofx secrets set {ref}").style(
+            "color: var(--matofx-error-text); font-size: 0.8rem;"
+        )
 
 
 def _render_active_toggle(row_id: int, is_active: bool, *, kind: str) -> None:
@@ -334,9 +334,9 @@ async def _render_aos_hosts_section() -> None:
     try:
         rows = await client.list_aos_hosts()
     except ApiError as exc:
-        ui.label(
-            f"We couldn't load always-on servers: {exc.detail}"
-        ).style("color: var(--matofx-error-text);")
+        ui.label(f"We couldn't load always-on servers: {exc.detail}").style(
+            "color: var(--matofx-error-text);"
+        )
         return
 
     with ui.row().classes("w-full items-center justify-between"):
@@ -345,9 +345,9 @@ async def _render_aos_hosts_section() -> None:
             ui.label("Always-on servers (AOS)").style(
                 "font-weight: 650; font-size: 1.05rem; color: var(--matofx-body-text);"
             )
-        ui.button(
-            "New always-on server", on_click=lambda: _open_aos_dialog(None)
-        ).props("color=primary")
+        ui.button("New always-on server", on_click=lambda: _open_aos_dialog(None)).props(
+            "color=primary"
+        )
     ui.label(
         "Persistent SSH (Linux) / WinRM (Windows) hosts the runner dispatches jobs to. "
         "The runner caps how many jobs each host runs at once. Set the host's credential "
@@ -386,9 +386,9 @@ def _render_aos_card(row: dict[str, Any]) -> None:
                         "color: var(--matofx-muted-text); font-size: 0.8rem;"
                     )
             with ui.row().classes("items-center gap-2"):
-                ui.button(
-                    "Edit", on_click=lambda _e=None, r=row: _open_aos_dialog(r)
-                ).props("flat dense")
+                ui.button("Edit", on_click=lambda _e=None, r=row: _open_aos_dialog(r)).props(
+                    "flat dense"
+                )
                 _render_active_toggle(row_id, is_active, kind="aos")
 
 
@@ -422,9 +422,9 @@ def _open_aos_dialog(host: dict[str, Any] | None) -> None:
         cpu = ui.number(
             "CPU-core budget  (optional)", value=h.get("cpu_cores"), min=1, max=4096
         ).classes("w-full")
-        mem = ui.number(
-            "Memory budget MB  (optional)", value=h.get("memory_mb"), min=1
-        ).classes("w-full")
+        mem = ui.number("Memory budget MB  (optional)", value=h.get("memory_mb"), min=1).classes(
+            "w-full"
+        )
         message = ui.label("").style("color: var(--matofx-error-text);")
 
         async def _save() -> None:
@@ -450,9 +450,7 @@ def _open_aos_dialog(host: dict[str, Any] | None) -> None:
             try:
                 if editing:
                     body["port"] = (
-                        int(port.value)
-                        if port.value
-                        else (22 if os_value == "linux" else 5986)
+                        int(port.value) if port.value else (22 if os_value == "linux" else 5986)
                     )
                     await client.update_aos_host(int(h["id"]), body=body)
                 else:
@@ -484,9 +482,9 @@ async def _render_hpc_clusters_section() -> None:
     try:
         rows = await client.list_hpc_clusters()
     except ApiError as exc:
-        ui.label(
-            f"We couldn't load HPC clusters: {exc.detail}"
-        ).style("color: var(--matofx-error-text);")
+        ui.label(f"We couldn't load HPC clusters: {exc.detail}").style(
+            "color: var(--matofx-error-text);"
+        )
         return
 
     with ui.row().classes("w-full items-center justify-between"):
@@ -495,9 +493,7 @@ async def _render_hpc_clusters_section() -> None:
             ui.label("HPC clusters").style(
                 "font-weight: 650; font-size: 1.05rem; color: var(--matofx-body-text);"
             )
-        ui.button(
-            "New HPC cluster", on_click=lambda: _open_hpc_dialog(None)
-        ).props("color=primary")
+        ui.button("New HPC cluster", on_click=lambda: _open_hpc_dialog(None)).props("color=primary")
     ui.label(
         "Slurm (SSH) / MS-HPC (WinRM) head nodes. The cluster's own scheduler owns the "
         "queue — the runner just hands jobs off. Set the cluster's credential on the "
@@ -543,9 +539,9 @@ def _render_hpc_card(row: dict[str, Any]) -> None:
                         "color: var(--matofx-muted-text); font-size: 0.8rem;"
                     )
             with ui.row().classes("items-center gap-2"):
-                ui.button(
-                    "Edit", on_click=lambda _e=None, r=row: _open_hpc_dialog(r)
-                ).props("flat dense")
+                ui.button("Edit", on_click=lambda _e=None, r=row: _open_hpc_dialog(r)).props(
+                    "flat dense"
+                )
                 _render_active_toggle(row_id, is_active, kind="hpc")
 
 
@@ -636,9 +632,7 @@ def _open_hpc_dialog(cluster: dict[str, Any] | None) -> None:
             try:
                 if editing:
                     body["port"] = (
-                        int(port.value)
-                        if port.value
-                        else (22 if sched_value == "slurm" else 5986)
+                        int(port.value) if port.value else (22 if sched_value == "slurm" else 5986)
                     )
                     await client.update_hpc_cluster(int(c["id"]), body=body)
                 else:
@@ -670,9 +664,9 @@ async def _render_runtime_settings_section() -> None:
     try:
         snapshot = await client.get_runtime_settings()
     except ApiError as exc:
-        ui.label(
-            f"We couldn't load runtime settings: {exc.detail}"
-        ).style("color: var(--matofx-error-text);")
+        ui.label(f"We couldn't load runtime settings: {exc.detail}").style(
+            "color: var(--matofx-error-text);"
+        )
         return
 
     values: dict[str, Any] = dict(snapshot.get("settings", {}))

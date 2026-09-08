@@ -174,6 +174,7 @@ async def test_get_missing_study_is_404(
     resp = await client.get("/api/studies/999999", headers=auth_headers)
     assert resp.status_code == 404
 
+
 async def test_results_carry_the_declared_options_of_choice_inputs(
     app: FastAPI,
     api_settings: Settings,
@@ -198,9 +199,7 @@ async def test_results_carry_the_declared_options_of_choice_inputs(
     )
     assert created.status_code == 201, created.text
 
-    results = await client.get(
-        f"/api/studies/{created.json()['id']}/results", headers=auth_headers
-    )
+    results = await client.get(f"/api/studies/{created.json()['id']}/results", headers=auth_headers)
     assert results.status_code == 200, results.text
     options = results.json()["input_options"]
 

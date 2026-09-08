@@ -165,37 +165,53 @@ def _st(**over: Any) -> dict[str, Any]:
 @pytest.mark.parametrize(
     ("call", "fragment"),
     [
-        (lambda: _build_list_vary(
-            "inlet_velocity_ms", "numeric", _st(values_text=_w(""))
-        ), "add at least one value"),
-        (lambda: _build_list_vary(
-            "inlet_velocity_ms", "select", _st(subset=_w([]))
-        ), "pick at least one option"),
-        (lambda: _build_file_list_vary(
-            "inlet_velocity_ms", _st(file_refs=_w(""))
-        ), "file reference"),
-        (lambda: _build_grid_vary(
-            "inlet_velocity_ms", "numeric", _st(by_select=_w("By range"), min=_w(5.0), max=_w(1.0))
-        ), "max must be greater than min"),
-        (lambda: _build_design_vary(
-            "inlet_velocity_ms", "select", _st()
-        ), "continuous numeric range"),
-        (lambda: _build_design_vary(
-            "inlet_velocity_ms", "numeric", _st(min=_w(5.0), max=_w(1.0))
-        ), "max must be greater than min"),
-        (lambda: _build_sampling_vary(
-            "inlet_velocity_ms",
-            "numeric",
-            _st(by_select=_w("By range"), dist_kind=_w("normal"), mean=_w(None), std=_w(0)),
-        ), "normal needs a mean"),
-        (lambda: _build_sampling_vary(
-            "inlet_velocity_ms",
-            "numeric",
-            _st(by_select=_w("By range"), dist_kind=_w("loguniform"), low=_w(0), high=_w(1)),
-        ), "log-uniform needs low > 0"),
-        (lambda: _build_sampling_vary(
-            "inlet_velocity_ms", "file", _st()
-        ), "aren't sampleable"),
+        (
+            lambda: _build_list_vary("inlet_velocity_ms", "numeric", _st(values_text=_w(""))),
+            "add at least one value",
+        ),
+        (
+            lambda: _build_list_vary("inlet_velocity_ms", "select", _st(subset=_w([]))),
+            "pick at least one option",
+        ),
+        (
+            lambda: _build_file_list_vary("inlet_velocity_ms", _st(file_refs=_w(""))),
+            "file reference",
+        ),
+        (
+            lambda: _build_grid_vary(
+                "inlet_velocity_ms",
+                "numeric",
+                _st(by_select=_w("By range"), min=_w(5.0), max=_w(1.0)),
+            ),
+            "max must be greater than min",
+        ),
+        (
+            lambda: _build_design_vary("inlet_velocity_ms", "select", _st()),
+            "continuous numeric range",
+        ),
+        (
+            lambda: _build_design_vary(
+                "inlet_velocity_ms", "numeric", _st(min=_w(5.0), max=_w(1.0))
+            ),
+            "max must be greater than min",
+        ),
+        (
+            lambda: _build_sampling_vary(
+                "inlet_velocity_ms",
+                "numeric",
+                _st(by_select=_w("By range"), dist_kind=_w("normal"), mean=_w(None), std=_w(0)),
+            ),
+            "normal needs a mean",
+        ),
+        (
+            lambda: _build_sampling_vary(
+                "inlet_velocity_ms",
+                "numeric",
+                _st(by_select=_w("By range"), dist_kind=_w("loguniform"), low=_w(0), high=_w(1)),
+            ),
+            "log-uniform needs low > 0",
+        ),
+        (lambda: _build_sampling_vary("inlet_velocity_ms", "file", _st()), "aren't sampleable"),
     ],
 )
 def test_validation_messages_name_the_factor_by_label(call: Any, fragment: str) -> None:

@@ -55,9 +55,7 @@ def _field_fixture(
         for load in loads:
             for snap in range(snapshots):
                 rows.append({"thickness": thickness, "load": load, "time": float(snap)})
-                fields.append(
-                    base * thickness + load * 0.01 * snap + rng.normal(0, 1e-6, _N_NODES)
-                )
+                fields.append(base * thickness + load * 0.01 * snap + rng.normal(0, 1e-6, _N_NODES))
 
     training = FieldTrainingData(
         factor_columns={k: [float(r[k]) for r in rows] for k in ("thickness", "load", "time")},
@@ -120,7 +118,7 @@ def test_a_snapshot_past_the_trained_span_is_outside(snapshot: float) -> None:
     ],
 )
 def test_an_out_of_range_factor_is_named(point: dict[str, float], named: str) -> None:
-    """"Outside the trained range" alone is not something anybody can act on."""
+    """ "Outside the trained range" alone is not something anybody can act on."""
     surrogate, report, _rows = _field_fixture()
     support = _verdict(surrogate, report, point)
     assert support is not None

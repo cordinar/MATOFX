@@ -201,9 +201,7 @@ def _render_project_card(
                 shared_text = ", ".join(f"{name} ({role})" for name, role in shared)
                 with ui.row().classes("items-center gap-1 flex-wrap"):
                     ui.icon("group").style("color: #777; font-size: 1rem;")
-                    ui.label(f"Shared with: {shared_text}").style(
-                        "color: #777; font-size: 0.8rem;"
-                    )
+                    ui.label(f"Shared with: {shared_text}").style("color: #777; font-size: 0.8rem;")
 
 
 def _open_new_project_dialog(

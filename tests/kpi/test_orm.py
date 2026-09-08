@@ -36,9 +36,7 @@ def _utcnow() -> _dt.datetime:
 
 
 @pytest.mark.asyncio
-async def test_create_and_read_job_kpi_value(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_create_and_read_job_kpi_value(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """Insert a populated KPI row + read it back with the captured value intact."""
     factory = make_session_factory(kpi_engine)
     async with session_scope(factory) as session:
@@ -71,9 +69,7 @@ async def test_create_and_read_job_kpi_value(
 
 
 @pytest.mark.asyncio
-async def test_sentinel_null_value_round_trip(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_sentinel_null_value_round_trip(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """A row with ``value_numeric = NULL`` (extraction failure sentinel) round-trips."""
     factory = make_session_factory(kpi_engine)
     async with session_scope(factory) as session:
@@ -99,9 +95,7 @@ async def test_sentinel_null_value_round_trip(
 
 
 @pytest.mark.asyncio
-async def test_decimal_precision_preserved(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_decimal_precision_preserved(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """A small Decimal survives the round-trip without binary-float drift.
 
     The audit-truth contract (design §15) requires bit-equal compare
@@ -132,9 +126,7 @@ async def test_decimal_precision_preserved(
 
 
 @pytest.mark.asyncio
-async def test_unique_job_kpi_violation(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_unique_job_kpi_violation(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """Two rows for the same ``(job_id, kpi_name)`` violate the composite UNIQUE.
 
     Re-extraction (slice 4) is an UPSERT against this key; the
@@ -217,9 +209,7 @@ async def test_same_kpi_name_across_different_jobs_allowed(
 
 
 @pytest.mark.asyncio
-async def test_cascade_on_job_delete(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_cascade_on_job_delete(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """Deleting a job removes its KPI rows (``job_id`` FK is CASCADE).
 
     A deleted job leaves no semantic claim about its KPIs.
@@ -256,9 +246,7 @@ async def test_cascade_on_job_delete(
 
 
 @pytest.mark.asyncio
-async def test_restrict_on_tool_version_delete(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_restrict_on_tool_version_delete(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """Deleting a tool_version that owns KPI rows fails (``tool_version_id`` FK is RESTRICT).
 
     Retiring a tool version while it still owns KPI rows should fail
@@ -302,7 +290,9 @@ async def test_indexes_present(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """
     async with kpi_engine.connect() as conn:
         index_names = await conn.run_sync(
-            lambda sync_conn: {idx["name"] for idx in sa.inspect(sync_conn).get_indexes("job_kpi_value")}
+            lambda sync_conn: {
+                idx["name"] for idx in sa.inspect(sync_conn).get_indexes("job_kpi_value")
+            }
         )
     assert "ix_job_kpi_value_alias_kpi" in index_names
     assert "ix_job_kpi_value_extracted_at" in index_names

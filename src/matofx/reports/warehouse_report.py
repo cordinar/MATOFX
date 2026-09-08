@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import html
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -135,21 +135,16 @@ def build_warehouse_report(context: WarehouseReportContext) -> str:
         f"<div><strong>Generated:</strong> {e(_format_dt(context.generated_at))}</div>",
     ]
     if context.filter_summary:
-        meta_lines.append(
-            f"<div><strong>Filters:</strong> {e(context.filter_summary)}</div>"
-        )
+        meta_lines.append(f"<div><strong>Filters:</strong> {e(context.filter_summary)}</div>")
     meta_html = '<div class="meta">' + "".join(meta_lines) + "</div>"
 
     table_html = _render_table(context)
 
     footer_parts: list[str] = []
-    footer_parts.append(
-        f"<strong>Total:</strong> {context.total} row(s) matched these filters."
-    )
+    footer_parts.append(f"<strong>Total:</strong> {context.total} row(s) matched these filters.")
     if context.hidden_by_acl:
         footer_parts.append(
-            f" {context.hidden_by_acl} additional row(s) "
-            "hidden by access controls."
+            f" {context.hidden_by_acl} additional row(s) hidden by access controls."
         )
     footer_html = f'<div class="footer">{"".join(footer_parts)}</div>'
 
@@ -232,7 +227,7 @@ def _format_dt(value: Any) -> str:
         try:
             value = _dt.datetime.fromisoformat(value)
         except ValueError:
-            return value
+            return str(value)
     if isinstance(value, _dt.datetime):
         return value.strftime("%Y-%m-%d %H:%M:%S %Z").strip()
     return str(value)

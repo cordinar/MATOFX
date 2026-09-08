@@ -107,9 +107,7 @@ async def collect_parametric_facts(
         headline=headline,
         submitted_by=None,
         started_at=study.created_at.isoformat() if study.created_at else None,
-        finished_at=(
-            study.state_changed_at.isoformat() if study.state_changed_at else None
-        ),
+        finished_at=(study.state_changed_at.isoformat() if study.state_changed_at else None),
         duration_seconds=_duration(study),
         details=details,
     )
@@ -129,13 +127,9 @@ def _build_analysis(
 ) -> dict[str, Any]:
     """Pick + compute the analysis block whose ``kind`` matches the design mode."""
     if mode in ("ccd", "box_behnken"):
-        block = _response_surface(
-            factor_columns, response, primary_label, primary_unit, label_of
-        )
+        block = _response_surface(factor_columns, response, primary_label, primary_unit, label_of)
     elif mode in ("plackett_burman", "frac_factorial"):
-        block = _screening(
-            factor_columns, response, primary_label, primary_unit, label_of, mode
-        )
+        block = _screening(factor_columns, response, primary_label, primary_unit, label_of, mode)
     elif mode == "grid":
         block = _anova(factor_columns, response, primary_label, label_of)
     else:
@@ -250,9 +244,7 @@ def _src_regression(
     primary_label: str,
     label_of: Callable[[str], str],
 ) -> dict[str, Any] | None:
-    result = compute_sensitivity(
-        primary_label, list(factor_columns), factor_columns, response
-    )
+    result = compute_sensitivity(primary_label, list(factor_columns), factor_columns, response)
     if not result.sufficient or not result.factors:
         return None
     factors = [
@@ -329,9 +321,7 @@ def _response_facts(
     }
 
 
-def _extreme_index(
-    column: Sequence[float | None], *, want_max: bool
-) -> int | None:
+def _extreme_index(column: Sequence[float | None], *, want_max: bool) -> int | None:
     best_idx: int | None = None
     best_val: float | None = None
     for i, v in enumerate(column):

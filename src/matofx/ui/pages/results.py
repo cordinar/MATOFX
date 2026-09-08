@@ -45,6 +45,7 @@ from typing import Any
 
 from nicegui import ui
 
+from matofx.ui._background import spawn
 from matofx.ui._features import kpi_extraction_enabled, vv_tracking_enabled
 from matofx.ui._holder import get_app
 from matofx.ui.api_client import ApiClient, ApiError
@@ -93,19 +94,15 @@ async def results_landing_page() -> None:
     client = _client()
 
     with ui.column().classes("w-full max-w-5xl mx-auto p-6 gap-4"):
-        ui.label("Results warehouse").style(
-            "font-size: 1.5rem; font-weight: 600;"
+        ui.label("Results warehouse").style("font-size: 1.5rem; font-weight: 600;")
+        ui.label("Cross-job KPI tables, one per tool. Pick a tool to open its warehouse.").classes(
+            "text-grey-7"
         )
-        ui.label(
-            "Cross-job KPI tables, one per tool. Pick a tool to open its warehouse."
-        ).classes("text-grey-7")
 
         try:
             tools = await client.list_tools()
         except ApiError as exc:
-            ui.label(f"Couldn't load the tool list: {exc}").classes(
-                "text-negative"
-            )
+            ui.label(f"Couldn't load the tool list: {exc}").classes("text-negative")
             return
 
         with_kpis: list[dict[str, Any]] = []
@@ -129,12 +126,8 @@ async def results_landing_page() -> None:
                 with ui.card().classes("w-full"):
                     with ui.row().classes("w-full items-center justify-between"):
                         with ui.column().classes("gap-0"):
-                            ui.label(tool.get("name", tool["alias"])).style(
-                                "font-weight: 600;"
-                            )
-                            ui.label(
-                                f"{tool['_kpi_count']} KPI(s)"
-                            ).classes("text-grey-7 text-xs")
+                            ui.label(tool.get("name", tool["alias"])).style("font-weight: 600;")
+                            ui.label(f"{tool['_kpi_count']} KPI(s)").classes("text-grey-7 text-xs")
                         ui.button(
                             "Open warehouse",
                             on_click=lambda alias=tool["alias"]: ui.navigate.to(
@@ -158,9 +151,7 @@ async def results_warehouse_page(tool_alias: str) -> None:
     try:
         catalog = await client.list_tool_kpis(tool_alias)
     except ApiError as exc:
-        ui.label(f"Couldn't load KPIs for {tool_alias!r}: {exc}").classes(
-            "text-negative"
-        )
+        ui.label(f"Couldn't load KPIs for {tool_alias!r}: {exc}").classes("text-negative")
         return
     entries: list[dict[str, Any]] = list(catalog.get("entries", []))
 
@@ -197,16 +188,14 @@ async def results_warehouse_page(tool_alias: str) -> None:
         # Header --------------------------------------------------
         with ui.row().classes("w-full items-center justify-between"):
             with ui.row().classes("items-center gap-2"):
-                ui.button(
-                    icon="arrow_back", on_click=lambda: ui.navigate.to("/results")
-                ).props("flat round dense").tooltip("Back to the results warehouse")
+                ui.button(icon="arrow_back", on_click=lambda: ui.navigate.to("/results")).props(
+                    "flat round dense"
+                ).tooltip("Back to the results warehouse")
                 with ui.column().classes("gap-0"):
-                    ui.label(
-                        f"Results — {tool.get('name', tool_alias)}"
-                    ).style("font-size: 1.5rem; font-weight: 600;")
-                    ui.label(
-                        f"{len(entries)} KPI(s) declared"
-                    ).classes("text-grey-7")
+                    ui.label(f"Results — {tool.get('name', tool_alias)}").style(
+                        "font-size: 1.5rem; font-weight: 600;"
+                    )
+                    ui.label(f"{len(entries)} KPI(s) declared").classes("text-grey-7")
             version_choices: dict[int | None, str] = {None: "All versions"}
             for v in tool_versions:
                 vid = v.get("tool_version_id")
@@ -280,16 +269,13 @@ async def results_warehouse_page(tool_alias: str) -> None:
 # ---- helpers ---------------------------------------------------------
 
 
-def _on_version_change(
-    new_value: int | None, state: dict[str, Any], reload_cb: Any
-) -> None:
+def _on_version_change(new_value: int | None, state: dict[str, Any], reload_cb: Any) -> None:
     state["version_id"] = new_value
     state["page"] = 1
     # Don't clear selection — selection survives filter changes per
     # feedback_unbounded_selection_capped_actions.
-    import asyncio  # noqa: PLC0415
 
-    asyncio.create_task(reload_cb())
+    spawn(reload_cb())
 
 
 def _date_input(label: str, value: str | None) -> Any:
@@ -480,13 +466,9 @@ async def _reload(
         selection: SelectionState = state["selection"]
         pill_row.clear()
         with pill_row:
-            ui.chip(f"{selection.count} selected").props(
-                "color=primary text-color=white dense"
-            )
+            ui.chip(f"{selection.count} selected").props("color=primary text-color=white dense")
             if selection.count:
-                ui.button("Clear selection", on_click=_on_clear).props(
-                    "flat dense"
-                )
+                ui.button("Clear selection", on_click=_on_clear).props("flat dense")
 
     def _paint_compare() -> None:
         if compare_slot is None:
@@ -497,9 +479,7 @@ async def _reload(
             btn = ui.button(
                 action.label,
                 on_click=(
-                    lambda h=action.href: ui.navigate.to(h)
-                    if action.enabled and h
-                    else None
+                    lambda h=action.href: ui.navigate.to(h) if action.enabled and h else None
                 ),
             ).props("color=primary unelevated")
             if not action.enabled:
@@ -513,9 +493,7 @@ async def _reload(
             return
         export_row.clear()
         with export_row:
-            _render_export_buttons(
-                tool_alias=tool_alias, state=state, client=client
-            )
+            _render_export_buttons(tool_alias=tool_alias, state=state, client=client)
 
     def _repaint_selection_widgets() -> None:
         """Repaint everything that depends on the live selection.
@@ -532,9 +510,7 @@ async def _reload(
     table_container.clear()
     with table_container:
         if not rows:
-            ui.label(
-                "No completed jobs match these filters yet."
-            ).classes("text-grey-7 italic")
+            ui.label("No completed jobs match these filters yet.").classes("text-grey-7 italic")
             # Still paint the pill so an off-page selection stays visible
             # and clearable even when this page is empty.
             _paint_pill()
@@ -590,9 +566,7 @@ async def _reload(
             ticked = state["selection"].ticked
             for r in rows:
                 if int(r["job_id"]) in ticked:
-                    await grid.run_row_method(
-                        str(r["job_id"]), "setSelected", True
-                    )
+                    await grid.run_row_method(str(r["job_id"]), "setSelected", True)
 
         grid.on("selectionChanged", lambda _e: _async(_on_selection_change()))
         grid.on("firstDataRendered", lambda _e: _async(_restore_ticks()))
@@ -621,21 +595,16 @@ async def _reload(
         with ui.row().classes("items-center gap-2"):
             start = (state["page"] - 1) * state["page_size"] + 1
             end = min(state["page"] * state["page_size"], total)
-            count_label = (
-                f"Showing {start}–{end} of {total}" if total else "Showing 0 of 0"
-            )
+            count_label = f"Showing {start}–{end} of {total}" if total else "Showing 0 of 0"
             if hidden:
                 count_label += f" • {hidden} hidden by access controls"
             ui.label(count_label).classes("text-grey-7")
-            ui.button(
-                "Previous", on_click=lambda: _go_page(-1)
-            ).props("flat dense").bind_enabled_from(
-                state, "page", lambda v: v > 1
-            )
-            ui.button(
-                "Next", on_click=lambda: _go_page(+1)
-            ).props("flat dense").bind_enabled_from(
-                state, "page",
+            ui.button("Previous", on_click=lambda: _go_page(-1)).props(
+                "flat dense"
+            ).bind_enabled_from(state, "page", lambda v: v > 1)
+            ui.button("Next", on_click=lambda: _go_page(+1)).props("flat dense").bind_enabled_from(
+                state,
+                "page",
                 lambda v: v * state["page_size"] < total,
             )
 
@@ -713,15 +682,9 @@ def _build_ag_rows(
             "job_id_display": format_job_id(r["job_id"]),
             # Show labels, not bare ids (feedback_use_labels_not_names);
             # fall back to the id when the name didn't resolve.
-            "project_display": _label_or_id(
-                r.get("project_name"), r.get("project_id")
-            ),
-            "scenario_display": _label_or_id(
-                r.get("scenario_name"), r.get("scenario_id")
-            ),
-            "requestor_display": _label_or_id(
-                r.get("requestor_name"), r.get("requestor_user_id")
-            ),
+            "project_display": _label_or_id(r.get("project_name"), r.get("project_id")),
+            "scenario_display": _label_or_id(r.get("scenario_name"), r.get("scenario_id")),
+            "requestor_display": _label_or_id(r.get("requestor_name"), r.get("requestor_user_id")),
             "completed_at_display": _format_completed_at(r.get("completed_at")),
             "tool_version_display": _label_or_id(
                 r.get("tool_version_label"), r.get("tool_version_id")
@@ -822,9 +785,9 @@ def _render_export_buttons(
         ui.download.content(data, f"{tool_alias}_results.html")
 
     # 1) Filtered CSV — always enabled.
-    ui.button(
-        "Download CSV (filtered)", on_click=lambda: _download_csv(None)
-    ).props("flat color=primary")
+    ui.button("Download CSV (filtered)", on_click=lambda: _download_csv(None)).props(
+        "flat color=primary"
+    )
 
     # 2) Selected CSV — disabled at N == 0.
     if selected_ids is not None:
@@ -833,9 +796,7 @@ def _render_export_buttons(
             on_click=lambda: _download_csv(selected_ids),
         ).props("flat color=primary")
     else:
-        btn = ui.button("Download selected as CSV (0)").props(
-            "flat color=primary disable"
-        )
+        btn = ui.button("Download selected as CSV (0)").props("flat color=primary disable")
         with btn:
             ui.tooltip("Tick at least one row to export the selection")
 
@@ -934,9 +895,7 @@ async def _render_plot_card(
 
 def _async(coro: Any) -> None:
     """Schedule a coroutine on the running loop (UI event handlers can't await)."""
-    import asyncio  # noqa: PLC0415
-
-    asyncio.create_task(coro)
+    spawn(coro)
 
 
 async def _build_plot_figure(
@@ -964,17 +923,11 @@ async def _build_plot_figure(
         except ApiError:
             body = {"points": []}
         xs, ys, _ids = build_timeseries_data(list(body.get("points", [])))
-        fig = go.Figure(
-            data=[
-                go.Scatter(
-                    x=xs, y=ys, mode="lines+markers", name=kpi_name
-                )
-            ]
-        )
+        fig = go.Figure(data=[go.Scatter(x=xs, y=ys, mode="lines+markers", name=kpi_name)])
         fig.update_layout(
             xaxis_title="Extracted at",
             yaxis_title=axis_label(entries, kpi_name),
-            margin=dict(l=40, r=20, t=20, b=40),
+            margin={"l": 40, "r": 20, "t": 20, "b": 40},
         )
         return fig
 
@@ -996,6 +949,6 @@ async def _build_plot_figure(
     fig.update_layout(
         xaxis_title=axis_label(entries, x_kpi),
         yaxis_title=axis_label(entries, y_kpi),
-        margin=dict(l=40, r=20, t=20, b=40),
+        margin={"l": 40, "r": 20, "t": 20, "b": 40},
     )
     return fig

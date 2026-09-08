@@ -17,7 +17,7 @@ Public surface:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from argon2 import PasswordHasher as _Argon2Hasher
 from argon2 import exceptions as _argon2_exc
@@ -119,7 +119,7 @@ def validate_password(plaintext: str, settings: AuthSettings) -> str | None:
     return None
 
 
-def validate_password_complexity(plaintext: str, snapshot: dict) -> str | None:
+def validate_password_complexity(plaintext: str, snapshot: dict[str, Any]) -> str | None:  # noqa: PLR0911 - a flat dispatch; splitting it would hide the mapping
     """Run length + character-class policy against the General Settings snapshot.
 
     ``snapshot`` is the dict returned by
@@ -147,9 +147,12 @@ def validate_password_complexity(plaintext: str, snapshot: dict) -> str | None:
     site-wide policy interfering.
     """
     min_length_raw = snapshot.get("password_min_length")
-    if isinstance(min_length_raw, int) and not isinstance(min_length_raw, bool):
-        if len(plaintext) < min_length_raw:
-            return f"Password is too short. Please use at least {min_length_raw} characters."
+    if (
+        isinstance(min_length_raw, int)
+        and not isinstance(min_length_raw, bool)
+        and len(plaintext) < min_length_raw
+    ):
+        return f"Password is too short. Please use at least {min_length_raw} characters."
     allowed_symbols = str(snapshot.get("password_allowed_symbols", ""))
     allowed_alphabet = set(allowed_symbols)
     has_upper = False

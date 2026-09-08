@@ -69,16 +69,6 @@ from tests._migrated_db import copy_template_to
 # ---------------------------------------------------------------------------
 
 
-def _alembic_config(url: str) -> Config:
-    repo_root = Path(__file__).resolve().parents[2]
-    cfg = Config(str(repo_root / "alembic.ini"))
-    cfg.set_main_option(
-        "script_location", str(repo_root / "src" / "matofx" / "db" / "migrations")
-    )
-    cfg.cmd_opts = type("Args", (), {"x": [f"url={url}"]})()
-    return cfg
-
-
 def _migrate_to_head_sync(db_path: Path, template: Path) -> None:
     """Put a migrated schema at ``db_path``.
 
@@ -154,9 +144,7 @@ async def _seed_admin(engine: AsyncEngine, username: str = "ada") -> int:
     async with session_scope(factory) as session:
         await ensure_chain_head(session)
         admin_role = (
-            await session.execute(
-                select(Role).where(Role.name == "administrator")
-            )
+            await session.execute(select(Role).where(Role.name == "administrator"))
         ).scalar_one()
         user = User(
             username=username,
@@ -218,18 +206,14 @@ async def _seed_storage_location(engine: AsyncEngine, name: str) -> int:
         return row.id
 
 
-async def _seed_user(
-    engine: AsyncEngine, username: str, *, role: str = "regular_user"
-) -> int:
+async def _seed_user(engine: AsyncEngine, username: str, *, role: str = "regular_user") -> int:
     """Seed one extra user beyond the admin. Returns the user's id."""
     from matofx.users.orm import User
     from matofx.users.role_orm import Role
 
     factory = make_session_factory(engine)
     async with session_scope(factory) as session:
-        role_row = (
-            await session.execute(select(Role).where(Role.name == role))
-        ).scalar_one()
+        role_row = (await session.execute(select(Role).where(Role.name == role))).scalar_one()
         user = User(
             username=username,
             email=f"{username}@example.com",
@@ -346,14 +330,10 @@ def _make_services() -> tuple[AuditWriter, ExportService]:
     return writer, make_export_service(writer)
 
 
-def _make_dest_services(bundle_root: Path) -> tuple[
-    AuditWriter, TrustedPeerService, ImportService
-]:
+def _make_dest_services(bundle_root: Path) -> tuple[AuditWriter, TrustedPeerService, ImportService]:
     writer = AuditWriter(signing_key=None, key_id=None)
     trust = make_trusted_peer_service(writer)
-    import_svc = make_import_service(
-        writer, trust_service=trust, bundle_root=bundle_root
-    )
+    import_svc = make_import_service(writer, trust_service=trust, bundle_root=bundle_root)
     return writer, trust, import_svc
 
 
@@ -445,18 +425,16 @@ async def test_round_trip_simple_tool(
     assert result.skipped_count == 0
 
     async with session_scope(dst_factory) as session:
-        tool = (
-            await session.execute(select(Tool).where(Tool.alias == "thermal"))
-        ).scalar_one()
+        tool = (await session.execute(select(Tool).where(Tool.alias == "thermal"))).scalar_one()
         assert tool.version == "1.5.0"
         # Per feedback_migrate_reset_to_new — state always resets.
         assert tool.state == "new"
         assert tool.descriptor["alias"] == "thermal"
         version_rows = (
-            await session.execute(
-                select(ToolVersion).where(ToolVersion.alias == "thermal")
-            )
-        ).scalars().all()
+            (await session.execute(select(ToolVersion).where(ToolVersion.alias == "thermal")))
+            .scalars()
+            .all()
+        )
         assert len(version_rows) == 1
         assert version_rows[0].version == "1.5.0"
 
@@ -530,18 +508,18 @@ async def test_round_trip_workflow_with_member_tools(
     assert result.imported_count == 3
     async with session_scope(dst_factory) as session:
         workflow = (
-            await session.execute(
-                select(Workflow).where(Workflow.alias == "alpha_then_beta")
-            )
+            await session.execute(select(Workflow).where(Workflow.alias == "alpha_then_beta"))
         ).scalar_one()
         assert workflow.state == "new"
         members = (
-            await session.execute(
-                select(WorkflowMember).where(
-                    WorkflowMember.workflow_id == workflow.id
+            (
+                await session.execute(
+                    select(WorkflowMember).where(WorkflowMember.workflow_id == workflow.id)
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert sorted((m.tool_alias, m.position) for m in members) == [
             ("alpha", 1),
             ("beta", 2),
@@ -668,9 +646,7 @@ async def test_missing_aos_host_skips_tool_and_cascades_workflow(
         )
 
     # material_props imports; heat_transfer skipped; workflow cascades.
-    by_alias = {
-        (o.kind, o.alias): o for o in result.items
-    }
+    by_alias = {(o.kind, o.alias): o for o in result.items}
     assert by_alias[("tool", "material_props")].outcome == "imported"
     assert by_alias[("tool", "heat_transfer")].outcome == "skipped"
     assert by_alias[("tool", "heat_transfer")].reason is not None
@@ -874,15 +850,11 @@ async def test_approver_filter_drops_unmatched_keeps_matched(
 
     assert result.imported_count == 1
     async with session_scope(dst_factory) as session:
-        tool = (
-            await session.execute(select(Tool).where(Tool.alias == "thermal"))
-        ).scalar_one()
+        tool = (await session.execute(select(Tool).where(Tool.alias == "thermal"))).scalar_one()
         assert tool.descriptor["approver_usernames"] == ["alice"]
 
     # A warning event surfaced the dropped approver.
-    assert any(
-        e.level == "warning" and "bob" in e.message for e in events
-    )
+    assert any(e.level == "warning" and "bob" in e.message for e in events)
 
 
 @pytest.mark.asyncio
@@ -1003,10 +975,14 @@ async def test_dry_run_writes_nothing(
         tools = (await session.execute(select(Tool))).scalars().all()
         assert tools == []
         audit_events = (
-            await session.execute(
-                select(AuditLog).where(AuditLog.action == "migrate.bundle.imported")
+            (
+                await session.execute(
+                    select(AuditLog).where(AuditLog.action == "migrate.bundle.imported")
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert audit_events == []
     assert not (tmp_path / "dst_bundles" / "thermal" / "1.5.0").exists()
 
@@ -1057,10 +1033,14 @@ async def test_export_and_import_each_write_one_audit_event(
 
     async with session_scope(src_factory) as session:
         export_events = (
-            await session.execute(
-                select(AuditLog).where(AuditLog.action == "migrate.bundle.exported")
+            (
+                await session.execute(
+                    select(AuditLog).where(AuditLog.action == "migrate.bundle.exported")
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(export_events) == 1
         assert export_events[0].payload["bundle_hash"] == bundle_hash
         assert export_events[0].payload["notes"] == "ticket MTX-412"
@@ -1069,16 +1049,18 @@ async def test_export_and_import_each_write_one_audit_event(
     dst_factory = make_session_factory(dst_engine)
     async with session_scope(dst_factory) as session:
         await ensure_chain_head(session)
-        await import_svc.import_bundle(
-            session, actor_user_id=dst_admin, bundle_bytes=bundle_bytes
-        )
+        await import_svc.import_bundle(session, actor_user_id=dst_admin, bundle_bytes=bundle_bytes)
 
     async with session_scope(dst_factory) as session:
         import_events = (
-            await session.execute(
-                select(AuditLog).where(AuditLog.action == "migrate.bundle.imported")
+            (
+                await session.execute(
+                    select(AuditLog).where(AuditLog.action == "migrate.bundle.imported")
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(import_events) == 1
         payload = import_events[0].payload
         assert payload["bundle_hash"] == bundle_hash

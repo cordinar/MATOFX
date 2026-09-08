@@ -64,9 +64,7 @@ async def test_policy_holds_job_db_only(
         assert job.inputs == {"foo": "held-snapshot"}
 
     async with session_scope(phase2.factory) as session:
-        pending = await approval_service.list_pending_for_user(
-            session, username="bob"
-        )
+        pending = await approval_service.list_pending_for_user(session, username="bob")
         assert len(pending) == 1
         req = pending[0]
         assert req.kind == "pre"
@@ -95,9 +93,7 @@ async def test_policy_routes_to_queue(phase2: Phase2Env, policy: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_deny_marks_job_denied(
-    phase2: Phase2Env, approval_service: ApprovalService
-) -> None:
+async def test_deny_marks_job_denied(phase2: Phase2Env, approval_service: ApprovalService) -> None:
     job_id, request_id = await _hold(phase2, approval_service, "pre")
     async with session_scope(phase2.factory) as session:
         request, job = await phase2.job_service.decide_approval(

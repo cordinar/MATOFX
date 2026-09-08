@@ -1101,9 +1101,7 @@ async def _render_tool_picker(client: ApiClient, selection: _Selection) -> None:
         ):
             ui.label(str(tool["name"])).style("font-weight: 600;")
             if tool.get("short_description"):
-                ui.label(str(tool["short_description"])).style(
-                    "color: #888; font-size: 0.9rem;"
-                )
+                ui.label(str(tool["short_description"])).style("color: #888; font-size: 0.9rem;")
 
 
 _VV_BADGE_LABEL: dict[str, str] = {
@@ -1390,9 +1388,7 @@ async def _render_submit_form(client: ApiClient, selection: _Selection) -> None:
                         values=handle.state,
                         widgets=handle.widgets,
                         # The labels this very form renders its fields with.
-                        labels={
-                            str(f.name): str(f.label or f.name) for f in descriptor.inputs
-                        },
+                        labels={str(f.name): str(f.label or f.name) for f in descriptor.inputs},
                     )
 
             ui.timer(0.0, _load_gauge, once=True)

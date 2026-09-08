@@ -102,9 +102,7 @@ async def _seed_source(
         return int(study.id)
 
 
-async def _seed_cohort(
-    api_factory: SessionFactory, tool_alias: str, user_id: int
-) -> int:
+async def _seed_cohort(api_factory: SessionFactory, tool_alias: str, user_id: int) -> int:
     """An auto-grow cohort over ``tool_alias`` — no ``study_result`` rows yet.
 
     Deliberately leaves the cohort's ``(source_kind='cohort')`` results

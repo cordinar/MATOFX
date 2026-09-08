@@ -135,8 +135,7 @@ async def admin_usage_page() -> None:
             .classes("w-full")
             .props("align=left active-color=primary indicator-color=primary")
             .style(
-                "background-color: transparent;"
-                " border-bottom: 1px solid var(--matofx-card-border);"
+                "background-color: transparent; border-bottom: 1px solid var(--matofx-card-border);"
             ) as tabs
         ):
             t_overview = ui.tab("Overview", icon="dashboard").props("no-caps")
@@ -848,6 +847,8 @@ def _cap_suffix(data: dict[str, Any]) -> str:
     return f"{licence_type.upper()} — limits {governs}" + (
         f" ({state})" if state and state != "active" else ""
     )
+
+
 async def _render_seats(client: ApiClient, state: dict[str, Any], slot: ui.column) -> None:
     """Fetch + render the Seats & Licence tab for the current filters."""
     slot.clear()

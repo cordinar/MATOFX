@@ -26,7 +26,6 @@ from matofx.migrate.signing import (
     verify_manifest,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fingerprint canonicalisation
 # ---------------------------------------------------------------------------
@@ -40,9 +39,9 @@ CANONICAL = "9f2ea17b043d8ce1556a2f97cb0d187c0123456789abcdef0123456789abcdef"
     [
         CANONICAL,
         CANONICAL.upper(),
-        "9F:2E:A1:7B:04:3D:8C:E1:55:6A:2F:97:CB:0D:18:7C:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF",
-        "9f 2e a1 7b 04 3d 8c e1 55 6a 2f 97 cb 0d 18 7c 01 23 45 67 89 ab cd ef 01 23 45 67 89 ab cd ef",
-        "9F-2E-A1-7B-04-3D-8C-E1-55-6A-2F-97-CB-0D-18-7C-01-23-45-67-89-AB-CD-EF-01-23-45-67-89-AB-CD-EF",
+        "9F:2E:A1:7B:04:3D:8C:E1:55:6A:2F:97:CB:0D:18:7C:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF",  # noqa: E501 - one indivisible value
+        "9f 2e a1 7b 04 3d 8c e1 55 6a 2f 97 cb 0d 18 7c 01 23 45 67 89 ab cd ef 01 23 45 67 89 ab cd ef",  # noqa: E501 - one indivisible value
+        "9F-2E-A1-7B-04-3D-8C-E1-55-6A-2F-97-CB-0D-18-7C-01-23-45-67-89-AB-CD-EF-01-23-45-67-89-AB-CD-EF",  # noqa: E501 - one indivisible value
         f"SHA256:{CANONICAL.upper()}",
         f"sha-256: {CANONICAL}",
         f"fp= {CANONICAL.upper()}",

@@ -346,9 +346,7 @@ async def _seed_completed_jobs(
     the ``demo`` alias across distinct scenarios.
     """
     async with session_scope(factory) as session:
-        project = await project_service.create(
-            session, actor_user_id=owner_id, name=project_name
-        )
+        project = await project_service.create(session, actor_user_id=owner_id, name=project_name)
         proj_id = project.id
 
     job_ids: list[int] = []

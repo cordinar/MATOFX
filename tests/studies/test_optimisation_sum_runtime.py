@@ -54,7 +54,11 @@ class _RecordingRunner:
 
 def _sum_study(b: Basics, strategy: str) -> OptimisationStudy:
     config: dict[str, Any] = {
-        "target": {"kind": "tool", "tool_alias": b.tool_alias, "tool_version_id": b.tool_version_id},
+        "target": {
+            "kind": "tool",
+            "tool_alias": b.tool_alias,
+            "tool_version_id": b.tool_version_id,
+        },
         "factors": [
             {"name": "a", "type": "float", "min": 0.0, "max": 100.0},
             {"name": "b", "type": "float", "min": 0.0, "max": 100.0},

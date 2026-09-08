@@ -105,7 +105,7 @@ _STATE_FILTERS: tuple[str, ...] = ("All", "New", "Test", "Released", "Archived")
 
 def _render_list(
     workflows: list[dict[str, Any]],
-    tools: list[dict[str, Any]],
+    tools: list[dict[str, Any]],  # noqa: ARG001 - kept so every row renderer takes the same arguments
     client: ApiClient,
     reload_fn: Any,
 ) -> None:
@@ -209,7 +209,7 @@ def _render_list(
 
 def _render_workflow_card(
     wf: dict[str, Any],
-    tools: list[dict[str, Any]],
+    tools: list[dict[str, Any]],  # noqa: ARG001 - signature kept uniform across the sibling callers
     client: ApiClient,
     reload_fn: Any,
     *,
@@ -566,7 +566,8 @@ def _open_workflow_dialog(
                         ui.row()
                         .classes("w-full items-center gap-1")
                         .style(
-                            "border: 1px solid var(--matofx-card-border); padding: 0.4rem; border-radius: 4px;"
+                            "border: 1px solid var(--matofx-card-border); "
+                            "padding: 0.4rem; border-radius: 4px;"
                         )
                     ):
                         ui.label(f"{idx + 1}.").style("min-width: 1.5rem;")
@@ -574,19 +575,24 @@ def _open_workflow_dialog(
                         ui.label(pretty).style("flex: 1;")
                         if tool and tool.get("state") and tool.get("state") != "released":
                             ui.chip(_STATE_LABEL.get(str(tool["state"]), str(tool["state"]))).props(
-                                f"color={_STATE_COLOR.get(str(tool['state']), 'grey')} text-color=white dense"
+                                f"color={_STATE_COLOR.get(str(tool['state']), 'grey')} "
+                                "text-color=white dense"
                             )
                         ui.button(
                             icon="arrow_upward",
                             on_click=lambda _e=None, i=idx: _move(state, i, -1, _rerender_tools),
                         ).props("flat dense").bind_enabled_from(
-                            state, "tool_aliases", lambda lst, _i=idx: _i > 0
+                            state,
+                            "tool_aliases",
+                            lambda lst, _i=idx: _i > 0,  # type: ignore[misc]  # noqa: ARG005 - bind_enabled_from passes the bound value; only the index matters
                         )
                         ui.button(
                             icon="arrow_downward",
                             on_click=lambda _e=None, i=idx: _move(state, i, 1, _rerender_tools),
                         ).props("flat dense").bind_enabled_from(
-                            state, "tool_aliases", lambda lst, _i=idx: _i < len(lst) - 1
+                            state,
+                            "tool_aliases",
+                            lambda lst, _i=idx: _i < len(lst) - 1,  # type: ignore[misc]
                         )
                         ui.button(
                             icon="close",

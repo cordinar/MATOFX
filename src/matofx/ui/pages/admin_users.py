@@ -213,6 +213,8 @@ def _render_licence_capacity(capacity: dict[str, Any]) -> None:
     with ui.row().classes("w-full items-center no-wrap").style("gap: 0.5rem;"):
         ui.icon(icon).style(f"color: {colour}; font-size: 1.1rem;")
         ui.label(text).style(f"color: {colour}; font-size: 0.87rem;")
+
+
 def _render_user_card(user: dict[str, Any]) -> None:
     """One row in the list — identity badges + Edit button.
 

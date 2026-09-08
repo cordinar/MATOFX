@@ -27,7 +27,6 @@ from matofx.cli.main import (
     main,
 )
 
-
 # ---------------------------------------------------------------------------
 # Argparse / dispatch wiring
 # ---------------------------------------------------------------------------
@@ -137,7 +136,7 @@ class _FakeEvent:
 
 
 @pytest.mark.parametrize(
-    "level,expected_prefix",
+    ("level", "expected_prefix"),
     [
         ("info", "  "),
         ("imported", "OK"),

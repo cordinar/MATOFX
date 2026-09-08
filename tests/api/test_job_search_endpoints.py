@@ -151,12 +151,22 @@ async def test_job_search_no_filters_returns_all_complete(
 ) -> None:
     """Empty filters → every visible completed run of the tool."""
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="P1", inputs=_formulation_inputs(c1="Component A"),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="P1",
+        inputs=_formulation_inputs(c1="Component A"),
     )
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="P2", inputs=_formulation_inputs(c1="Component B"),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="P2",
+        inputs=_formulation_inputs(c1="Component B"),
     )
     response = await client.post(
         f"/api/tools/{seeded['tool_alias']}/job-search",
@@ -179,8 +189,13 @@ async def test_job_search_carries_submitter_name(
 ) -> None:
     """Every result row carries the submitter's friendly display name."""
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="P", inputs=_formulation_inputs(),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="P",
+        inputs=_formulation_inputs(),
     )
     response = await client.post(
         f"/api/tools/{seeded['tool_alias']}/job-search",
@@ -205,16 +220,31 @@ async def test_job_search_equality_filter_on_select(
 ) -> None:
     """Filter on a select input matches by exact equality."""
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="A1", inputs=_formulation_inputs(c1="Component A"),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="A1",
+        inputs=_formulation_inputs(c1="Component A"),
     )
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="B1", inputs=_formulation_inputs(c1="Component B"),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="B1",
+        inputs=_formulation_inputs(c1="Component B"),
     )
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="A2", inputs=_formulation_inputs(c1="Component A"),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="A2",
+        inputs=_formulation_inputs(c1="Component A"),
     )
     response = await client.post(
         f"/api/tools/{seeded['tool_alias']}/job-search",
@@ -237,16 +267,31 @@ async def test_job_search_numeric_tolerance(
     """Numeric filters apply ± tolerance (default 25%)."""
     # component_1_percent at 50 ± 25% ⇒ [37.5, 62.5]
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="lo", inputs=_formulation_inputs(p1=40.0, p2=40.0, p3=20.0),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="lo",
+        inputs=_formulation_inputs(p1=40.0, p2=40.0, p3=20.0),
     )
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="hi", inputs=_formulation_inputs(p1=60.0, p2=20.0, p3=20.0),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="hi",
+        inputs=_formulation_inputs(p1=60.0, p2=20.0, p3=20.0),
     )
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="out", inputs=_formulation_inputs(p1=70.0, p2=20.0, p3=10.0),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="out",
+        inputs=_formulation_inputs(p1=70.0, p2=20.0, p3=10.0),
     )
     response = await client.post(
         f"/api/tools/{seeded['tool_alias']}/job-search",
@@ -275,14 +320,22 @@ async def test_job_search_excludes_queued_jobs(
         client, auth_headers, project_name="Q", scenario_name="S"
     )
     await _submit_job(
-        client, auth_headers,
-        scenario_id=sid, tool_alias=seeded["tool_alias"],
-        name="queued-only", inputs=_formulation_inputs(),
+        client,
+        auth_headers,
+        scenario_id=sid,
+        tool_alias=seeded["tool_alias"],
+        name="queued-only",
+        inputs=_formulation_inputs(),
     )
     # Plus a completed job for contrast.
     completed_id = await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="C", inputs=_formulation_inputs(),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="C",
+        inputs=_formulation_inputs(),
     )
 
     response = await client.post(
@@ -305,8 +358,13 @@ async def test_job_search_unknown_filter_field_is_ignored(
 ) -> None:
     """Filters referencing fields not in the descriptor degrade gracefully."""
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="P", inputs=_formulation_inputs(),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="P",
+        inputs=_formulation_inputs(),
     )
     response = await client.post(
         f"/api/tools/{seeded['tool_alias']}/job-search",
@@ -327,12 +385,22 @@ async def test_job_search_skips_empty_filter_values(
 ) -> None:
     """``None`` / ``""`` / ``[]`` filter values mean 'no constraint'."""
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="X", inputs=_formulation_inputs(c1="Component A"),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="X",
+        inputs=_formulation_inputs(c1="Component A"),
     )
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="Y", inputs=_formulation_inputs(c1="Component B"),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="Y",
+        inputs=_formulation_inputs(c1="Component B"),
     )
     response = await client.post(
         f"/api/tools/{seeded['tool_alias']}/job-search",
@@ -362,9 +430,7 @@ async def test_job_search_unknown_tool_returns_404(
 
 
 @pytest.mark.asyncio
-async def test_job_search_requires_auth(
-    client: httpx.AsyncClient, seeded: dict[str, Any]
-) -> None:
+async def test_job_search_requires_auth(client: httpx.AsyncClient, seeded: dict[str, Any]) -> None:
     response = await client.post(
         f"/api/tools/{seeded['tool_alias']}/job-search",
         json={"filters": {}},
@@ -385,16 +451,31 @@ async def test_find_similar_ranks_closest_first(
 ) -> None:
     """Typed reference → completed runs ranked closest-first with a score."""
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="exact", inputs=_formulation_inputs(p1=50.0, p2=30.0, p3=20.0),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="exact",
+        inputs=_formulation_inputs(p1=50.0, p2=30.0, p3=20.0),
     )
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="near", inputs=_formulation_inputs(p1=55.0, p2=25.0, p3=20.0),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="near",
+        inputs=_formulation_inputs(p1=55.0, p2=25.0, p3=20.0),
     )
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="far", inputs=_formulation_inputs(p1=80.0, p2=10.0, p3=10.0),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="far",
+        inputs=_formulation_inputs(p1=80.0, p2=10.0, p3=10.0),
     )
     response = await client.post(
         f"/api/tools/{seeded['tool_alias']}/job-search/similar",
@@ -423,8 +504,13 @@ async def test_find_similar_top_n_caps_results(
 ) -> None:
     for i, p1 in enumerate((40.0, 50.0, 60.0)):
         await _seed_complete_job(
-            client, auth_headers, api_factory, api_audit, seeded,
-            project_name=f"P{i}", inputs=_formulation_inputs(p1=p1, p2=100.0 - p1 - 20.0, p3=20.0),
+            client,
+            auth_headers,
+            api_factory,
+            api_audit,
+            seeded,
+            project_name=f"P{i}",
+            inputs=_formulation_inputs(p1=p1, p2=100.0 - p1 - 20.0, p3=20.0),
         )
     response = await client.post(
         f"/api/tools/{seeded['tool_alias']}/job-search/similar",
@@ -445,12 +531,22 @@ async def test_find_similar_seed_job_is_excluded(
 ) -> None:
     """Seeding from an existing run drops that run from its own results."""
     seed_id = await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="seed", inputs=_formulation_inputs(p1=50.0, p2=30.0, p3=20.0),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="seed",
+        inputs=_formulation_inputs(p1=50.0, p2=30.0, p3=20.0),
     )
     other_id = await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="other", inputs=_formulation_inputs(p1=55.0, p2=25.0, p3=20.0),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="other",
+        inputs=_formulation_inputs(p1=55.0, p2=25.0, p3=20.0),
     )
     response = await client.post(
         f"/api/tools/{seeded['tool_alias']}/job-search/similar",
@@ -473,12 +569,22 @@ async def test_find_similar_categorical_gate(
 ) -> None:
     """A categorical reference value gates results to exact matches."""
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="A", inputs=_formulation_inputs(c1="Component A"),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="A",
+        inputs=_formulation_inputs(c1="Component A"),
     )
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="B", inputs=_formulation_inputs(c1="Component B"),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="B",
+        inputs=_formulation_inputs(c1="Component B"),
     )
     response = await client.post(
         f"/api/tools/{seeded['tool_alias']}/job-search/similar",
@@ -528,16 +634,31 @@ async def test_distinct_input_values_returns_unique_set(
     api_audit: AuditWriter,
 ) -> None:
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="P1", inputs=_formulation_inputs(c1="Component A"),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="P1",
+        inputs=_formulation_inputs(c1="Component A"),
     )
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="P2", inputs=_formulation_inputs(c1="Component B"),
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="P2",
+        inputs=_formulation_inputs(c1="Component B"),
     )
     await _seed_complete_job(
-        client, auth_headers, api_factory, api_audit, seeded,
-        project_name="P3", inputs=_formulation_inputs(c1="Component A"),  # dup
+        client,
+        auth_headers,
+        api_factory,
+        api_audit,
+        seeded,
+        project_name="P3",
+        inputs=_formulation_inputs(c1="Component A"),  # dup
     )
     response = await client.get(
         f"/api/tools/{seeded['tool_alias']}/distinct-input-values",

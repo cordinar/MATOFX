@@ -40,9 +40,13 @@ via ``..`` segments or symlink-like trickery.
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+
+_FIRST_PRINTABLE = 32
+"""Code points below this are control characters."""
 
 DRAFTS_DIRNAME: str = "drafts"
 """Top-level segment under the storage mount for unsubmitted uploads."""
@@ -92,11 +96,11 @@ def _safe_filename_segment(value: str) -> str:
     # filename.
     cleaned = []
     for ch in leaf:
-        if ch in {"\t", "\r", "\n"}:
-            cleaned.append("_")
-        elif ord(ch) < 32:
-            cleaned.append("_")
-        elif ch in {"<", ">", ":", '"', "|", "?", "*"}:
+        if (
+            ch in {"\t", "\r", "\n"}
+            or ord(ch) < _FIRST_PRINTABLE
+            or ch in {"<", ">", ":", '"', "|", "?", "*"}
+        ):
             cleaned.append("_")
         else:
             cleaned.append(ch)
@@ -314,10 +318,8 @@ def remove_draft_upload(
                 continue
     # Tidy the empty field dir so a subsequent ``list_draft_uploads``
     # doesn't return a stale entry pointing at no file.
-    try:
+    with contextlib.suppress(OSError):
         field_dir.rmdir()
-    except OSError:
-        pass
     return removed
 
 
@@ -402,10 +404,8 @@ def promote_draft_uploads_into_working_dir(
         new_inputs[field_name] = str(target)
 
     # Best-effort cleanup of the draft tree.
-    try:
+    with contextlib.suppress(OSError):
         shutil.rmtree(draft_root)
-    except OSError:
-        pass
     return new_inputs
 
 

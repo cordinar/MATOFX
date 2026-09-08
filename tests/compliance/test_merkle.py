@@ -141,8 +141,7 @@ def test_equal_sizes_require_an_identical_root() -> None:
         m=16, root_m=tree_hash(leaves), n=16, root_n=tree_hash(leaves), proof=[]
     )
     assert not verify_consistency(
-        m=16, root_m=tree_hash([*_chain(15), b"x"]), n=16,
-        root_n=tree_hash(leaves), proof=[]
+        m=16, root_m=tree_hash([*_chain(15), b"x"]), n=16, root_n=tree_hash(leaves), proof=[]
     )
 
 

@@ -42,9 +42,7 @@ def _seed_demo_root(tmp_path: Path) -> Path:
     return root
 
 
-def test_resolve_uses_env_var_when_set(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_resolve_uses_env_var_when_set(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = _seed_demo_root(tmp_path)
     monkeypatch.setenv("MATOFX_DEMO_ASSETS_DIR", str(root))
     assert resolve_demo_root() == root.resolve()
@@ -102,9 +100,7 @@ def test_list_files_returns_empty_for_missing_subfolder(
     assert list_files(CATEGORY_PDF) == []
 
 
-def test_read_file_round_trips_bytes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_read_file_round_trips_bytes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = _seed_demo_root(tmp_path)
     monkeypatch.setenv("MATOFX_DEMO_ASSETS_DIR", str(root))
     content = read_file(CATEGORY_CAD, "cube.stl")
@@ -126,9 +122,7 @@ def test_read_file_rejects_non_basenames(
         read_file(CATEGORY_CAD, bad_name)
 
 
-def test_read_file_raises_on_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_read_file_raises_on_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = _seed_demo_root(tmp_path)
     monkeypatch.setenv("MATOFX_DEMO_ASSETS_DIR", str(root))
     with pytest.raises(FileNotFoundError):
@@ -138,9 +132,7 @@ def test_read_file_raises_on_missing(
 def test_demo_file_url_url_quotes_filename() -> None:
     """Spaces / non-ASCII characters in the filename are URL-encoded."""
     url = demo_file_url(CATEGORY_PDF, "annual report (final).pdf")
-    assert url == (
-        f"{DEMO_STATIC_URL_PREFIX}/pdf/annual%20report%20%28final%29.pdf"
-    )
+    assert url == (f"{DEMO_STATIC_URL_PREFIX}/pdf/annual%20report%20%28final%29.pdf")
 
 
 def test_demo_file_url_uses_root_relative_prefix() -> None:

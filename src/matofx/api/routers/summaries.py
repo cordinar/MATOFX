@@ -63,9 +63,7 @@ async def get_summary(
     run_service: Annotated[WorkflowRunService, Depends(get_workflow_run_service)],
     study_service: Annotated[StudyService, Depends(get_study_service)],
     results_service: Annotated[ResultsService, Depends(get_results_service)],
-    optimisation_service: Annotated[
-        OptimisationService, Depends(get_optimisation_service)
-    ],
+    optimisation_service: Annotated[OptimisationService, Depends(get_optimisation_service)],
     summary_service: Annotated[SummaryService, Depends(get_summary_service)],
     audit: Annotated[AuditWriter, Depends(get_audit)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -122,11 +120,7 @@ async def get_summary(
     # Per-user opt-out: only surface the enriched prose to a viewer who hasn't
     # opted out. Enrichment still ran + cached for everyone else.
     prefer = bool(current_user.summary_enrichment_enabled)
-    enriched = (
-        cached.enriched.to_dict()
-        if (prefer and cached.enriched is not None)
-        else None
-    )
+    enriched = cached.enriched.to_dict() if (prefer and cached.enriched is not None) else None
     return {
         "surface_kind": kind,
         "surface_id": surface_id,
@@ -145,9 +139,7 @@ async def _job_facts(
     settings: Settings,
     job_id: int,
 ) -> SummaryFacts:
-    is_admin = await user_has_permission(
-        db, current_user.id, Permission.PROJECTS_SEE_ALL
-    )
+    is_admin = await user_has_permission(db, current_user.id, Permission.PROJECTS_SEE_ALL)
     job = await job_service.ensure_outputs_accessible(
         db,
         job_id=job_id,
@@ -170,13 +162,9 @@ async def _workflow_facts(
     run_id: int,
 ) -> SummaryFacts:
     run = await run_service.get_run(db, run_id=run_id, actor_user_id=current_user.id)
-    children = await run_service.list_children(
-        db, run_id=run_id, actor_user_id=current_user.id
-    )
+    children = await run_service.list_children(db, run_id=run_id, actor_user_id=current_user.id)
     try:
-        return await collect_workflow_facts(
-            db, run=run, children=children, settings=settings
-        )
+        return await collect_workflow_facts(db, run=run, children=children, settings=settings)
     except NonTerminalResultError as exc:
         # A still-running / draft run has no summary yet — collapse to 404
         # so the surface matches the report endpoint's not-terminal stance.
@@ -191,9 +179,7 @@ async def _parametric_facts(
     current_user: User,
     study_id: int,
 ) -> SummaryFacts:
-    study = await study_service.get(
-        db, actor_user_id=current_user.id, study_id=study_id
-    )
+    study = await study_service.get(db, actor_user_id=current_user.id, study_id=study_id)
     if not is_terminal(study.state):
         raise NotFoundError("summary", study_id)
     results = await results_service.get_results_for_study(
@@ -209,9 +195,7 @@ async def _optimisation_facts(
     current_user: User,
     study_id: int,
 ) -> SummaryFacts:
-    study = await optimisation_service.get(
-        db, actor_user_id=current_user.id, study_id=study_id
-    )
+    study = await optimisation_service.get(db, actor_user_id=current_user.id, study_id=study_id)
     if not is_terminal(study.state):
         raise NotFoundError("summary", study_id)
     run_results = await optimisation_service.run_results(

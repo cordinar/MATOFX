@@ -64,7 +64,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy import select
 
@@ -108,7 +108,7 @@ class KpiExtractResult:
 # ---- Value classification --------------------------------------------
 
 
-def _classify_value(raw: Any) -> tuple[Decimal | None, str]:
+def _classify_value(raw: Any) -> tuple[Decimal | None, str]:  # noqa: PLR0911 - a flat dispatch; splitting it would hide the mapping
     """Classify a runtime output value for KPI storage.
 
     Returns ``(value, reason)``. ``value`` is the captured
@@ -151,7 +151,7 @@ def _classify_value(raw: Any) -> tuple[Decimal | None, str]:
 
 async def extract_kpis_for_job(
     audit: AuditWriter,
-    session: AsyncSession,
+    session: AsyncSession,  # noqa: ARG001 - signature matches its sibling builders
     *,
     job: Job,
     outputs_doc: OutputsDocument | None,
@@ -172,10 +172,9 @@ async def extract_kpis_for_job(
     """
     try:
         async with session.begin_nested():
-            result = await _extract_kpis_for_job_inner(
+            return await _extract_kpis_for_job_inner(
                 audit, session, job=job, outputs_doc=outputs_doc
             )
-        return result
     except Exception:
         _log.exception(
             "KPI extraction raised for job %s; swallowed (never-raise contract)",
@@ -302,9 +301,7 @@ async def _extract_kpis_for_job_inner(
             },
         ),
     )
-    return KpiExtractResult(
-        extracted=extracted_count, missing=missing_count, total=len(kpi_fields)
-    )
+    return KpiExtractResult(extracted=extracted_count, missing=missing_count, total=len(kpi_fields))
 
 
 # ---- KPI-set signature differ (slice 4 trigger condition) ------------
@@ -438,9 +435,7 @@ async def reextract_tool_version(
     tool_version_id: int,
     triggered_by_user_id: int | None,
     trigger: str = "admin_manual",
-    storage_resolver: (
-        Any | None
-    ) = None,  # callable(storage_location_id) -> mount_path str | None
+    storage_resolver: (Any | None) = None,  # callable(storage_location_id) -> mount_path str | None
     outputs_loader: Any | None = None,  # callable(Path) -> OutputsDocument | None
 ) -> KpiReextractResult:
     """Re-extract KPI rows for every completed job of a tool version.
@@ -542,9 +537,7 @@ async def _reextract_inner(
                 job.id,
             )
         else:
-            result = await extract_kpis_for_job(
-                audit, session, job=job, outputs_doc=outputs_doc
-            )
+            result = await extract_kpis_for_job(audit, session, job=job, outputs_doc=outputs_doc)
             extracted_total += result.extracted
             missing_total += result.missing
 
@@ -585,9 +578,7 @@ async def _reextract_inner(
     )
 
 
-async def _load_for_job(
-    job: Any, *, resolver: Any, loader: Any
-) -> OutputsDocument | None:
+async def _load_for_job(job: Any, *, resolver: Any, loader: Any) -> OutputsDocument | None:
     """Resolve a job's durable outputs path + load the document.
 
     Returns ``None`` when the job lacks staging metadata or the file
@@ -602,7 +593,7 @@ async def _load_for_job(
     path = _resolve_outputs_path(
         mount_path=mount_path, working_dir_relative=job.working_dir_relative
     )
-    return loader(path)
+    return cast("OutputsDocument | None", loader(path))
 
 
 # ---- Warehouse query shapes (slice 5) --------------------------------
@@ -715,9 +706,7 @@ class TimeseriesPoint:
 # ---- Visibility helper -----------------------------------------------
 
 
-async def _visible_project_ids(
-    session: AsyncSession, actor_user_id: int
-) -> set[int] | None:
+async def _visible_project_ids(session: AsyncSession, actor_user_id: int) -> set[int] | None:
     """Set of project ids the user can READ; ``None`` means "all projects".
 
     ``None`` is returned for users with ``projects.see_all`` — the
@@ -730,9 +719,7 @@ async def _visible_project_ids(
     if await user_has_permission(session, actor_user_id, Permission.PROJECTS_SEE_ALL):
         return None
     creator_ids = (
-        await session.execute(
-            select(Project.id).where(Project.creator_user_id == actor_user_id)
-        )
+        await session.execute(select(Project.id).where(Project.creator_user_id == actor_user_id))
     ).scalars()
     acl_ids = (
         await session.execute(
@@ -779,9 +766,7 @@ async def list_kpis_for_tool(
         return []
     versions = list(
         (
-            await session.execute(
-                select(ToolVersion).where(ToolVersion.alias == tool_alias)
-            )
+            await session.execute(select(ToolVersion).where(ToolVersion.alias == tool_alias))
         ).scalars()
     )
     seen: set[tuple[str, str | None, str | None]] = set()
@@ -838,7 +823,7 @@ def _decimal_to_float(d: Decimal | None) -> float | None:
     return None if d is None else float(d)
 
 
-async def _build_warehouse_base_stmt(
+async def _build_warehouse_base_stmt(  # noqa: PLR0912 - one branch per case — the branches are the specification
     session: AsyncSession,
     *,
     actor_user_id: int,
@@ -924,9 +909,7 @@ def sa_false() -> Any:
     return literal(1) == literal(0)
 
 
-_VV_STATUS_VALUES: frozenset[str] = frozenset(
-    {"any", "verified_only", "verified_validated"}
-)
+_VV_STATUS_VALUES: frozenset[str] = frozenset({"any", "verified_only", "verified_validated"})
 
 
 def _vv_status_passes(badge_kind: str, required: str) -> bool:
@@ -966,15 +949,14 @@ async def _resolve_vv_badges(
         result: dict[int, str] = {}
         for tv_id in tool_version_ids:
             try:
-                badge = await service.summarise_tool_status(
-                    session, tool_version_id=tv_id
-                )
+                badge = await service.summarise_tool_status(session, tool_version_id=tv_id)
                 result[tv_id] = badge.kind
             except Exception:  # noqa: BLE001 — degrade gracefully
                 result[tv_id] = "none"
-        return result
     except ImportError:
         return {}
+    else:
+        return result
 
 
 async def _apply_vv_status_filter(
@@ -1049,28 +1031,20 @@ async def list_warehouse_rows(
     base_stmt = narrowed
 
     total = (
-        await session.execute(
-            select(func.count()).select_from(base_stmt.subquery())
-        )
+        await session.execute(select(func.count()).select_from(base_stmt.subquery()))
     ).scalar_one()
 
     # 2. The ACL-bypassed count — for the "hidden by access controls"
     # delta. Same filter shape, no visibility predicate.
-    bypass_stmt = await _build_no_acl_count_stmt(
-        session, tool_alias=tool_alias, filters=filters
-    )
+    bypass_stmt = await _build_no_acl_count_stmt(session, tool_alias=tool_alias, filters=filters)
     total_without_acl = (
-        await session.execute(
-            select(func.count()).select_from(bypass_stmt.subquery())
-        )
+        await session.execute(select(func.count()).select_from(bypass_stmt.subquery()))
     ).scalar_one()
     hidden_by_acl = max(0, int(total_without_acl) - int(total))
 
     # 3. The paginated job rows.
     offset = (page - 1) * page_size
-    paged = (
-        base_stmt.order_by(Job.id.desc()).limit(page_size).offset(offset)
-    )
+    paged = base_stmt.order_by(Job.id.desc()).limit(page_size).offset(offset)
     jobs = list((await session.execute(paged)).scalars())
     if not jobs:
         return WarehousePage(
@@ -1085,17 +1059,13 @@ async def list_warehouse_rows(
     job_ids = [j.id for j in jobs]
     kpi_rows = list(
         (
-            await session.execute(
-                select(JobKpiValue).where(JobKpiValue.job_id.in_(job_ids))
-            )
+            await session.execute(select(JobKpiValue).where(JobKpiValue.job_id.in_(job_ids)))
         ).scalars()
     )
     kpis_by_job: dict[int, dict[str, float | None]] = {}
     units_by_job: dict[int, dict[str, str | None]] = {}
     for r in kpi_rows:
-        kpis_by_job.setdefault(r.job_id, {})[r.kpi_name] = _decimal_to_float(
-            r.value_numeric
-        )
+        kpis_by_job.setdefault(r.job_id, {})[r.kpi_name] = _decimal_to_float(r.value_numeric)
         units_by_job.setdefault(r.job_id, {})[r.kpi_name] = r.unit
 
     # 5. Resolve each job's owning project (scenario OR study).
@@ -1104,9 +1074,7 @@ async def list_warehouse_rows(
     # 6. V&V badge per row — batched per distinct tool_version_id so
     # the populated-install case is O(unique versions), not O(jobs).
     distinct_tv_ids = {j.tool_version_id for j in jobs}
-    vv_badges = await _resolve_vv_badges(
-        session, tool_version_ids=distinct_tv_ids
-    )
+    vv_badges = await _resolve_vv_badges(session, tool_version_ids=distinct_tv_ids)
 
     # 7. Human-readable labels for the identity columns — batched so the
     # warehouse shows names, not bare ids (feedback_use_labels_not_names).
@@ -1130,13 +1098,9 @@ async def list_warehouse_rows(
             kpi_values=kpis_by_job.get(j.id, {}),
             kpi_units=units_by_job.get(j.id, {}),
             vv_status=vv_badges.get(j.tool_version_id, "none"),
-            project_name=labels.projects.get(
-                project_id_by_job.get(j.id, 0)
-            ),
+            project_name=labels.projects.get(project_id_by_job.get(j.id, 0)),
             scenario_name=(
-                labels.scenarios.get(j.scenario_id)
-                if j.scenario_id is not None
-                else None
+                labels.scenarios.get(j.scenario_id) if j.scenario_id is not None else None
             ),
             requestor_name=labels.users.get(j.created_by_user_id),
             tool_version_label=labels.tool_versions.get(j.tool_version_id),
@@ -1153,7 +1117,7 @@ async def list_warehouse_rows(
 
 
 async def _build_no_acl_count_stmt(
-    session: AsyncSession,
+    session: AsyncSession,  # noqa: ARG001 - signature kept uniform across the sibling callers
     *,
     tool_alias: str,
     filters: WarehouseFilters,
@@ -1196,30 +1160,26 @@ async def _build_no_acl_count_stmt(
     return stmt
 
 
-async def _resolve_project_ids(
-    session: AsyncSession, jobs: list[Any]
-) -> dict[int, int]:
+async def _resolve_project_ids(session: AsyncSession, jobs: list[Any]) -> dict[int, int]:
     """Map ``job_id → project_id`` via scenario or parametric_study."""
     from matofx.hierarchy.orm import Scenario  # noqa: PLC0415
     from matofx.studies.orm import ParametricStudy  # noqa: PLC0415
 
     scenario_ids = {j.scenario_id for j in jobs if j.scenario_id is not None}
-    study_ids = {
-        j.parametric_study_id for j in jobs if j.parametric_study_id is not None
-    }
+    study_ids = {j.parametric_study_id for j in jobs if j.parametric_study_id is not None}
 
     scen_map: dict[int, int] = {}
     if scenario_ids:
         rows = list(
             (
                 await session.execute(
-                    select(Scenario.id, Scenario.project_id).where(
-                        Scenario.id.in_(scenario_ids)
-                    )
+                    select(Scenario.id, Scenario.project_id).where(Scenario.id.in_(scenario_ids))
                 )
             ).all()
         )
-        scen_map = {sid: pid for sid, pid in rows}
+        # Not ``dict(rows)``: SQLAlchemy's Row is a tuple at runtime but
+        # mypy does not accept it as one, and the comprehension types.
+        scen_map = {sid: pid for sid, pid in rows}  # noqa: C416
 
     study_map: dict[int, int] = {}
     if study_ids:
@@ -1232,16 +1192,15 @@ async def _resolve_project_ids(
                 )
             ).all()
         )
-        study_map = {sid: pid for sid, pid in rows}
+        # Not ``dict(rows)``: SQLAlchemy's Row is a tuple at runtime but
+        # mypy does not accept it as one, and the comprehension types.
+        study_map = {sid: pid for sid, pid in rows}  # noqa: C416
 
     out: dict[int, int] = {}
     for j in jobs:
         if j.scenario_id is not None and j.scenario_id in scen_map:
             out[j.id] = scen_map[j.scenario_id]
-        elif (
-            j.parametric_study_id is not None
-            and j.parametric_study_id in study_map
-        ):
+        elif j.parametric_study_id is not None and j.parametric_study_id in study_map:
             out[j.id] = study_map[j.parametric_study_id]
     return out
 
@@ -1279,9 +1238,7 @@ async def _resolve_identity_labels(
     if real_project_ids:
         for pid, name in (
             await session.execute(
-                select(Project.id, Project.name).where(
-                    Project.id.in_(real_project_ids)
-                )
+                select(Project.id, Project.name).where(Project.id.in_(real_project_ids))
             )
         ).all():
             projects[pid] = name
@@ -1290,9 +1247,7 @@ async def _resolve_identity_labels(
     if scenario_ids:
         for sid, name in (
             await session.execute(
-                select(Scenario.id, Scenario.name).where(
-                    Scenario.id.in_(scenario_ids)
-                )
+                select(Scenario.id, Scenario.name).where(Scenario.id.in_(scenario_ids))
             )
         ).all():
             scenarios[sid] = name
@@ -1301,9 +1256,7 @@ async def _resolve_identity_labels(
     if user_ids:
         for uid, full_name, username in (
             await session.execute(
-                select(User.id, User.full_name, User.username).where(
-                    User.id.in_(user_ids)
-                )
+                select(User.id, User.full_name, User.username).where(User.id.in_(user_ids))
             )
         ).all():
             users[uid] = full_name or username
@@ -1456,9 +1409,7 @@ async def iter_warehouse_csv(
         job_ids = [j.id for j in jobs]
         kpi_rows = list(
             (
-                await session.execute(
-                    select(JobKpiValue).where(JobKpiValue.job_id.in_(job_ids))
-                )
+                await session.execute(select(JobKpiValue).where(JobKpiValue.job_id.in_(job_ids)))
             ).scalars()
         )
         per_job: dict[int, dict[str, Decimal | None]] = {}
@@ -1469,9 +1420,7 @@ async def iter_warehouse_csv(
         labels = await _resolve_identity_labels(
             session,
             project_ids=set(project_id_by_job.values()),
-            scenario_ids={
-                j.scenario_id for j in jobs if j.scenario_id is not None
-            },
+            scenario_ids={j.scenario_id for j in jobs if j.scenario_id is not None},
             user_ids={j.created_by_user_id for j in jobs},
             tool_version_ids={j.tool_version_id for j in jobs},
         )
@@ -1483,9 +1432,7 @@ async def iter_warehouse_csv(
                 str(project_id) if project_id is not None else "",
                 labels.projects.get(project_id, "") if project_id else "",
                 str(j.scenario_id) if j.scenario_id is not None else "",
-                labels.scenarios.get(j.scenario_id, "")
-                if j.scenario_id is not None
-                else "",
+                labels.scenarios.get(j.scenario_id, "") if j.scenario_id is not None else "",
                 str(j.parametric_study_id) if j.parametric_study_id is not None else "",
                 str(j.created_by_user_id),
                 labels.users.get(j.created_by_user_id, ""),

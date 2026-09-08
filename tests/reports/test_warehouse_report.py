@@ -115,9 +115,7 @@ def test_report_auto_print_can_be_disabled_for_tests() -> None:
 
 
 def test_report_renders_filter_summary_when_present() -> None:
-    html = build_warehouse_report(
-        _ctx(filter_summary="version_id=7, completed_from=2026-01-01")
-    )
+    html = build_warehouse_report(_ctx(filter_summary="version_id=7, completed_from=2026-01-01"))
     assert "version_id=7" in html
     assert "Filters" in html
 

@@ -33,9 +33,7 @@ def _utcnow() -> _dt.datetime:
 def _enable_feature(app: FastAPI, api_settings: Settings) -> None:
     """Flip ``features.kpi_extraction`` on for this app instance."""
     enabled = api_settings.model_copy(
-        update={
-            "features": FeatureSettings(enabled=[Feature.KPI_EXTRACTION.value])
-        }
+        update={"features": FeatureSettings(enabled=[Feature.KPI_EXTRACTION.value])}
     )
     app.dependency_overrides[get_settings] = lambda: enabled
 
@@ -61,9 +59,7 @@ _KPI_DESCRIPTOR_OUTPUTS = [
 ]
 
 
-async def _patch_descriptor_with_kpis(
-    api_factory: SessionFactory, *, tool_alias: str
-) -> int:
+async def _patch_descriptor_with_kpis(api_factory: SessionFactory, *, tool_alias: str) -> int:
     """Stamp the seeded tool's first ToolVersion snapshot with KPI outputs.
 
     Returns the tool_version_id so callers can FK jobs against it.
@@ -170,18 +166,14 @@ async def test_routes_absent_when_feature_off(
     alias = seeded["tool_alias"]
     catalog = await client.get(f"/api/tools/{alias}/kpis", headers=auth_headers)
     assert catalog.status_code == 404
-    results = await client.get(
-        f"/api/tools/{alias}/results", headers=auth_headers
-    )
+    results = await client.get(f"/api/tools/{alias}/results", headers=auth_headers)
     assert results.status_code == 404
     timeseries = await client.get(
         f"/api/tools/{alias}/results/timeseries?kpi_name=x",
         headers=auth_headers,
     )
     assert timeseries.status_code == 404
-    csv_resp = await client.get(
-        f"/api/tools/{alias}/results/export.csv", headers=auth_headers
-    )
+    csv_resp = await client.get(f"/api/tools/{alias}/results/export.csv", headers=auth_headers)
     assert csv_resp.status_code == 404
 
 
@@ -199,9 +191,7 @@ async def test_kpis_returns_declared_catalog(
     """Catalog response lists each declared KPI with label / unit / category."""
     _enable_feature(app, api_settings)
     await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
-    resp = await client.get(
-        f"/api/tools/{seeded['tool_alias']}/kpis", headers=auth_headers
-    )
+    resp = await client.get(f"/api/tools/{seeded['tool_alias']}/kpis", headers=auth_headers)
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["tool_alias"] == seeded["tool_alias"]
@@ -224,9 +214,7 @@ async def test_kpis_empty_for_tool_with_no_declared_kpis(
 ) -> None:
     """A tool whose descriptor declares no KPIs gets an empty entries list."""
     _enable_feature(app, api_settings)
-    resp = await client.get(
-        f"/api/tools/{seeded['tool_alias']}/kpis", headers=auth_headers
-    )
+    resp = await client.get(f"/api/tools/{seeded['tool_alias']}/kpis", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["entries"] == []
 
@@ -245,9 +233,7 @@ async def test_results_empty_when_no_jobs(
     """A tool with KPIs declared but no completed jobs returns an empty page."""
     _enable_feature(app, api_settings)
     await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
-    resp = await client.get(
-        f"/api/tools/{seeded['tool_alias']}/results", headers=auth_headers
-    )
+    resp = await client.get(f"/api/tools/{seeded['tool_alias']}/results", headers=auth_headers)
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["rows"] == []
@@ -267,9 +253,7 @@ async def test_results_returns_pivoted_rows(
 ) -> None:
     """A populated install returns one row per completed job with KPI values pivoted."""
     _enable_feature(app, api_settings)
-    tv_id = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     project_id, _scenario_id, job_id = await _seed_completed_job_and_kpis(
         api_factory,
         seeded=seeded,
@@ -281,9 +265,7 @@ async def test_results_returns_pivoted_rows(
         max_pressure=101325,
     )
 
-    resp = await client.get(
-        f"/api/tools/{seeded['tool_alias']}/results", headers=auth_headers
-    )
+    resp = await client.get(f"/api/tools/{seeded['tool_alias']}/results", headers=auth_headers)
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["total"] == 1
@@ -315,9 +297,7 @@ async def test_results_pagination_walks_jobs(
 ) -> None:
     """Pagination edges — page=2&page_size=1 returns the second job."""
     _enable_feature(app, api_settings)
-    tv_id = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     job_ids: list[int] = []
     for i in range(3):
         _p, _s, j = await _seed_completed_job_and_kpis(
@@ -356,9 +336,7 @@ async def test_results_version_filter_narrows_to_one_version(
 ) -> None:
     """``?version_id=`` narrows to jobs of that specific tool_version."""
     _enable_feature(app, api_settings)
-    tv_id_a = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id_a = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     # Seed a second ToolVersion sharing the alias.
     async with session_scope(api_factory) as session:
         tv_b = ToolVersion(
@@ -424,9 +402,7 @@ async def test_results_job_ids_allow_list_intersects(
 ) -> None:
     """``?job_ids=1,3`` returns only those jobs (intersected with ACL + filters)."""
     _enable_feature(app, api_settings)
-    tv_id = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     jobs = []
     for i in range(3):
         _, _, j = await _seed_completed_job_and_kpis(
@@ -462,9 +438,7 @@ async def test_results_job_ids_empty_returns_zero(
 ) -> None:
     """``?job_ids=`` (empty allow-list) returns zero rows by design."""
     _enable_feature(app, api_settings)
-    tv_id = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     await _seed_completed_job_and_kpis(
         api_factory,
         seeded=seeded,
@@ -509,9 +483,7 @@ async def test_results_completed_window_filter(
 ) -> None:
     """``?completed_from`` and ``?completed_to`` honour the time window."""
     _enable_feature(app, api_settings)
-    tv_id = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     _, _, job_id = await _seed_completed_job_and_kpis(
         api_factory,
         seeded=seeded,
@@ -574,9 +546,7 @@ async def test_timeseries_returns_points_for_kpi(
 ) -> None:
     """Time-series of one KPI lists ``(extracted_at, value, job_id)`` points."""
     _enable_feature(app, api_settings)
-    tv_id = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     jobs = []
     for i in range(3):
         _, _, j = await _seed_completed_job_and_kpis(
@@ -614,9 +584,7 @@ async def test_timeseries_empty_when_kpi_unknown(
 ) -> None:
     """Asking for a KPI no row matches returns an empty points list."""
     _enable_feature(app, api_settings)
-    tv_id = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     await _seed_completed_job_and_kpis(
         api_factory,
         seeded=seeded,
@@ -648,9 +616,7 @@ async def test_csv_export_returns_streaming_csv(
 ) -> None:
     """The CSV stream has a header + one row per filtered job."""
     _enable_feature(app, api_settings)
-    tv_id = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     _p, _s, job_id = await _seed_completed_job_and_kpis(
         api_factory,
         seeded=seeded,
@@ -700,9 +666,7 @@ async def test_csv_export_job_ids_filter_narrows_to_selection(
 ) -> None:
     """``?job_ids=`` restricts the CSV to just the ticked rows."""
     _enable_feature(app, api_settings)
-    tv_id = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     jobs = []
     for i in range(3):
         _, _, j = await _seed_completed_job_and_kpis(
@@ -753,9 +717,7 @@ async def test_pdf_export_returns_printable_html(
 ) -> None:
     """PDF endpoint returns text/html with the table + print script."""
     _enable_feature(app, api_settings)
-    tv_id = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     _, _, job_id = await _seed_completed_job_and_kpis(
         api_factory,
         seeded=seeded,
@@ -784,9 +746,7 @@ async def test_pdf_export_returns_printable_html(
     assert f">{job_id}<" in body
     # The report title uses the tool's display name, not its internal alias
     # ([[feedback_use_labels_not_names]]).
-    tool = (
-        await client.get(f"/api/tools/{seeded['tool_alias']}", headers=auth_headers)
-    ).json()
+    tool = (await client.get(f"/api/tools/{seeded['tool_alias']}", headers=auth_headers)).json()
     assert f"Results — {tool['name']}" in body
 
 
@@ -800,9 +760,7 @@ async def test_pdf_export_job_ids_filter_narrows_to_selection(
 ) -> None:
     """PDF respects the ``job_ids`` allow-list, like CSV."""
     _enable_feature(app, api_settings)
-    tv_id = await _patch_descriptor_with_kpis(
-        api_factory, tool_alias=seeded["tool_alias"]
-    )
+    tv_id = await _patch_descriptor_with_kpis(api_factory, tool_alias=seeded["tool_alias"])
     jobs = []
     for i in range(3):
         _, _, j = await _seed_completed_job_and_kpis(

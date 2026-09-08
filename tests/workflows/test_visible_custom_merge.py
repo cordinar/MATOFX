@@ -70,18 +70,12 @@ async def test_owner_sees_own_custom_workflow_others_do_not(
         wf_alias = wf.alias
 
     # Owner sees it.
-    assert wf_alias in await _visible_aliases(
-        factory, workflow_service, actor_user_id=owner_id
-    )
+    assert wf_alias in await _visible_aliases(factory, workflow_service, actor_user_id=owner_id)
     # Another regular user does not.
-    assert wf_alias not in await _visible_aliases(
-        factory, workflow_service, actor_user_id=other_id
-    )
+    assert wf_alias not in await _visible_aliases(factory, workflow_service, actor_user_id=other_id)
     # An inspector (admin) does NOT get every custom workflow here — the
     # inspect grant is for the admin inspector page, not Quick Access.
-    assert wf_alias not in await _visible_aliases(
-        factory, workflow_service, actor_user_id=admin_id
-    )
+    assert wf_alias not in await _visible_aliases(factory, workflow_service, actor_user_id=admin_id)
 
 
 @pytest.mark.asyncio
@@ -119,6 +113,4 @@ async def test_share_recipient_sees_shared_custom_workflow(
         )
         wf_alias = wf.alias
 
-    assert wf_alias in await _visible_aliases(
-        factory, workflow_service, actor_user_id=recipient_id
-    )
+    assert wf_alias in await _visible_aliases(factory, workflow_service, actor_user_id=recipient_id)

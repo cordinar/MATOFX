@@ -439,9 +439,7 @@ def _evaluate_usage(usage: dict[str, Any], licence: dict[str, Any]) -> list[Find
                 Finding("breach", f"{current} floating assignments against {n_slots} slots")
             )
         if denied:
-            findings.append(
-                Finding("signal", f"{denied} assignment attempts refused at the cap")
-            )
+            findings.append(Finding("signal", f"{denied} assignment attempts refused at the cap"))
         if block.get("source") == "enabled_accounts":
             findings.append(
                 Finding(

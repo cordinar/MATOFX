@@ -94,9 +94,7 @@ async def test_transfer_revokes_other_non_creator_owners_only(
     async with session_scope(factory) as session:
         entries = {
             e.user_id: e.role
-            for e in await project_service.list_acl(
-                session, project_id=pid, actor_user_id=alice_id
-            )
+            for e in await project_service.list_acl(session, project_id=pid, actor_user_id=alice_id)
         }
     assert entries == {bob_id: "owner", dave_id: "viewer"}  # carol's owner revoked
 
@@ -214,13 +212,9 @@ async def test_update_without_expected_version_is_last_writer_wins(
     pid = await _project(factory, project_service, alice_id)
 
     async with session_scope(factory) as session:
-        await project_service.update(
-            session, project_id=pid, actor_user_id=alice_id, name="v1"
-        )
+        await project_service.update(session, project_id=pid, actor_user_id=alice_id, name="v1")
     async with session_scope(factory) as session:
-        await project_service.update(
-            session, project_id=pid, actor_user_id=alice_id, name="v2"
-        )
+        await project_service.update(session, project_id=pid, actor_user_id=alice_id, name="v2")
     async with session_scope(factory) as session:
         loaded = await project_service.get(session, project_id=pid, actor_user_id=alice_id)
     assert loaded.name == "v2"

@@ -1277,9 +1277,9 @@ async def test_update_descriptor_dependency_only_edit_persists_and_bumps(
     assert second.status_code == 200, second.text
     # Not a no-op: patch-bumped again and the rule actually persisted.
     assert second.json()["version"] == "0.1.2"
-    descriptor = (
-        await client.get(f"/api/admin/tools/{alias}", headers=auth_headers)
-    ).json()["descriptor"]
+    descriptor = (await client.get(f"/api/admin/tools/{alias}", headers=auth_headers)).json()[
+        "descriptor"
+    ]
     assert descriptor["dependencies"] == [rule]
     # A change-log snapshot was written for the dependency edit
     # (install + inputs edit + dependency edit = 3).

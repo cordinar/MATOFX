@@ -28,6 +28,7 @@ service so both routes apply the same rules.
 
 from __future__ import annotations
 
+import contextlib
 import datetime as _dt
 import mimetypes
 from typing import Annotated
@@ -268,9 +269,7 @@ async def upload_general_setting_image(
     # for an oversized upload (memory-exhaustion guard); ``set_image`` still
     # re-checks the length as defence in depth.
     max_bytes = _image_upload_cap(key, settings)
-    data = await read_upload_capped(
-        file, max_bytes=max_bytes, request=request, what="image"
-    )
+    data = await read_upload_capped(file, max_bytes=max_bytes, request=request, what="image")
     await service.set_image(
         db,
         actor_user_id=current_user.id,
@@ -295,12 +294,8 @@ async def upload_general_setting_image(
 async def preview_inactive_user_sweep(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-    threshold_days: Annotated[
-        int, Query(ge=1, le=3650, description="Proposed threshold in days.")
-    ],
-    limit: Annotated[
-        int, Query(ge=1, le=500, description="Max preview rows to return.")
-    ] = 100,
+    threshold_days: Annotated[int, Query(ge=1, le=3650, description="Proposed threshold in days.")],
+    limit: Annotated[int, Query(ge=1, le=500, description="Max preview rows to return.")] = 100,
 ) -> AdminAutoDisablePreviewResponse:
     """Preview the users the inactivity sweep would auto-disable at ``threshold_days``.
 
@@ -420,10 +415,8 @@ async def _maybe_refresh_branding(db: AsyncSession, key: str, settings: Settings
         from matofx.ui.branding_cache import refresh_branding_cache  # noqa: PLC0415
     except ImportError:
         return
-    try:
+    with contextlib.suppress(Exception):
         await refresh_branding_cache(db, icons_dir=settings.branding.icons_dir)
-    except Exception:
-        pass
 
 
 # ---------------------------------------------------------------------------

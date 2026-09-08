@@ -95,9 +95,7 @@ async def collect_optimisation_facts(
     if multi:
         details["pareto_size"], details["pareto_ranges"] = _pareto(best, objectives)
     elif objectives:
-        outcome = _single_outcome(
-            objectives[0], constraints, best, run_results, factor_names, maps
-        )
+        outcome = _single_outcome(objectives[0], constraints, best, run_results, factor_names, maps)
         details.update(outcome)
         if outcome.get("best_value") is not None:
             headline = (
@@ -116,9 +114,7 @@ async def collect_optimisation_facts(
         headline=headline,
         submitted_by=None,
         started_at=study.created_at.isoformat() if study.created_at else None,
-        finished_at=(
-            study.state_changed_at.isoformat() if study.state_changed_at else None
-        ),
+        finished_at=(study.state_changed_at.isoformat() if study.state_changed_at else None),
         duration_seconds=_duration(study),
         details=details,
     )
@@ -206,9 +202,7 @@ def _single_outcome(
     return {
         "best_value": best_value,
         "best_constraints": best_constraints,
-        "best_design": _best_design(
-            objective, best_value, run_results, factor_names, maps
-        ),
+        "best_design": _best_design(objective, best_value, run_results, factor_names, maps),
     }
 
 

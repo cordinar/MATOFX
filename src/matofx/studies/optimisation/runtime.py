@@ -103,9 +103,7 @@ def _apply_sum_reduction(config: Mapping[str, Any]) -> dict[str, Any]:
     if not derived:
         return dict(config)
     reduced = dict(config)
-    reduced["factors"] = [
-        f for f in (config.get("factors") or []) if f.get("name") not in derived
-    ]
+    reduced["factors"] = [f for f in (config.get("factors") or []) if f.get("name") not in derived]
     return reduced
 
 
@@ -139,6 +137,7 @@ def _candidate_open_inputs(
         if fname in candidate:
             open_inputs.setdefault(member, {})[input_name] = candidate[fname]
     return open_inputs
+
 
 _MULTI_OBJECTIVE = 2
 """Optimised-objective count at/above which a study uses the multi-objective
@@ -1284,8 +1283,7 @@ class WorkflowRunRunner:
             runs_by_id = {r.id: r for r in runs}
             if all(
                 rid in runs_by_id
-                and compute_state(runs_by_id[rid], jobs_by_run.get(rid, []))
-                in _TERMINAL_RUN_STATES
+                and compute_state(runs_by_id[rid], jobs_by_run.get(rid, [])) in _TERMINAL_RUN_STATES
                 for rid in ids
             ):
                 return
@@ -1336,8 +1334,12 @@ class WorkflowRunRunner:
                 # the explorer can plot/inspect any of them, and the candidate +
                 # batch ride on that job's optimisation metadata for the reader.
                 await self._record_run_result(
-                    session, study_id=study_id, batch=batch, children=children,
-                    candidate=cand, outputs_by_member=outputs_by_member,
+                    session,
+                    study_id=study_id,
+                    batch=batch,
+                    children=children,
+                    candidate=cand,
+                    outputs_by_member=outputs_by_member,
                 )
                 evaluations.append(
                     Evaluation(

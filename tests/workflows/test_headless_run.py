@@ -165,9 +165,7 @@ async def test_advance_cascades_downstream_with_wired_value(
             tool_alias="mat",
         )
 
-    monkeypatch.setattr(
-        "matofx.hierarchy.service.JobService.get_output_document", _fake_outputs
-    )
+    monkeypatch.setattr("matofx.hierarchy.service.JobService.get_output_document", _fake_outputs)
     async with session_scope(factory) as session:
         mat = (
             await session.execute(

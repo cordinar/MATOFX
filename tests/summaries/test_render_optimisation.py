@@ -18,9 +18,7 @@ def _facts(state: str = "complete", **details_overrides: object) -> SummaryFacts
         "objectives": [
             {"name": "q", "label": "Heat dissipation", "sense": "maximise", "unit": "W"}
         ],
-        "constraints": [
-            {"label": "Peak temperature", "op": "<=", "value": 100.0, "unit": "°C"}
-        ],
+        "constraints": [{"label": "Peak temperature", "op": "<=", "value": 100.0, "unit": "°C"}],
         "multi_objective": False,
         "stop_reason": "budget_exhausted",
         "frozen_factors": ["Number of fins"],

@@ -63,10 +63,7 @@ def test_complete_surfaces_final_step_results() -> None:
         )
     )
     joined = " ".join(text.paragraphs)
-    assert (
-        "The final step (Heat sink) produced peak temperature 91 °C, mass 0.18 kg."
-        in joined
-    )
+    assert "The final step (Heat sink) produced peak temperature 91 °C, mass 0.18 kg." in joined
 
 
 def test_failed_names_first_failing_step() -> None:

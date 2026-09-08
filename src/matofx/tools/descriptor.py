@@ -1100,9 +1100,7 @@ class OutputField(_Frozen):
                 "field output (type='file', file_type='field')."
             )
         if self.min is not None and self.max is not None and self.min > self.max:
-            raise ValueError(
-                f"Output {self.name!r}: min ({self.min}) must be <= max ({self.max})."
-            )
+            raise ValueError(f"Output {self.name!r}: min ({self.min}) must be <= max ({self.max}).")
         if (
             self.value_min is not None
             and self.value_max is not None

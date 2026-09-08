@@ -185,7 +185,7 @@ def test_a_missing_value_does_not_become_a_run_at_the_axis_minimum() -> None:
 
 
 def test_an_unmeasurable_run_is_not_reported_as_out_of_range() -> None:
-    """"We cannot place this run" and "this run is outside the range" are
+    """ "We cannot place this run" and "this run is outside the range" are
     different answers, and conflating them would tell a user to widen an
     envelope when the real problem is missing data."""
     training = _training(
@@ -303,9 +303,7 @@ def test_an_exported_tool_can_supply_every_envelope_axis() -> None:
         assert factor.name in supplied, f"{factor.name} has no input on the exported form"
 
     # And a submitted form -- defaults untouched -- must read `inside`.
-    point: dict[str, Any] = {
-        i.name: i.default for i in descriptor.inputs if i.default is not None
-    }
+    point: dict[str, Any] = {i.name: i.default for i in descriptor.inputs if i.default is not None}
     point["thickness"] = 10.0
     assert evaluate_support(envelope, point).status != "outside"
 

@@ -472,9 +472,7 @@ def _build_group_card(
                         "Remove",
                         icon="person_remove",
                         on_click=_make_remove_capability_member(role_id, user_id),
-                    ).props("flat dense color=negative").tooltip(
-                        "Remove from this capability"
-                    )
+                    ).props("flat dense color=negative").tooltip("Remove from this capability")
 
     # ---- the sub-card + expansion -----------------------------------
     with ui.card().classes("w-full").props("flat bordered") as card:

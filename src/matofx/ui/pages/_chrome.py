@@ -20,15 +20,16 @@ the variables — every panel re-tints live without a page reload.
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import json
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
+from typing import SupportsInt, cast
 from urllib.parse import quote
 
 from nicegui import context, ui
 
+from matofx.ui._background import spawn
 from matofx.ui._features import (
     file_library_enabled,
     kpi_extraction_enabled,
@@ -139,7 +140,9 @@ _FEATURE_FLAGS: dict[str, Callable[[], bool]] = {
 # markup; :func:`_nav_icon_html` wraps it in a stroked ``<svg>``.
 _NAV_SVG: dict[str, str] = {
     "home": '<path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5"/>',
-    "folder": '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    "folder": (
+        '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
+    ),
     # A console window with a ``>`` prompt + cursor underscore — the
     # "execute / run" glyph for the Execution environments page.
     "console": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/>',
@@ -149,7 +152,10 @@ _NAV_SVG: dict[str, str] = {
         '<circle cx="12" cy="18" r="2.4"/>'
         '<path d="M6 8.4v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-3M12 13.4v2.2"/>'
     ),
-    "inspector": '<path d="M4 6h12M4 10h8M4 14h6"/><circle cx="17" cy="15" r="3.5"/><path d="m20 18 1.5 1.5"/>',
+    "inspector": (
+        '<path d="M4 6h12M4 10h8M4 14h6"/><circle cx="17" cy="15" r="3.5"/>'
+        '<path d="m20 18 1.5 1.5"/>'
+    ),
     "metadata": (
         '<path d="M3 7h18M3 12h18M3 17h18"/><circle cx="7" cy="7" r="1"/>'
         '<circle cx="13" cy="12" r="1"/><circle cx="9" cy="17" r="1"/>'
@@ -172,7 +178,10 @@ _NAV_SVG: dict[str, str] = {
         '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
         '<path d="M9 13h6"/>'
     ),
-    "database": '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>',
+    "database": (
+        '<ellipse cx="12" cy="6" rx="7" ry="3"/>'
+        '<path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>'
+    ),
     "db_search": (
         '<ellipse cx="10" cy="6" rx="6" ry="2.6"/>'
         '<path d="M4 6v8c0 1.4 2.7 2.6 6 2.6M4 10c0 1.4 2.7 2.6 6 2.6"/>'
@@ -181,15 +190,22 @@ _NAV_SVG: dict[str, str] = {
     "check_circle": '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>',
     "bookmark": '<path d="M5 4h14v16l-7-3-7 3z"/>',
     "table": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11M3 14h18"/>',
-    "shield_check": '<path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 3.5-3.5"/>',
+    "shield_check": (
+        '<path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 3.5-3.5"/>'
+    ),
     "inbox": '<path d="M3 13l3-8h12l3 8M3 13v6h18v-6M3 13h5l1.5 2.5h5L16 13h5"/>',
     "user": '<circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5"/>',
     "users": (
         '<circle cx="8" cy="9" r="2.6"/><circle cx="16" cy="9" r="2.6"/>'
         '<path d="M3 19c0-2.5 2.2-4 5-4s5 1.5 5 4M13 19c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4"/>'
     ),
-    "wrench": '<path d="M14.5 5.5a3.5 3.5 0 0 0-4.7 4.3L4 15.6 8.4 20l5.8-5.8a3.5 3.5 0 0 0 4.3-4.7l-2.3 2.3-2-2z"/>',
-    "blocks": '<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h6a3 3 0 0 1 3 3v6"/>',
+    "wrench": (
+        '<path d="M14.5 5.5a3.5 3.5 0 0 0-4.7 4.3L4 15.6 8.4 20l5.8-5.8a3.5 3.5 0 0 0 4.3-4.7l-2.3 2.3-2-2z"/>'  # noqa: E501 - one SVG path, nothing to split
+    ),
+    "blocks": (
+        '<rect x="3" y="3" width="6" height="6" rx="1"/>'
+        '<rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h6a3 3 0 0 1 3 3v6"/>'
+    ),
     "arrows": '<path d="M4 8h12l-3-3M20 16H8l3 3"/>',
     "mail": '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
     "cap": '<path d="M4 5l8-2 8 2-8 2zM12 7v6M6 9v4c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5V9"/>',
@@ -262,9 +278,7 @@ _NAV_GROUPS: tuple[_NavGroup, ...] = (
         "Libraries",
         (
             _NavItem("File Library", "folder_doc", "/library", feature="file_library"),
-            _NavItem(
-                "Materials database", "database", "/materials", feature="materials_database"
-            ),
+            _NavItem("Materials database", "database", "/materials", feature="materials_database"),
             _NavItem("Explore MATOFX database", "db_search", "/admin/explore-db", su=True),
         ),
     ),
@@ -1162,9 +1176,9 @@ def _render_compliance_banner(mode: dict[str, object]) -> None:
     ):
         ui.icon("event_note").style("color: #856404;")
         ui.label(text).style("line-height: 1.35;")
-        ui.button(
-            "Generate report", on_click=lambda: ui.navigate.to("/admin/compliance")
-        ).props("flat dense no-caps color=warning").style("color: #856404; font-weight: 600;")
+        ui.button("Generate report", on_click=lambda: ui.navigate.to("/admin/compliance")).props(
+            "flat dense no-caps color=warning"
+        ).style("color: #856404; font-weight: 600;")
 
 
 def _open_acknowledge_dialog() -> None:
@@ -1175,18 +1189,20 @@ def _open_acknowledge_dialog() -> None:
     person reading it six months later nothing at all.
     """
     with ui.dialog() as dialog, ui.card().style("min-width: 460px; padding: 1.3rem;"):
-        ui.label("Acknowledge the integrity failure").style(
-            "font-size: 1.1rem; font-weight: 650;"
-        )
+        ui.label("Acknowledge the integrity failure").style("font-size: 1.1rem; font-weight: 650;")
         ui.label(
             "This lifts read-only mode. The failure itself stays in the record and will "
             "appear in the next compliance report, together with your explanation — so "
             "write something the reader will understand months from now."
         ).style("color: var(--matofx-muted-text); font-size: 0.85rem; line-height: 1.4;")
-        note = ui.textarea(
-            label="What happened? (required)",
-            placeholder="e.g. Restored from the 03:00 backup after the disk failure on node 2.",
-        ).props("outlined autogrow").classes("w-full")
+        note = (
+            ui.textarea(
+                label="What happened? (required)",
+                placeholder="e.g. Restored from the 03:00 backup after the disk failure on node 2.",
+            )
+            .props("outlined autogrow")
+            .classes("w-full")
+        )
         message = ui.label("").style("color: #c0392b; font-size: 0.82rem;")
 
         async def submit() -> None:
@@ -1213,6 +1229,8 @@ def _open_acknowledge_dialog() -> None:
             ui.button("Cancel", on_click=dialog.close).props("flat no-caps")
             ui.button("Acknowledge", on_click=submit).props("unelevated no-caps color=negative")
     dialog.open()
+
+
 def _render_breakglass_banner() -> None:
     """Explain a Super User's over-cap admission, once (ADR-0019 §C13).
 
@@ -1246,9 +1264,9 @@ def _render_breakglass_banner() -> None:
             f"because you're a Super User{counts}. This is recorded and will appear "
             "in the next compliance report."
         ).style("line-height: 1.35;")
-        ui.button(
-            "Free a place", on_click=lambda: ui.navigate.to("/admin/sessions")
-        ).props("flat dense no-caps color=warning").style("color: #856404; font-weight: 600;")
+        ui.button("Free a place", on_click=lambda: ui.navigate.to("/admin/sessions")).props(
+            "flat dense no-caps color=warning"
+        ).style("color: #856404; font-weight: 600;")
 
 
 def _render_support_footer() -> None:
@@ -1549,7 +1567,7 @@ def _render_global_search() -> None:
         existing = state.get("timer")
         if existing is not None:
             with contextlib.suppress(Exception):
-                existing.cancel()  # type: ignore[union-attr]
+                cast("ui.timer", existing).cancel()
         state["timer"] = ui.timer(0.3, _run_search, once=True)
 
     query.on_value_change(lambda _e: _debounce())
@@ -1907,7 +1925,7 @@ def _persist_ui_pref(**changes: object) -> None:
         with contextlib.suppress(Exception):
             await client.set_ui_preferences(**changes)  # type: ignore[arg-type]
 
-    asyncio.create_task(_write())
+    spawn(_write())
 
 
 def _install_sidebar_pin_resize(drawer: ui.left_drawer) -> None:
@@ -1992,7 +2010,7 @@ def _install_sidebar_pin_resize(drawer: ui.left_drawer) -> None:
 def _on_sidebar_resized(width: object) -> None:
     """Persist a drag-resized sidebar width (clamped) to the prefs blob."""
     try:
-        value = int(width)  # type: ignore[arg-type]
+        value = int(cast("SupportsInt", width))
     except (TypeError, ValueError):
         return
     store_sidebar_width(value)
@@ -2251,7 +2269,7 @@ def _render_group(
                     "font-size: 0.68rem; font-weight: 700; text-transform: uppercase; "
                     "letter-spacing: 0.08em; color: var(--matofx-body-text);"
                 )
-                ui.html(_nav_icon_html("user_gear", size=15), sanitize=False).classes(
+                ui.html(_nav_icon_html("user_gear", size=15) or "", sanitize=False).classes(
                     "matofx-nav-lbl"
                 ).style("color: var(--matofx-muted-text); margin-left: auto; display: flex;")
     with expansion, ui.column().classes("w-full gap-0"):
@@ -2286,7 +2304,7 @@ def _render_group(
                     # (+SU) tier — replaces the old padlock (home-redesign).
                     tier_key = "shield" if item.super_tier else "user_gear"
                     tier_tip = "Super User only" if item.super_tier else "Admin / Super User only"
-                    ui.html(_nav_icon_html(tier_key, size=14), sanitize=False).classes(
+                    ui.html(_nav_icon_html(tier_key, size=14) or "", sanitize=False).classes(
                         "matofx-nav-lbl"
                     ).style("color: var(--matofx-muted-text); flex: none; display: flex;").tooltip(
                         tier_tip

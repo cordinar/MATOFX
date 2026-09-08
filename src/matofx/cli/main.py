@@ -690,9 +690,7 @@ async def _compliance_report(
     settings = load_settings()
     try:
         issued = _load_issued_identity(settings)
-        period_from = (
-            _dt.datetime.fromisoformat(since.replace("Z", "+00:00")) if since else None
-        )
+        period_from = _dt.datetime.fromisoformat(since.replace("Z", "+00:00")) if since else None
     except (ComplianceError, LicenceError, ValueError) as exc:
         print(f"compliance report: {exc}", file=sys.stderr)
         return 1
@@ -862,8 +860,7 @@ def _compliance_verify(
             return 2
         how = f"signed by {written.ledger_key_id}" if written.is_signed else "UNSIGNED"
         print(
-            f"recorded report #{written.counter} for {written.install_id} "
-            f"in {ledger_path} ({how})"
+            f"recorded report #{written.counter} for {written.install_id} in {ledger_path} ({how})"
         )
     elif append:
         print(
@@ -1093,7 +1090,7 @@ def _rotate_signing_key(*, init: bool, path_arg: str | None) -> int:
     from matofx.audit.keys import AuditKeyError, rotate_signing_key  # noqa: PLC0415
 
     if path_arg is not None:
-        target = _Path(path_arg)
+        target: _Path | None = _Path(path_arg)
     else:
         from matofx.config import load_settings  # noqa: PLC0415
 
@@ -1106,6 +1103,7 @@ def _rotate_signing_key(*, init: bool, path_arg: str | None) -> int:
             )
             return 2
 
+    assert target is not None  # noqa: S101 - the None branch returned above
     try:
         result = rotate_signing_key(target, init=init)
     except AuditKeyError as exc:
@@ -1187,8 +1185,8 @@ def _parse_tool_specs(raw: str) -> list[tuple[str, str]]:
     legitimate workflow-only export.
     """
     out: list[tuple[str, str]] = []
-    for entry in (raw or "").split(","):
-        entry = entry.strip()
+    for raw_entry in (raw or "").split(","):
+        entry = raw_entry.strip()
         if not entry:
             continue
         if ":" not in entry:

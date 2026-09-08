@@ -73,9 +73,7 @@ async def collect_job_facts(
 
 
 async def _tool_name(session: AsyncSession, tool_alias: str) -> str:
-    row = (
-        await session.execute(select(Tool).where(Tool.alias == tool_alias))
-    ).scalar_one_or_none()
+    row = (await session.execute(select(Tool).where(Tool.alias == tool_alias))).scalar_one_or_none()
     return row.name if row is not None else tool_alias
 
 

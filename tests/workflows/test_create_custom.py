@@ -28,8 +28,8 @@ from matofx.workflows.errors import (
     ArchivedToolMemberError,
     DuplicateMemberError,
     InvalidShareRecipientError,
-    ToolNotVisibleToRecipientError,
     TooFewMembersError,
+    ToolNotVisibleToRecipientError,
     TooManyMembersError,
     UnknownToolMemberError,
     WorkflowStateError,
@@ -120,9 +120,7 @@ async def test_create_orders_via_descriptor_chain(
         make_tool_descriptor(alias="tool_c", teams=["World"]),
     ]
     for d in descriptors:
-        await install_released_tool(
-            factory, tool_service, actor_user_id=admin_id, descriptor=d
-        )
+        await install_released_tool(factory, tool_service, actor_user_id=admin_id, descriptor=d)
 
     async with session_scope(factory) as session:
         # Caller picks them in scrambled order — service should fix.
@@ -715,9 +713,7 @@ async def test_user_without_create_permission_rejected(
 
     async with session_scope(factory) as session:
         role_id = (
-            await session.execute(
-                select(Role.id).where(Role.name == "regular_user")
-            )
+            await session.execute(select(Role.id).where(Role.name == "regular_user"))
         ).scalar_one()
         await session.execute(
             sa_delete(RolePermission).where(

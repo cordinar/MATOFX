@@ -60,9 +60,7 @@ def _sync_url(settings: DbSettings) -> str:
         pytest.param("postgres", id="postgres", marks=pytest.mark.postgres),
     ],
 )
-def overlay_db_settings(
-    request: pytest.FixtureRequest, tmp_path: Path
-) -> Iterator[DbSettings]:
+def overlay_db_settings(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[DbSettings]:
     dialect: str = request.param
     if dialect == "sqlite":
         settings = DbSettings.from_url(f"sqlite:///{tmp_path / 'o.db'}", dialect="sqlite")

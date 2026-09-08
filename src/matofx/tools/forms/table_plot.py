@@ -126,9 +126,7 @@ def _cluster_by_magnitude(deps: list[_Dep]) -> list[list[_Dep]]:
     return [sorted(g, key=lambda d: d.index) for g in groups]
 
 
-def plan_table_plots(
-    columns: list[PlotColumn], rows: list[dict[str, Any]]
-) -> list[PlotSpec]:
+def plan_table_plots(columns: list[PlotColumn], rows: list[dict[str, Any]]) -> list[PlotSpec]:
     """Turn a table's columns + rows into an ordered list of chart specs.
 
     Returns an empty list when there is nothing plottable (fewer than two
@@ -226,16 +224,24 @@ def build_figure(spec: PlotSpec) -> go.Figure:
     for s in spec.left:
         fig.add_trace(
             go.Scatter(
-                x=spec.x, y=s.y, mode="lines+markers", name=_legend_name(s, right=False),
-                line={"color": _PALETTE[ci % len(_PALETTE)]}, yaxis="y",
+                x=spec.x,
+                y=s.y,
+                mode="lines+markers",
+                name=_legend_name(s, right=False),
+                line={"color": _PALETTE[ci % len(_PALETTE)]},
+                yaxis="y",
             )
         )
         ci += 1
     for s in spec.right:
         fig.add_trace(
             go.Scatter(
-                x=spec.x, y=s.y, mode="lines+markers", name=_legend_name(s, right=True),
-                line={"color": _PALETTE[ci % len(_PALETTE)]}, yaxis="y2",
+                x=spec.x,
+                y=s.y,
+                mode="lines+markers",
+                name=_legend_name(s, right=True),
+                line={"color": _PALETTE[ci % len(_PALETTE)]},
+                yaxis="y2",
             )
         )
         ci += 1

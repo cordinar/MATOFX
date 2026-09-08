@@ -71,13 +71,16 @@ def _write_licence(path: Path, issuer: Ed25519PrivateKey, *, expires_at: str) ->
     return path
 
 
-def _app_with(settings: Settings, *, factory: Any, audit: Any, licence: Path | None,
-              issuer: Ed25519PrivateKey) -> FastAPI:
+def _app_with(
+    settings: Settings, *, factory: Any, audit: Any, licence: Path | None, issuer: Ed25519PrivateKey
+) -> FastAPI:
     from matofx.api.deps import get_audit, get_factory, get_settings  # noqa: PLC0415
 
-    public = issuer.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
-    ).hex()
+    public = (
+        issuer.public_key()
+        .public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+        .hex()
+    )
     updated = settings.model_copy(
         update={
             "licence": LicenceSettings(file=licence),
@@ -142,9 +145,7 @@ async def test_expired_licence_blocks_writes_but_not_reads(
         assert "read-only" in (mode["banner"] or "")
 
         # Writes are refused with the reason attached.
-        blocked = await client.post(
-            "/api/projects", headers=headers, json={"name": "New project"}
-        )
+        blocked = await client.post("/api/projects", headers=headers, json={"name": "New project"})
         assert blocked.status_code == _UNAVAILABLE
         assert blocked.json()["read_only_reason"] == "licence"
 
@@ -200,9 +201,7 @@ async def test_readonly_allows_the_ways_out(
             assert revoked.status_code == _NO_CONTENT
 
         # Personal display preferences are view state, not governed data.
-        theme = await client.post(
-            "/api/auth/me/theme", headers=headers, json={"theme": "light"}
-        )
+        theme = await client.post("/api/auth/me/theme", headers=headers, json={"theme": "light"})
         assert theme.status_code == _OK
 
         # And signing out is never blocked.
@@ -385,9 +384,7 @@ async def test_only_a_super_user_can_acknowledge(
 
 
 @pytest.mark.asyncio
-async def test_acknowledgement_note_is_required(
-    app: FastAPI, auth_headers: dict[str, str]
-) -> None:
+async def test_acknowledgement_note_is_required(app: FastAPI, auth_headers: dict[str, str]) -> None:
     """A one-word acknowledgement is worthless in a compliance report."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
         response = await client.post(
@@ -490,9 +487,7 @@ async def test_this_installs_own_licence_is_not_refused(
     mine = _licence_for_install(
         tmp_path / "mine.json", issuer, install_id="inst_THISONE", n_slots=50
     )
-    app = _app_with(
-        api_settings, factory=api_factory, audit=api_audit, licence=mine, issuer=issuer
-    )
+    app = _app_with(api_settings, factory=api_factory, audit=api_audit, licence=mine, issuer=issuer)
     app.state.install_id = "inst_THISONE"
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:

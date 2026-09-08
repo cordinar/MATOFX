@@ -121,9 +121,7 @@ def consistency_proof(leaves: Sequence[bytes], m: int) -> list[bytes]:
     return _subproof(leaves, 0, n, m, True)
 
 
-def _subproof(
-    leaves: Sequence[bytes], start: int, end: int, m: int, is_root: bool
-) -> list[bytes]:
+def _subproof(leaves: Sequence[bytes], start: int, end: int, m: int, is_root: bool) -> list[bytes]:
     """RFC 6962 ``SUBPROOF(m, D[start:end], is_root)``."""
     n = end - start
     if m == n:

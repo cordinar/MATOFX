@@ -42,6 +42,7 @@ from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from cryptography.hazmat.primitives import serialization  # noqa: E402
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from matofx.audit import (  # noqa: E402
     RecordInput,
@@ -69,9 +70,8 @@ from matofx.config import (  # noqa: E402
     LicenceSettings,
     Settings,
 )
-from matofx.licence import install_licence, licence_snapshot, resolve_licence  # noqa: E402
 from matofx.db import make_engine, make_session_factory  # noqa: E402
-from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
+from matofx.licence import install_licence, licence_snapshot, resolve_licence  # noqa: E402
 from matofx.users.orm import AuthSession, User  # noqa: E402
 from matofx.users.role_orm import Role  # noqa: E402
 
@@ -156,9 +156,11 @@ def _write_licence(path: Path) -> None:
 
 def _issuer_public_hex() -> str:
     issuer = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(ISSUER_SEED))
-    return issuer.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
-    ).hex()
+    return (
+        issuer.public_key()
+        .public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+        .hex()
+    )
 
 
 async def _seed_records(
@@ -211,9 +213,7 @@ async def _seed_people(session: AsyncSession, count: int) -> None:
 
 def _transcript(title: str, document: dict, ledger_path: Path, public_key: str | None) -> str:
     """Render what ``matofx compliance verify`` prints for a document."""
-    verdict = verify_report(
-        document, ledger=read_ledger(ledger_path), public_key_hex=public_key
-    )
+    verdict = verify_report(document, ledger=read_ledger(ledger_path), public_key_hex=public_key)
     buffer = io.StringIO()
     with redirect_stdout(buffer):
         width = max(len(c.name) for c in verdict.checks)
@@ -295,9 +295,7 @@ async def _build(workdir: Path, db_path: Path) -> None:
         await session.commit()
 
         # --- report 1: baseline, before any licence is installed --------
-        first = await generate_report(
-            session, settings=settings, issued=issued, actor="user:1"
-        )
+        first = await generate_report(session, settings=settings, issued=issued, actor="user:1")
         await session.commit()
         _dump(first.document, OUT / "compliance-report-1.json")
         (OUT / "compliance-report-1.html").write_text(
@@ -333,13 +331,9 @@ async def _build(workdir: Path, db_path: Path) -> None:
         # subsystem, rather than a hand-built snapshot.
         licence_path = OUT / "matofx-licence.json"
         _write_licence(licence_path)
-        licensed = settings.model_copy(
-            update={"licence": LicenceSettings(file=licence_path)}
-        )
+        licensed = settings.model_copy(update={"licence": LicenceSettings(file=licence_path)})
         resolution = resolve_licence(licensed)
-        await install_licence(
-            session, settings=licensed, loaded=resolution.loaded, actor="user:1"
-        )
+        await install_licence(session, settings=licensed, loaded=resolution.loaded, actor="user:1")
         await session.commit()
         licence = licence_snapshot(resolution)
         second = await generate_report(

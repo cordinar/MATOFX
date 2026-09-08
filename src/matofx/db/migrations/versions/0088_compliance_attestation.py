@@ -58,9 +58,7 @@ def upgrade() -> None:
         sa.Column("generated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("period_from", sa.DateTime(timezone=True), nullable=False),
         sa.Column("period_to", sa.DateTime(timezone=True), nullable=False),
-        sa.Column(
-            "head_id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False
-        ),
+        sa.Column("head_id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column("head_hash", sa.String(64), nullable=False),
         sa.Column("chain_ok", sa.Boolean(), nullable=False),
         sa.Column("licence_type", sa.String(16), nullable=True),
@@ -68,9 +66,7 @@ def upgrade() -> None:
         sa.Column("generated_by", sa.String(255), nullable=False),
         sa.Column("document", sa.JSON(), nullable=False),
     )
-    op.create_index(
-        "ix_compliance_report_generated_at", "compliance_report", ["generated_at"]
-    )
+    op.create_index("ix_compliance_report_generated_at", "compliance_report", ["generated_at"])
 
 
 def downgrade() -> None:

@@ -228,9 +228,7 @@ async def test_admin_list_endpoint_returns_every_row(
     )
     wf_id = create.json()["id"]
 
-    admin_list = await client.get(
-        "/api/admin/custom-workflows", headers=auth_headers
-    )
+    admin_list = await client.get("/api/admin/custom-workflows", headers=auth_headers)
     assert admin_list.status_code == 200, admin_list.text
     assert wf_id in [row["id"] for row in admin_list.json()]
 

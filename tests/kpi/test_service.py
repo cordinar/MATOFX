@@ -9,7 +9,6 @@ KPI-specific edits — see the runner suite's smoke test below).
 
 from __future__ import annotations
 
-import datetime as _dt
 from decimal import Decimal
 
 import pytest
@@ -24,7 +23,6 @@ from matofx.kpi.service import _classify_value
 from matofx.tools.exec.contracts import OutputsDocument, OutputValue
 
 from .conftest import Basics
-
 
 # ---- _classify_value -------------------------------------------------
 
@@ -157,8 +155,7 @@ def _outputs(*pairs: tuple[str, object]) -> OutputsDocument:
     return OutputsDocument(
         tool_alias="heat_transfer",
         outputs=[
-            OutputValue(name=name, label=name, type="number", value=value)
-            for name, value in pairs
+            OutputValue(name=name, label=name, type="number", value=value) for name, value in pairs
         ],
     )
 
@@ -232,9 +229,7 @@ async def test_extract_audit_recorded(kpi_engine: AsyncEngine, basics: Basics) -
     async with session_scope(factory) as session:
         events = list(
             (
-                await session.execute(
-                    sa.select(AuditLog).where(AuditLog.action == "kpi.extracted")
-                )
+                await session.execute(sa.select(AuditLog).where(AuditLog.action == "kpi.extracted"))
             ).scalars()
         )
         assert len(events) == 1
@@ -250,9 +245,7 @@ async def test_extract_audit_recorded(kpi_engine: AsyncEngine, basics: Basics) -
 
 
 @pytest.mark.asyncio
-async def test_missing_kpi_value_writes_null(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_missing_kpi_value_writes_null(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """An ``outputs.json`` missing a declared KPI lands as ``value_numeric = NULL``."""
     from matofx.hierarchy.orm import Job  # noqa: PLC0415
 
@@ -288,9 +281,7 @@ async def test_missing_kpi_value_writes_null(
 
 
 @pytest.mark.asyncio
-async def test_nan_kpi_value_writes_null(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_nan_kpi_value_writes_null(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """A NaN runtime value lands as ``value_numeric = NULL``."""
     from matofx.hierarchy.orm import Job  # noqa: PLC0415
 
@@ -324,9 +315,7 @@ async def test_nan_kpi_value_writes_null(
 
 
 @pytest.mark.asyncio
-async def test_no_outputs_doc_writes_no_rows(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_no_outputs_doc_writes_no_rows(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """The failure-path case — ``outputs_doc=None`` writes nothing."""
     from matofx.hierarchy.orm import Job  # noqa: PLC0415
 
@@ -353,9 +342,7 @@ async def test_no_outputs_doc_writes_no_rows(
 
 
 @pytest.mark.asyncio
-async def test_no_kpis_declared_writes_no_rows(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_no_kpis_declared_writes_no_rows(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """A tool with no ``kpi = true`` outputs doesn't touch the warehouse."""
     from matofx.hierarchy.orm import Job  # noqa: PLC0415
 
@@ -394,9 +381,7 @@ async def test_no_kpis_declared_writes_no_rows(
 
 
 @pytest.mark.asyncio
-async def test_re_run_replaces_existing_row(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_re_run_replaces_existing_row(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """A second extract for the same (job, kpi) updates the existing row, no duplicates."""
     from matofx.hierarchy.orm import Job  # noqa: PLC0415
 
@@ -444,9 +429,7 @@ async def test_re_run_replaces_existing_row(
 
 
 @pytest.mark.asyncio
-async def test_never_raises_on_bad_descriptor(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_never_raises_on_bad_descriptor(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """A descriptor snapshot that isn't a dict short-circuits cleanly."""
     from matofx.hierarchy.orm import Job  # noqa: PLC0415
     from matofx.tools.orm import ToolVersion  # noqa: PLC0415

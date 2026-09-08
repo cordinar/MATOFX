@@ -22,7 +22,6 @@ import asyncio
 import sys
 from pathlib import Path
 
-
 ACTOR_USER_ID = 1
 
 
@@ -32,7 +31,7 @@ ACTOR_USER_ID = 1
 # is preserved on the destination so the served mime type is correct.
 SOURCES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("header_icon_path", ("header_icon.png", "header_icon.svg")),
-    ("favicon_path",     ("favicon.ico", "favicon.png")),
+    ("favicon_path", ("favicon.ico", "favicon.png")),
 )
 
 
@@ -72,8 +71,7 @@ async def main() -> int:
     branding_dir = _bundle_root() / "branding"
     if not branding_dir.is_dir():
         print(
-            f"No branding/ directory in bundle ({branding_dir}); "
-            "nothing to seed.",
+            f"No branding/ directory in bundle ({branding_dir}); nothing to seed.",
         )
         return 0
 
@@ -114,8 +112,7 @@ async def main() -> int:
                 mime = MIME_BY_SUFFIX.get(source.suffix.lower())
                 if mime is None:
                     skipped.append(
-                        f"{key}: unsupported source suffix {source.suffix!r} "
-                        f"on {source.name}"
+                        f"{key}: unsupported source suffix {source.suffix!r} on {source.name}"
                     )
                     continue
 

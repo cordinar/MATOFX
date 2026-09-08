@@ -171,9 +171,7 @@ def _coverage_report() -> dict:
     return {
         "schema": 1,
         "verdict": "good",
-        "envelope": [
-            {"name": "x", "kind": "continuous", "scale": "linear", "lo": 1.0, "hi": 6.0}
-        ],
+        "envelope": [{"name": "x", "kind": "continuous", "scale": "linear", "lo": 1.0, "hi": 6.0}],
     }
 
 

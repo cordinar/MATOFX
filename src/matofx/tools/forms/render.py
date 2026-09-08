@@ -1479,8 +1479,9 @@ def _render_table_field(  # noqa: PLR0915 — composite grid widget; one builder
         # essential: a responsive Plotly chart sizes itself to its container
         # while an auto-sized dialog sizes itself to its content, so without a
         # fixed width the two chase each other and the modal grows on open.
-        with ui.dialog() as dialog, ui.card().style(
-            "width: 840px; max-width: 92vw; max-height: 88vh; overflow-y: auto;"
+        with (
+            ui.dialog() as dialog,
+            ui.card().style("width: 840px; max-width: 92vw; max-height: 88vh; overflow-y: auto;"),
         ):
             with ui.row().classes("w-full items-center justify-between no-wrap"):
                 ui.label(f"{spec.label} — plot").style("font-weight: 600; font-size: 1.05rem;")
@@ -1660,9 +1661,7 @@ def _open_other_output_dialog(  # noqa: PLR0915 — one cascading-picker builder
             .classes("w-full")
         )
         job_select = ui.select({}, label="Job").props("dense outlined").classes("w-full")
-        output_select = (
-            ui.select({}, label="Output file").props("dense outlined").classes("w-full")
-        )
+        output_select = ui.select({}, label="Output file").props("dense outlined").classes("w-full")
 
         def _rebuild_outputs(jid: Any) -> None:
             try:

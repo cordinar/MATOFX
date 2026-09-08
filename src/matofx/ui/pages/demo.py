@@ -44,6 +44,9 @@ from matofx.ui.pages._demo_assets import (
     resolve_demo_root,
 )
 
+_KB_PER_MB = 1024
+"""Above this many KB a file size reads in MB."""
+
 # Note: the ``/_demo-asset/...`` static mount is registered eagerly
 # from ``matofx.ui.app.mount_ui`` — we tried wiring it here via
 # ``nicegui.app.on_startup`` first, but the hook didn't fire under
@@ -395,10 +398,7 @@ def _render_pdf_file(*, content: bytes, filename: str) -> None:
 def _filename_label(filename: str, size_bytes: int, *, extra: str = "") -> None:
     """Caption beneath the viewer — filename + size, optional extra note."""
     size_kb = size_bytes / 1024
-    if size_kb >= 1024:
-        size_text = f"{size_kb / 1024:.1f} MB"
-    else:
-        size_text = f"{size_kb:.1f} KB"
+    size_text = f"{size_kb / 1024:.1f} MB" if size_kb >= _KB_PER_MB else f"{size_kb:.1f} KB"
     text = f"{filename} ({size_text})"
     if extra:
         text = f"{text} — {extra}"

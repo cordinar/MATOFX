@@ -101,9 +101,7 @@ async def admin_audit_page() -> None:
                 .style("min-width: 150px;")
             )
             action_sel = (
-                ui.select(
-                    actions_opts, value=[], label="Action", multiple=True, clearable=True
-                )
+                ui.select(actions_opts, value=[], label="Action", multiple=True, clearable=True)
                 .props("dense outlined use-chips")
                 .style("min-width: 240px;")
             )

@@ -134,9 +134,7 @@ def _build_getting_started_html() -> str:
     topics = public.topics if public is not None else ()
     chapters = "\n".join(
         '<section class="chapter">'
-        + markdown2.markdown(
-            topic.body, extras=["tables", "fenced-code-blocks", "cuddled-lists"]
-        )
+        + markdown2.markdown(topic.body, extras=["tables", "fenced-code-blocks", "cuddled-lists"])
         + "</section>"
         for topic in topics
     )
@@ -194,9 +192,9 @@ def _render_doc_body(
                     "color: var(--matofx-muted-text); font-size: 0.9rem; margin-top: 0.15rem;"
                 )
             if download is not None:
-                ui.button(
-                    "Download guide", icon="download", on_click=download
-                ).props("outline dense color=primary").style("flex: none; margin-top: 2px;")
+                ui.button("Download guide", icon="download", on_click=download).props(
+                    "outline dense color=primary"
+                ).style("flex: none; margin-top: 2px;")
         with ui.row().classes("w-full items-start gap-4 no-wrap"):
             with ui.column().classes("gap-2").style("flex: 0 0 300px; min-width: 0;"):
                 _render_left_pane(sets, selected, base_path=base_path, searchable=searchable)
@@ -231,9 +229,7 @@ def _render_left_pane(
                 _render_toc(sets, selected, base_path=base_path)
 
 
-def _render_search(
-    sets: tuple[DocSet, ...], selected: DocTopic | None, *, base_path: str
-) -> None:
+def _render_search(sets: tuple[DocSet, ...], selected: DocTopic | None, *, base_path: str) -> None:
     """Search box that swaps the table of contents for a results list.
 
     Filtering is server-side over the in-memory tree (dozens of chapters,
@@ -242,9 +238,7 @@ def _render_search(
     otherwise see.
     """
     search = (
-        ui.input(placeholder="Search the documentation…")
-        .props("dense clearable")
-        .classes("w-full")
+        ui.input(placeholder="Search the documentation…").props("dense clearable").classes("w-full")
     )
     results = ui.column().classes("w-full gap-0")
     results.set_visibility(False)
@@ -286,9 +280,7 @@ def _render_search_result(topic: DocTopic, *, base_path: str) -> None:
     with row:
         ui.label(topic.title).style("font-size: 0.9rem; font-weight: 600;")
         if topic.summary:
-            ui.label(topic.summary).style(
-                "color: var(--matofx-muted-text); font-size: 0.78rem;"
-            )
+            ui.label(topic.summary).style("color: var(--matofx-muted-text); font-size: 0.78rem;")
 
 
 def _render_toc(sets: tuple[DocSet, ...], selected: DocTopic | None, *, base_path: str) -> None:

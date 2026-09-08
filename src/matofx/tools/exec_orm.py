@@ -262,9 +262,7 @@ class RuntimeSetting(_Base):
 
     key: Mapped[str] = mapped_column(sa.String(64), primary_key=True)
     value_json: Mapped[str] = mapped_column(sa.Text, nullable=False)
-    delegated_to_role: Mapped[str | None] = mapped_column(
-        sa.String(32), nullable=True
-    )
+    delegated_to_role: Mapped[str | None] = mapped_column(sa.String(32), nullable=True)
     """Per-row delegation grant: when set, callers of this role bypass the
     catalog's ``requires_role`` gate for value mutations only. Granting
     or clearing the delegation itself always remains a super-user

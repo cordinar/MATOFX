@@ -177,9 +177,7 @@ async def get_job_report(
             db, settings=settings, audit=audit, actor=f"user:{current_user.id}"
         )
         cached = await summary_service.build(db, facts, enrichment=enrichment)
-        summary = cached.render_for(
-            prefer_enriched=bool(current_user.summary_enrichment_enabled)
-        )
+        summary = cached.render_for(prefer_enriched=bool(current_user.summary_enrichment_enabled))
     except Exception:  # summary is decorative; never fail the report.
         summary = None
 
@@ -411,17 +409,11 @@ async def _load_kpi_cards(
     if not catalog:
         return []
     rows = list(
-        (
-            await session.execute(
-                select(JobKpiValue).where(JobKpiValue.job_id == job_id)
-            )
-        ).scalars()
+        (await session.execute(select(JobKpiValue).where(JobKpiValue.job_id == job_id))).scalars()
     )
     values: dict[str, Any] = {}
     for r in rows:
-        values[r.kpi_name] = (
-            float(r.value_numeric) if r.value_numeric is not None else None
-        )
+        values[r.kpi_name] = float(r.value_numeric) if r.value_numeric is not None else None
     cards: list[dict[str, Any]] = []
     for entry in catalog:
         cards.append(

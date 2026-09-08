@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import datetime as _dt
 from decimal import Decimal
-from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from matofx.audit import AuditWriter
 from matofx.db import make_session_factory, session_scope
 from matofx.kpi import (
     JobKpiValue,
@@ -19,7 +17,6 @@ from matofx.kpi import (
 from matofx.kpi.service import _vv_status_passes
 
 from .conftest import Basics
-
 
 # ---- _vv_status_passes (pure logic) ----------------------------------
 

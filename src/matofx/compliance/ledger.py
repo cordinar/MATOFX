@@ -322,9 +322,9 @@ def write_head_marker(
         entries=len(entries),
         last_entry_hash=entries[-1].entry_hash() if entries else LEDGER_GENESIS_HASH,
         ledger_key_id=signer.key_id if signer else None,
-        updated_at=_dt.datetime.now(tz=_dt.UTC).isoformat(timespec="seconds").replace(
-            "+00:00", "Z"
-        ),
+        updated_at=_dt.datetime.now(tz=_dt.UTC)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z"),
     )
     if signer is not None:
         marker = replace(marker, signature=signer.sign(marker.signing_payload()).hex())

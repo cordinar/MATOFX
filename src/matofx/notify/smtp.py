@@ -26,7 +26,7 @@ import time
 from dataclasses import dataclass
 from email.message import EmailMessage
 from types import TracebackType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import aiosmtplib
 
@@ -160,10 +160,15 @@ def assemble_message(
 
     if html_body is not None:
         msg.add_alternative(html_body, subtype="html")
-        html_part = msg.get_payload()[-1]
+        # ``get_payload()`` is typed as str | Message | Any because a
+        # non-multipart message returns its body; this one is multipart by
+        # construction (``add_alternative`` above), so the payload is the
+        # parts list and each part is an EmailMessage.
+        parts = cast("list[EmailMessage]", msg.get_payload())
+        html_part = parts[-1]
         for img in inline_images or []:
             html_part.add_related(img.data, maintype=img.maintype, subtype=img.subtype)
-            related_part = html_part.get_payload()[-1]
+            related_part = cast("list[EmailMessage]", html_part.get_payload())[-1]
             related_part["Content-ID"] = f"<{img.cid}>"
 
     for att in attachments or []:

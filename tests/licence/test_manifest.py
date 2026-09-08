@@ -157,9 +157,7 @@ def test_unknown_fields_are_preserved_not_dropped() -> None:
 def test_machine_bound_licence_for_another_host_is_refused(
     tmp_path: Path, issuer: Ed25519PrivateKey
 ) -> None:
-    path = write_licence(
-        tmp_path / "l.json", issuer_private=issuer, machine_binding="ab" * 32
-    )
+    path = write_licence(tmp_path / "l.json", issuer_private=issuer, machine_binding="ab" * 32)
     with pytest.raises(LicenceInvalidError, match="issued for a different machine"):
         load_licence_file(path, extra_issuer_keys=_keys(issuer))
 
@@ -168,16 +166,14 @@ def test_machine_binding_check_can_be_skipped_for_inspection(
     tmp_path: Path, issuer: Ed25519PrivateKey
 ) -> None:
     path = write_licence(tmp_path / "l.json", issuer_private=issuer, machine_binding="ab" * 32)
-    loaded = load_licence_file(
-        path, extra_issuer_keys=_keys(issuer), check_machine_binding=False
-    )
+    loaded = load_licence_file(path, extra_issuer_keys=_keys(issuer), check_machine_binding=False)
     assert loaded.manifest.machine_binding == "ab" * 32
 
 
 def test_unreadable_machine_id_is_treated_as_a_mismatch(
     tmp_path: Path, issuer: Ed25519PrivateKey, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """"We can't tell which host this is" must not satisfy "this is host X"."""
+    """ "We can't tell which host this is" must not satisfy "this is host X"."""
     monkeypatch.setattr(loader, "machine_fingerprint", lambda: None)
     path = write_licence(tmp_path / "l.json", issuer_private=issuer, machine_binding="ab" * 32)
     with pytest.raises(LicenceInvalidError, match="no readable machine id"):
@@ -266,9 +262,7 @@ def test_a_release_build_demands_a_signature_whatever_the_config_says(
     """
     from matofx.licence import loader as loader_module  # noqa: PLC0415
 
-    monkeypatch.setattr(
-        loader_module, "TRUSTED_ISSUER_KEYS", {"funis-2026-01": "ab" * 32}
-    )
+    monkeypatch.setattr(loader_module, "TRUSTED_ISSUER_KEYS", {"funis-2026-01": "ab" * 32})
     for environment in ("dev", "test", "staging", "prod"):
         assert loader_module.issuer_required(environment) is True, (
             f"a release build must enforce the issuer signature in {environment!r}"
@@ -309,13 +303,9 @@ def test_an_unsigned_licence_is_refused_by_a_release_build(
     forged = tmp_path / "forged.json"
     forged.write_text(_json.dumps(document, indent=2), encoding="utf-8")
 
-    monkeypatch.setattr(
-        loader_module, "TRUSTED_ISSUER_KEYS", {"funis-2026-01": "ab" * 32}
-    )
+    monkeypatch.setattr(loader_module, "TRUSTED_ISSUER_KEYS", {"funis-2026-01": "ab" * 32})
     with pytest.raises(LicenceInvalidError, match="no issuer signature"):
-        loader_module.load_licence_file(
-            forged, require_issuer=loader_module.issuer_required("dev")
-        )
+        loader_module.load_licence_file(forged, require_issuer=loader_module.issuer_required("dev"))
 
 
 # ----- the compliance-reporting cadence -------------------------------

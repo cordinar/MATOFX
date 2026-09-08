@@ -133,8 +133,6 @@ class IntegrityState(_Base):
     detail: Mapped[str | None] = mapped_column(sa.String(1024), nullable=True)
     # Set by a Super User to lift read-only. Cleared by any fresh
     # failure — acknowledging one problem must not absolve the next.
-    acknowledged_at: Mapped[Any | None] = mapped_column(
-        sa.DateTime(timezone=True), nullable=True
-    )
+    acknowledged_at: Mapped[Any | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
     acknowledged_by: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
     acknowledgement_note: Mapped[str | None] = mapped_column(sa.String(1024), nullable=True)

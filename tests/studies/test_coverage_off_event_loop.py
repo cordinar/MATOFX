@@ -110,9 +110,7 @@ def helper(t):
     ],
     ids=["inline", "nested-async", "by-name", "closure", "sync-helper"],
 )
-def test_the_detector_catches_a_regression(
-    tmp_path: Path, snippet: str, flagged: bool
-) -> None:
+def test_the_detector_catches_a_regression(tmp_path: Path, snippet: str, flagged: bool) -> None:
     """A structural test is worthless if it cannot fail.
 
     The first two cases are the regression; the other three are the legal

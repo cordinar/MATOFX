@@ -83,8 +83,10 @@ async def admin_send_notifications_page() -> None:
 
     client = ApiClient(get_app(), token=current_token())
 
-    with ui.column().classes("w-full max-w-4xl mx-auto gap-4").style(
-        "padding: 0.85rem 1.5rem 1.5rem;"
+    with (
+        ui.column()
+        .classes("w-full max-w-4xl mx-auto gap-4")
+        .style("padding: 0.85rem 1.5rem 1.5rem;")
     ):
         ui.label("Send Notifications").style(
             "font-size: 1.6rem; font-weight: 650; line-height: 1.1; margin-top: -2px;"
@@ -163,9 +165,9 @@ def _render_compose_section(client: ApiClient, audience_options: dict[str, Any])
             ui.label("Recipients").style(
                 "font-weight: 600; font-size: 0.85rem; color: var(--matofx-label-text);"
             )
-            ui.label(
-                "'Currently enabled' skips anyone whose access has been turned off."
-            ).style("color: var(--matofx-muted-text); font-size: 0.8rem;")
+            ui.label("'Currently enabled' skips anyone whose access has been turned off.").style(
+                "color: var(--matofx-muted-text); font-size: 0.8rem;"
+            )
             ui.radio(
                 options=_SCOPE_OPTIONS,
                 value=state["scope"],
@@ -437,9 +439,9 @@ async def _do_send(
         failed = list(summary.get("failed", []))
         msg = f"Sent {sent} of {attempted}."
         if attempted == 0:
-            ui.label(
-                msg + " The chosen audience has no email recipients."
-            ).style("font-weight: 600; color: var(--matofx-muted-text);")
+            ui.label(msg + " The chosen audience has no email recipients.").style(
+                "font-weight: 600; color: var(--matofx-muted-text);"
+            )
             ui.notify("No recipients matched the chosen audience.", type="warning")
         elif failed:
             ui.label(msg + f" {len(failed)} failed:").style(
@@ -478,9 +480,9 @@ async def _render_template_section(client: ApiClient, template: dict[str, Any]) 
         ui.notify("Saved.", type="positive")
 
     with ui.column().classes("w-full gap-4"):
-        ui.label(
-            "These blocks wrap every notification you send. Set them once and forget."
-        ).style("color: var(--matofx-muted-text); font-size: 0.9rem;")
+        ui.label("These blocks wrap every notification you send. Set them once and forget.").style(
+            "color: var(--matofx-muted-text); font-size: 0.9rem;"
+        )
 
         await _render_template_block(
             client,

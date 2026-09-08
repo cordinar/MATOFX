@@ -97,9 +97,7 @@ async def fal_usage(
     """
     enabled = int(
         (
-            await session.execute(
-                sa.select(sa.func.count(User.id)).where(User.is_active.is_(True))
-            )
+            await session.execute(sa.select(sa.func.count(User.id)).where(User.is_active.is_(True)))
         ).scalar_one()
     )
     registered = int((await session.execute(sa.select(sa.func.count(User.id)))).scalar_one())

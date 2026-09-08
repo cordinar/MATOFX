@@ -47,9 +47,7 @@ async def _make_regular_user(
 
 
 async def _login(client: httpx.AsyncClient, username: str, password: str) -> dict[str, str]:
-    r = await client.post(
-        "/api/auth/login", json={"username": username, "password": password}
-    )
+    r = await client.post("/api/auth/login", json={"username": username, "password": password})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
@@ -79,9 +77,7 @@ def _enable_email(app: FastAPI, api_settings: Settings, tmp_path: Path) -> None:
 async def test_template_text_roundtrip(
     client: httpx.AsyncClient, auth_headers: dict[str, str]
 ) -> None:
-    get0 = await client.get(
-        "/api/admin/notifications/template", headers=auth_headers
-    )
+    get0 = await client.get("/api/admin/notifications/template", headers=auth_headers)
     assert get0.status_code == 200, get0.text
     assert get0.json() == {
         "header_text": "",
@@ -172,9 +168,7 @@ async def test_broadcast_group_audience_requires_selection(
 async def test_audience_options_lists_groups(
     client: httpx.AsyncClient, auth_headers: dict[str, str]
 ) -> None:
-    r = await client.get(
-        "/api/admin/notifications/audience-options", headers=auth_headers
-    )
+    r = await client.get("/api/admin/notifications/audience-options", headers=auth_headers)
     assert r.status_code == 200, r.text
     body = r.json()
     assert {"teams", "roles", "curators"} <= set(body)
@@ -215,9 +209,7 @@ async def test_audience_options_require_notifications_send(
 ) -> None:
     username, pw = await _make_regular_user(api_factory, api_settings, api_audit)
     headers = await _login(client, username, pw)
-    r = await client.get(
-        "/api/admin/notifications/audience-options", headers=headers
-    )
+    r = await client.get("/api/admin/notifications/audience-options", headers=headers)
     assert r.status_code == 403, r.text
 
 
@@ -258,9 +250,7 @@ async def test_template_image_upload_and_clear(
     assert up.status_code == 200, up.text
     assert up.json()["header_image"] is True
 
-    img = await client.get(
-        "/api/admin/notifications/template/header/image", headers=auth_headers
-    )
+    img = await client.get("/api/admin/notifications/template/header/image", headers=auth_headers)
     assert img.status_code == 200
     assert img.content == _PNG_1PX
 

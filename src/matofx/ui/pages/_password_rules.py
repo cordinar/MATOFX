@@ -37,6 +37,24 @@ class _Rule:
     predicate: Callable[[str], bool]
 
 
+def _at_least(n: int) -> Callable[[str], bool]:
+    """A predicate asserting the password is at least ``n`` characters."""
+
+    def check(pw: str) -> bool:
+        return len(pw) >= n
+
+    return check
+
+
+def _contains_any(allowed: set[str]) -> Callable[[str], bool]:
+    """A predicate asserting the password contains one of ``allowed``."""
+
+    def check(pw: str) -> bool:
+        return any(c in allowed for c in pw)
+
+    return check
+
+
 def _build_rules(snapshot: dict[str, Any]) -> list[_Rule]:
     """Build the active rule list from a General Settings snapshot.
 
@@ -56,7 +74,7 @@ def _build_rules(snapshot: dict[str, Any]) -> list[_Rule]:
     rules.append(
         _Rule(
             label_text=f"At least {min_len} characters",
-            predicate=lambda pw, n=min_len: len(pw) >= n,
+            predicate=_at_least(min_len),
         )
     )
 
@@ -88,7 +106,7 @@ def _build_rules(snapshot: dict[str, Any]) -> list[_Rule]:
         rules.append(
             _Rule(
                 label_text=f"Contains an allowed symbol ({allowed_symbols})",
-                predicate=lambda pw, allowed=allowed_set: any(c in allowed for c in pw),
+                predicate=_contains_any(allowed_set),
             )
         )
 

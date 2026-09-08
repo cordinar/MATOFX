@@ -371,14 +371,14 @@ async def _render_create_form(
             "gbm": "Gradient boosting (non-smooth)",
         }
         with ui.row().classes("w-full gap-3 items-start"):
-            scalar_sel = ui.select(
-                {}, label="Scalar responses to learn", multiple=True
-            ).classes("flex-1 min-w-0")
+            scalar_sel = ui.select({}, label="Scalar responses to learn", multiple=True).classes(
+                "flex-1 min-w-0"
+            )
             field_col = ui.column().classes("flex-1 min-w-0 gap-0")
             with field_col:
-                field_sel = ui.select(
-                    {}, label="Field responses to learn", multiple=True
-                ).classes("w-full")
+                field_sel = ui.select({}, label="Field responses to learn", multiple=True).classes(
+                    "w-full"
+                )
         with ui.row().classes("w-full gap-3 items-start"):
             method_sel = ui.select(
                 scalar_methods, value=["gp"], multiple=True, label="Methods to try (scalar)"
@@ -418,7 +418,9 @@ async def _render_create_form(
             ).style("color: var(--matofx-muted-text); font-size: 0.82rem;")
             filter_container = ui.column().classes("w-full gap-2")
             ui.button(
-                "Add condition", icon="add", on_click=lambda: _add_filter_row()  # noqa: PLW0108
+                "Add condition",
+                icon="add",
+                on_click=lambda: _add_filter_row(),  # noqa: PLW0108
             ).props("flat dense color=primary")
 
         def _rebuild_filter_rows() -> None:
@@ -433,12 +435,16 @@ async def _render_create_form(
                             with_input=True,
                         ).classes("flex-1 min-w-0")
                         sel.on_value_change(lambda e, r=row: r.update(output=e.value))
-                        mn = ui.number(value=row.get("min"), label="Min").props("dense").classes(
-                            "w-32"
+                        mn = (
+                            ui.number(value=row.get("min"), label="Min")
+                            .props("dense")
+                            .classes("w-32")
                         )
                         mn.on_value_change(lambda e, r=row: r.update(min=e.value))
-                        mx = ui.number(value=row.get("max"), label="Max").props("dense").classes(
-                            "w-32"
+                        mx = (
+                            ui.number(value=row.get("max"), label="Max")
+                            .props("dense")
+                            .classes("w-32")
                         )
                         mx.on_value_change(lambda e, r=row: r.update(max=e.value))
                         ui.button(
@@ -457,14 +463,14 @@ async def _render_create_form(
             output_filter_rows[:] = [r for r in output_filter_rows if r.get("id") != rid]
             _rebuild_filter_rows()
 
-        def _collect_output_filter() -> dict[str, dict[str, float]]:
-            out: dict[str, dict[str, float]] = {}
+        def _collect_output_filter() -> dict[str, dict[str, float | None]]:
+            out: dict[str, dict[str, float | None]] = {}
             for r in output_filter_rows:
                 name = r.get("output")
                 lo, hi = r.get("min"), r.get("max")
                 if not name or (lo is None and hi is None):
                     continue
-                bound: dict[str, float] = {}
+                bound: dict[str, float | None] = {}
                 if lo is not None:
                     bound["min"] = float(lo)
                 if hi is not None:
@@ -667,9 +673,7 @@ async def _render_create_form(
             if model is None:
                 return
             note = _excluded_note(model.get("excluded"))
-            ui.notify(
-                "Surrogate fitted." + (f" {note}" if note else ""), type="positive"
-            )
+            ui.notify("Surrogate fitted." + (f" {note}" if note else ""), type="positive")
             ui.navigate.to(f"/models/{int(model['id'])}")
 
         async def _compare() -> None:
@@ -1084,9 +1088,7 @@ def _render_field_section(
     from matofx.ui._field_surrogate_viewer import render_field_viewer  # noqa: PLC0415
 
     field_responses = [
-        r
-        for r in (version.get("responses") or [])
-        if r.get("kind") == "field" and r.get("name")
+        r for r in (version.get("responses") or []) if r.get("kind") == "field" and r.get("name")
     ]
     if not field_responses:  # defensive — a field/combined version always has one
         return
@@ -1302,9 +1304,7 @@ def _render_field_comparison(data: dict[str, Any], resp_display: dict[str, str])
             {"name": "mean", "label": "Mean Field Q²", "field": "mean", "align": "right"}
         )
     for r in field_responses:
-        columns.append(
-            {"name": r, "label": resp_display.get(r, r), "field": r, "align": "right"}
-        )
+        columns.append({"name": r, "label": resp_display.get(r, r), "field": r, "align": "right"})
     rows: list[dict[str, Any]] = []
     for m in fitted:
         star = "★ " if m["method"] == best_field else ""
@@ -1336,12 +1336,18 @@ def _render_field_comparison(data: dict[str, Any], resp_display: dict[str, str])
             series = [
                 (
                     _FIELD_METHOD_LABELS.get(m["method"], m["method"]),
-                    [float(v) for v in ((m.get("responses") or {}).get(r) or {}).get(
-                        "cv_field_actual", []
-                    )],
-                    [float(v) for v in ((m.get("responses") or {}).get(r) or {}).get(
-                        "cv_field_predicted", []
-                    )],
+                    [
+                        float(v)
+                        for v in ((m.get("responses") or {}).get(r) or {}).get(
+                            "cv_field_actual", []
+                        )
+                    ],
+                    [
+                        float(v)
+                        for v in ((m.get("responses") or {}).get(r) or {}).get(
+                            "cv_field_predicted", []
+                        )
+                    ],
                 )
                 for m in fitted
                 if ((m.get("responses") or {}).get(r) or {}).get("cv_field_actual")
@@ -1433,18 +1439,16 @@ def _render_comparison(
                     for m in field_fitted
                 }
                 fvalue = best_field if best_field in fopts else next(iter(fopts))
-                keep_field_sel = ui.select(
-                    fopts, value=fvalue, label="Keep field method"
-                ).classes("w-64")
+                keep_field_sel = ui.select(fopts, value=fvalue, label="Keep field method").classes(
+                    "w-64"
+                )
 
             async def _keep() -> None:
                 keep_btn.props("loading")
                 keep_btn.disable()
                 try:
                     scalar_method = str(keep_sel.value) if keep_sel is not None else "gp"
-                    field_method = (
-                        str(keep_field_sel.value) if keep_field_sel is not None else None
-                    )
+                    field_method = str(keep_field_sel.value) if keep_field_sel is not None else None
                     await on_create(scalar_method, field_method)
                 finally:
                     with contextlib.suppress(RuntimeError):
@@ -1616,6 +1620,7 @@ def _render_model_actions(client: ApiClient, model: dict[str, Any], refresh: Any
         ui.button("Export as tool", on_click=lambda: _export_dialog(client, mid, refresh)).props(
             "outline"
         )
+
         # Scope change to/from global is governed elsewhere; offer the
         # ungated tier moves (personal ⇄ project) here.
         # `async` handler, not a sync lambda returning a coroutine: the dialog
@@ -1718,8 +1723,7 @@ async def _scope_dialog(client: ApiClient, model: dict[str, Any], refresh: Any) 
     project_opts = {
         int(p["id"]): str(p.get("name") or p["id"])
         for p in projects
-        if me is not None
-        and me in {p.get("creator_user_id"), p.get("owner_user_id")}
+        if me is not None and me in {p.get("creator_user_id"), p.get("owner_user_id")}
     }
     with ui.dialog() as dialog, section_card("swap_horiz", "Change scope"):
         opts = {"personal": "Personal", "project": "Project"}

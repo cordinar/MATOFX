@@ -415,7 +415,7 @@ async def test_the_plan_prices_several_batch_sizes(
     auth_headers: dict[str, str],
     seeded: dict[str, Any],
 ) -> None:
-    """"How many runs do I need?" is the question -- not one to ask the user.
+    """ "How many runs do I need?" is the question -- not one to ask the user.
 
     The panel used to offer a spinner labelled "How many runs", which asks the
     user for the very thing they opened the panel to find out. The plan prices
@@ -512,9 +512,7 @@ async def test_the_report_carries_a_label_for_every_axis(
     cohort_id = await _cohort_with_runs(client, auth_headers, api_factory, seeded, _clustered())
 
     body = (
-        await client.post(
-            f"/api/cohorts/{cohort_id}/coverage", headers=auth_headers, json={}
-        )
+        await client.post(f"/api/cohorts/{cohort_id}/coverage", headers=auth_headers, json={})
     ).json()
 
     assert body["envelope"]
@@ -582,9 +580,7 @@ async def test_the_batch_becomes_a_running_study(
     fixture's tool needs none, so the points fan out and queue.
     """
     _enable(app, api_settings, Feature.SURROGATE_FAMILY, Feature.DESIGN_SPACE_COVERAGE)
-    cohort_id, project_id = await _heat_sink_cohort(
-        client, auth_headers, api_factory, seeded
-    )
+    cohort_id, project_id = await _heat_sink_cohort(client, auth_headers, api_factory, seeded)
 
     resp = await client.post(
         f"/api/cohorts/{cohort_id}/coverage/study",
@@ -600,10 +596,14 @@ async def test_the_batch_becomes_a_running_study(
 
     async with session_scope(api_factory) as session:
         children = (
-            await session.execute(
-                select(Job.state).where(Job.parametric_study_id == int(study["id"]))
+            (
+                await session.execute(
+                    select(Job.state).where(Job.parametric_study_id == int(study["id"]))
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert len(children) == 4, "no child runs were created"
     assert set(children) == {"queued"}, f"children were not queued: {set(children)}"
 
@@ -618,9 +618,7 @@ async def test_the_commissioned_study_is_linked_to_the_cohort(
 ) -> None:
     """Running them is only half of it -- they have to come back (§11.5)."""
     _enable(app, api_settings, Feature.SURROGATE_FAMILY, Feature.DESIGN_SPACE_COVERAGE)
-    cohort_id, project_id = await _heat_sink_cohort(
-        client, auth_headers, api_factory, seeded
-    )
+    cohort_id, project_id = await _heat_sink_cohort(client, auth_headers, api_factory, seeded)
 
     study = (
         await client.post(

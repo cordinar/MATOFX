@@ -15,14 +15,11 @@ from matofx.ui.pages._results_plot import (
     default_plot_state,
 )
 
-
 # ---- default_plot_state ----------------------------------------------
 
 
 def test_default_state_no_kpis_means_no_plot() -> None:
-    assert default_plot_state([]) == PlotDefaults(
-        mode="scatter", x_kpi=None, y_kpi=None
-    )
+    assert default_plot_state([]) == PlotDefaults(mode="scatter", x_kpi=None, y_kpi=None)
 
 
 def test_default_state_one_kpi_defaults_to_timeseries() -> None:

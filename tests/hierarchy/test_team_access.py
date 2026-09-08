@@ -43,15 +43,11 @@ async def test_viewer_can_read_not_write(
             session, project_id=pid, user_id=bob_id, role="viewer", actor_user_id=alice_id
         )
     async with session_scope(factory) as session:
-        level = await project_service.access_for(
-            session, project_id=pid, actor_user_id=bob_id
-        )
+        level = await project_service.access_for(session, project_id=pid, actor_user_id=bob_id)
         assert level == ProjectAccessLevel.VIEW
         await project_service.get(session, project_id=pid, actor_user_id=bob_id)
         with pytest.raises(AccessDeniedError):
-            await project_service.update(
-                session, project_id=pid, actor_user_id=bob_id, name="x"
-            )
+            await project_service.update(session, project_id=pid, actor_user_id=bob_id, name="x")
 
 
 @pytest.mark.asyncio
@@ -74,13 +70,14 @@ async def test_member_is_edit_tier_but_not_owner(
         ) == ProjectAccessLevel.EDIT
         # Member cannot edit the project itself (OWNER-gated)…
         with pytest.raises(AccessDeniedError):
-            await project_service.update(
-                session, project_id=pid, actor_user_id=bob_id, name="x"
-            )
+            await project_service.update(session, project_id=pid, actor_user_id=bob_id, name="x")
         # …nor manage the ACL.
         with pytest.raises(AccessDeniedError):
             await project_service.add_acl_entry(
-                session, project_id=pid, user_id=alice_id, role="viewer",
+                session,
+                project_id=pid,
+                user_id=alice_id,
+                role="viewer",
                 actor_user_id=bob_id,
             )
 
@@ -100,9 +97,7 @@ async def test_owner_can_edit_and_manage_acl(
             session, project_id=pid, user_id=bob_id, role="owner", actor_user_id=alice_id
         )
     async with session_scope(factory) as session:
-        await project_service.update(
-            session, project_id=pid, actor_user_id=bob_id, name="renamed"
-        )
+        await project_service.update(session, project_id=pid, actor_user_id=bob_id, name="renamed")
 
 
 @pytest.mark.asyncio
@@ -131,7 +126,10 @@ async def test_creator_cannot_be_acl_target(
     async with session_scope(factory) as session:
         with pytest.raises(CreatorImmutableError):
             await project_service.add_acl_entry(
-                session, project_id=pid, user_id=alice_id, role="viewer",
+                session,
+                project_id=pid,
+                user_id=alice_id,
+                role="viewer",
                 actor_user_id=alice_id,
             )
 
@@ -190,9 +188,7 @@ async def test_set_acl_replaces_grants(
             actor_user_id=alice_id,
         )
     async with session_scope(factory) as session:
-        entries = await project_service.list_acl(
-            session, project_id=pid, actor_user_id=alice_id
-        )
+        entries = await project_service.list_acl(session, project_id=pid, actor_user_id=alice_id)
     assert {(e.user_id, e.role) for e in entries} == {
         (bob_id, "owner"),
         (carol_id, "member"),
@@ -211,7 +207,10 @@ async def test_invalid_role_rejected(
     async with session_scope(factory) as session:
         with pytest.raises(InvalidRoleError):
             await project_service.add_acl_entry(
-                session, project_id=pid, user_id=bob_id, role="god",
+                session,
+                project_id=pid,
+                user_id=bob_id,
+                role="god",
                 actor_user_id=alice_id,
             )
 
@@ -232,7 +231,10 @@ async def test_duplicate_and_missing_grant_errors(
     async with session_scope(factory) as session:
         with pytest.raises(UserAlreadyGrantedError):
             await project_service.add_acl_entry(
-                session, project_id=pid, user_id=bob_id, role="viewer",
+                session,
+                project_id=pid,
+                user_id=bob_id,
+                role="viewer",
                 actor_user_id=alice_id,
             )
     async with session_scope(factory) as session:

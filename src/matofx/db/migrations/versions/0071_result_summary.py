@@ -57,9 +57,7 @@ def upgrade() -> None:
         sa.Column("enrichment_model", sa.String(length=128), nullable=True),
         sa.Column("generated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_result_summary")),
-        sa.UniqueConstraint(
-            "surface_kind", "surface_id", name="uq_result_summary_surface"
-        ),
+        sa.UniqueConstraint("surface_kind", "surface_id", name="uq_result_summary_surface"),
         sa.CheckConstraint(
             f"surface_kind IN ({_in_clause(_SURFACE_KINDS)})",
             name="ck_result_summary_surface_kind",

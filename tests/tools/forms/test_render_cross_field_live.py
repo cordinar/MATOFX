@@ -130,9 +130,7 @@ def test_live_validation_leaves_non_participant_errors_intact(
         ],
     )
     handle = render_form(d)
-    handle.show_errors(
-        FormValidationError([FieldError("other", "Other", "Other is required.")])
-    )
+    handle.show_errors(FormValidationError([FieldError("other", "Other", "Other is required.")]))
     handle.state.update({"a": 50, "b": 50})  # valid sum
     handle.validate_cross_field()
     assert handle.error_labels["other"].visible is True

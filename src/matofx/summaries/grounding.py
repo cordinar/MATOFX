@@ -122,9 +122,7 @@ def run_guards(enriched: str, facts: SummaryFacts, templated: SummaryText) -> Gu
     return GuardResult.passed()
 
 
-def _format_guard(
-    enriched: str, _facts: SummaryFacts, _templated: SummaryText
-) -> bool:
+def _format_guard(enriched: str, _facts: SummaryFacts, _templated: SummaryText) -> bool:
     text = enriched.strip()
     if not text:
         return False
@@ -147,19 +145,13 @@ def _numeric_guard(enriched: str, facts: SummaryFacts, templated: SummaryText) -
     return True
 
 
-def _comparative_guard(
-    enriched: str, _facts: SummaryFacts, templated: SummaryText
-) -> bool:
+def _comparative_guard(enriched: str, _facts: SummaryFacts, templated: SummaryText) -> bool:
     lowered = enriched.lower()
     draft = "\n\n".join(templated.paragraphs).lower()
-    return all(
-        term not in lowered or term in draft for term in _SUSPECT_TERMS
-    )
+    return all(term not in lowered or term in draft for term in _SUSPECT_TERMS)
 
 
-def _outcome_guard(
-    enriched: str, facts: SummaryFacts, _templated: SummaryText
-) -> bool:
+def _outcome_guard(enriched: str, facts: SummaryFacts, _templated: SummaryText) -> bool:
     lowered = enriched.lower()
     if facts.state in ("failed", "cancelled"):
         return not any(m in lowered for m in _SUCCESS_MARKERS)

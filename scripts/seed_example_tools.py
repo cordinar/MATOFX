@@ -21,7 +21,6 @@ import os
 import sys
 from pathlib import Path
 
-
 ACTOR_USER_ID = 1
 
 
@@ -59,6 +58,7 @@ async def main() -> int:
         return 1
 
     from matofx.config import load_settings as _ls
+
     settings = _ls()
     audit = AuditWriter(signing_key=None, key_id=None)
 

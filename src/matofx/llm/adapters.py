@@ -83,9 +83,7 @@ class OpenAICompatibleClient:
             raise LlmConfigError(f"{self.provider} requires base_url")
         self.model = settings.model
         self._url = settings.base_url.rstrip("/") + "/chat/completions"
-        self._api_key = (
-            settings.api_key.get_secret_value() if settings.api_key else None
-        )
+        self._api_key = settings.api_key.get_secret_value() if settings.api_key else None
         self._timeout = settings.timeout_seconds
         self._max_tokens = settings.max_output_tokens
         self._temperature = settings.temperature
@@ -99,9 +97,7 @@ class OpenAICompatibleClient:
         return await _post_chat_completion(
             url=self._url,
             headers=headers,
-            body=_chat_body(
-                self.model, request, self._max_tokens, self._temperature
-            ),
+            body=_chat_body(self.model, request, self._max_tokens, self._temperature),
             timeout=self._timeout,
             transport=self._transport,
             fallback_model=self.model,
@@ -130,9 +126,7 @@ class AzureOpenAIClient:
             f"{settings.base_url.rstrip('/')}/openai/deployments/{settings.model}"
             f"/chat/completions?api-version={settings.api_version}"
         )
-        self._api_key = (
-            settings.api_key.get_secret_value() if settings.api_key else None
-        )
+        self._api_key = settings.api_key.get_secret_value() if settings.api_key else None
         self._timeout = settings.timeout_seconds
         self._max_tokens = settings.max_output_tokens
         self._temperature = settings.temperature
@@ -146,9 +140,7 @@ class AzureOpenAIClient:
         return await _post_chat_completion(
             url=self._url,
             headers=headers,
-            body=_chat_body(
-                self.model, request, self._max_tokens, self._temperature
-            ),
+            body=_chat_body(self.model, request, self._max_tokens, self._temperature),
             timeout=self._timeout,
             transport=self._transport,
             fallback_model=self.model,

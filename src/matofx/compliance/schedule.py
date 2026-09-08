@@ -160,9 +160,7 @@ async def _last_generated_at(session: AsyncSession) -> _dt.datetime | None:
     not be able to make an older report look like the latest one.
     """
     stmt = (
-        sa.select(ComplianceReport.generated_at)
-        .order_by(ComplianceReport.counter.desc())
-        .limit(1)
+        sa.select(ComplianceReport.generated_at).order_by(ComplianceReport.counter.desc()).limit(1)
     )
     value = (await session.execute(stmt)).scalar_one_or_none()
     return _aware(value) if value is not None else None

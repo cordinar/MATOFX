@@ -481,9 +481,7 @@ async def _render_scenario_picker(
     project_options = {int(p["id"]): str(p.get("name") or p["id"]) for p in projects}
     chosen_project: dict[str, int] = {"id": next(iter(project_options))}
     ticked: set[int] = set(preselect_ids or ())
-    picker = _PickerList(
-        noun="scenario", ticked=ticked, on_change=on_change, on_compare=on_compare
-    )
+    picker = _PickerList(noun="scenario", ticked=ticked, on_change=on_change, on_compare=on_compare)
     background_tasks: set[asyncio.Task[None]] = set()
 
     async def _refresh_scenarios() -> None:
@@ -534,9 +532,13 @@ def _render_picker_row(
     "name · ids · context" string the list used before is split into a
     bold ``primary`` line and a muted ``meta`` line here.
     """
-    with ui.row().classes("items-center no-wrap w-full matofx-qarow").style(
-        "gap: 0.6rem; padding: 0.4rem 0.3rem; "
-        "border-bottom: 1px solid var(--matofx-card-border);"
+    with (
+        ui.row()
+        .classes("items-center no-wrap w-full matofx-qarow")
+        .style(
+            "gap: 0.6rem; padding: 0.4rem 0.3rem; "
+            "border-bottom: 1px solid var(--matofx-card-border);"
+        )
     ):
         ui.checkbox(value=checked).props("dense").on_value_change(
             lambda e: on_toggle(bool(e.value))
@@ -578,9 +580,7 @@ def _job_items(jobs: list[dict[str, Any]]) -> list[_PickerItem]:
     items: list[_PickerItem] = []
     for job in jobs:
         jid = int(job["id"])
-        meta = (
-            f"#{jid:07d} · {job.get('project_name') or ''} / {job.get('scenario_name') or ''}"
-        )
+        meta = f"#{jid:07d} · {job.get('project_name') or ''} / {job.get('scenario_name') or ''}"
         items.append(_PickerItem(id=jid, primary=str(job.get("name") or "(no name)"), meta=meta))
     return items
 
@@ -741,7 +741,9 @@ class _PickerList:
                         primary=it.primary,
                         meta=it.meta,
                         checked=it.id in self._ticked,
-                        on_toggle=lambda value, _id=it.id: self._toggle(_id, value),
+                        on_toggle=lambda value, _id=it.id: self._toggle(  # type: ignore[misc]
+                            _id, value
+                        ),
                     )
                 if hidden > 0:
                     ui.label(
@@ -860,9 +862,9 @@ async def _render_workflow_picker(
                 label="Workflow",
             ).props("dense outlined").style("min-width: 14rem;").on_value_change(_on_def_change)
             picker.render_search()
-        ui.label(
-            "Runs are compared step-by-step, lining up the matching stage across runs."
-        ).style("color: var(--matofx-muted-text); font-size: 0.8rem;")
+        ui.label("Runs are compared step-by-step, lining up the matching stage across runs.").style(
+            "color: var(--matofx-muted-text); font-size: 0.8rem;"
+        )
         picker.render_body()
         picker.set_items(_run_items(runs_by_alias.get(state["alias"], [])))
         on_change(sorted(state["ticked"]))  # reflect any preselected ticks
@@ -898,8 +900,7 @@ async def _render_compare_tab(client: ApiClient, selection: Selection) -> None:
         return
     if len(selection.ids) > MAX_SELECTION:
         ui.label(
-            f"The most you can compare at once is {MAX_SELECTION}. Untick a few on the "
-            "Select tab."
+            f"The most you can compare at once is {MAX_SELECTION}. Untick a few on the Select tab."
         ).style("color: var(--matofx-muted-text);")
         return
     if selection.mode == "scenario":
@@ -1046,9 +1047,13 @@ async def _render_job_group(
         # Framed toolbar strip: what's being compared on the left, the
         # diff-only toggle on the right. The card-bg fill makes it read
         # as an intentional frame now that the tab panel is transparent.
-        with ui.row().classes("w-full items-center no-wrap").style(
-            "gap: 0.75rem; padding: 0.55rem 0.85rem; border-radius: 10px; "
-            "background: var(--matofx-card-bg); border: 1px solid var(--matofx-card-border);"
+        with (
+            ui.row()
+            .classes("w-full items-center no-wrap")
+            .style(
+                "gap: 0.75rem; padding: 0.55rem 0.85rem; border-radius: 10px; "
+                "background: var(--matofx-card-bg); border: 1px solid var(--matofx-card-border);"
+            )
         ):
             job_word = "job" if len(bundles) == 1 else "jobs"
             ui.icon("compare").style("color: var(--matofx-accent); font-size: 1.1rem;")
@@ -1817,9 +1822,7 @@ async def _load_jobs(client: ApiClient, ids: list[int]) -> list[_LoadedJob]:
     for job, doc in zip(job_payloads, docs, strict=True):
         project_name, scenario_name, completed_display = _context_for(job)
         job_vid = job.get("tool_version_id")
-        vv_badge_kind = (
-            vv_badge_by_version_id.get(int(job_vid), "") if job_vid is not None else ""
-        )
+        vv_badge_kind = vv_badge_by_version_id.get(int(job_vid), "") if job_vid is not None else ""
         loaded.append(
             _LoadedJob(
                 job=job,
@@ -2208,9 +2211,7 @@ def _build_html_overlay_entries(bundles: list[_LoadedJob]) -> list[JobHtmlOutput
     return out
 
 
-async def _load_field_outputs(
-    client: ApiClient, bundles: list[_LoadedJob]
-) -> list[JobFieldOutput]:
+async def _load_field_outputs(client: ApiClient, bundles: list[_LoadedJob]) -> list[JobFieldOutput]:
     """Fetch every selected job's ``field`` outputs' parsed frames in parallel.
 
     A ``field``-typed output (declared via the descriptor's

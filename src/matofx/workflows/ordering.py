@@ -35,8 +35,9 @@ class CycleError(ValueError):
     """The chosen tool set contains a dependency cycle."""
 
     def __init__(self, cycle: list[str]) -> None:
+        """Hold the member aliases forming the cycle, in the order found."""
         self.cycle = cycle
-        joined = " → ".join(cycle + [cycle[0]]) if cycle else "(unknown)"
+        joined = " → ".join([*cycle, cycle[0]]) if cycle else "(unknown)"
         super().__init__(
             f"These tools form a loop: {joined}. Remove one of them or pick a different upstream."
         )
@@ -92,7 +93,7 @@ def _infer_edges(
     return edges
 
 
-def infer_edges_with_fields(
+def infer_edges_with_fields(  # noqa: PLR0912 - one branch per case — the branches are the specification
     aliases: Iterable[str],
     descriptors: Mapping[str, Mapping[str, Any]],
 ) -> tuple[set[tuple[str, str]], dict[tuple[str, str], list[str]]]:
@@ -165,8 +166,8 @@ def infer_edges_with_fields(
 
     # Sort the per-edge label lists so output is deterministic for
     # tests + stable for the cytoscape edge tooltips.
-    for edge_key in labels_by_edge:
-        labels_by_edge[edge_key].sort()
+    for edge_labels in labels_by_edge.values():
+        edge_labels.sort()
 
     return edges, labels_by_edge
 
@@ -181,11 +182,11 @@ def _build_graph(
     deterministic regardless of how the edge set was assembled.
     """
     forward: dict[str, list[str]] = defaultdict(list)
-    indegree: dict[str, int] = {alias: 0 for alias in aliases}
+    indegree: dict[str, int] = dict.fromkeys(aliases, 0)
     for src, dst in edges:
         forward[src].append(dst)
         indegree[dst] += 1
-    for src in forward:
+    for src in forward:  # noqa: PLC0206 - the key is used to build the message below
         forward[src].sort()
     return forward, indegree
 
@@ -249,7 +250,7 @@ def _extract_cycle(
     return path[seen[node] :]
 
 
-def _order(
+def _order(  # noqa: PLR0912 - one branch per case — the branches are the specification
     aliases: list[str],
     forward: Mapping[str, list[str]],
     indegree: Mapping[str, int],

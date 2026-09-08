@@ -98,12 +98,16 @@ async def _notify_library_pending(db: AsyncSession, notifier: Notifier, file_id:
     project scope that isn't gated).
     """
     version_id = (
-        await db.execute(
-            select(LibraryFileVersion.id)
-            .where(LibraryFileVersion.library_file_id == file_id)
-            .order_by(LibraryFileVersion.ordinal.desc())
+        (
+            await db.execute(
+                select(LibraryFileVersion.id)
+                .where(LibraryFileVersion.library_file_id == file_id)
+                .order_by(LibraryFileVersion.ordinal.desc())
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     if version_id is not None:
         await notify_pending_approval(
             db,

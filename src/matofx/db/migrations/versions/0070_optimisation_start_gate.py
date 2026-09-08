@@ -88,9 +88,7 @@ def upgrade() -> None:
             ["id"],
             ondelete="CASCADE",
         )
-        batch.create_index(
-            "ix_approval_request_optimisation_study_id", ["optimisation_study_id"]
-        )
+        batch.create_index("ix_approval_request_optimisation_study_id", ["optimisation_study_id"])
         batch.drop_constraint("ck_approval_request_exactly_one_target", type_="check")
         batch.create_check_constraint(
             "ck_approval_request_exactly_one_target", _TARGET_ONE_OF_EIGHT
@@ -153,9 +151,9 @@ def _seed_approver_role() -> None:
         already = {
             r[0]
             for r in bind.execute(
-                sa.text(
-                    "SELECT permission FROM role_permission WHERE role_id = :rid"
-                ).bindparams(rid=rid)
+                sa.text("SELECT permission FROM role_permission WHERE role_id = :rid").bindparams(
+                    rid=rid
+                )
             ).fetchall()
         }
         if _PERMISSION not in already:

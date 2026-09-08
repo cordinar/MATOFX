@@ -86,9 +86,7 @@ def test_the_commissioned_payload_is_empty_when_the_control_never_rendered() -> 
 
 def test_the_commissioned_payload_carries_the_selection_when_it_did() -> None:
     form = SimpleNamespace(commissioned_sel=SimpleNamespace(value=[27, 31]))
-    assert _CohortBuilder._commissioned_payload(form) == {
-        "auto_include_study_ids": [27, 31]
-    }
+    assert _CohortBuilder._commissioned_payload(form) == {"auto_include_study_ids": [27, 31]}
 
 
 def test_an_emptied_selection_still_travels() -> None:

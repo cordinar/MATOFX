@@ -182,7 +182,9 @@ def render_gltf_preview(
 
     palette = current_palette()
     if src_url is None:
-        assert content is not None  # narrow for the type checker
+        assert (  # noqa: S101 - narrowing for the type checker, not a runtime check
+            content is not None
+        )  # narrow for the type checker  # noqa: S101 - narrowing for the type checker
         ext = (extension or "").lower().lstrip(".")
         mime = _GLTF_MIME_BY_EXT.get(ext, _GLTF_MIME_BY_EXT["glb"])
         src_url = f"data:{mime};base64,{base64.b64encode(content).decode('ascii')}"
@@ -285,7 +287,7 @@ def render_pdf_preview(
         ).classes("w-full")
         return
 
-    assert content is not None
+    assert content is not None  # noqa: S101 - narrowing for the type checker
     data_url = "data:application/pdf;base64," + base64.b64encode(content).decode("ascii")
     # ``<embed>`` instead of ``<iframe>``: Chrome's PDFium viewer
     # honours ``<embed type="application/pdf">`` with data URLs more
@@ -336,7 +338,7 @@ def render_video_preview(
     ext = (extension or "").lower().lstrip(".")
     mime = _VIDEO_MIME_BY_EXT.get(ext, "application/octet-stream")
     if src_url is None:
-        assert content is not None
+        assert content is not None  # noqa: S101 - narrowing for the type checker
         src_url = f"data:{mime};base64,{base64.b64encode(content).decode('ascii')}"
     ui.html(
         f'<video controls preload="metadata" '

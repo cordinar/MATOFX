@@ -136,10 +136,14 @@ async def test_generation_is_recorded_in_the_chain(
     generated = await generate_report(session, settings=settings, issued=issued, actor="user:1")
 
     row = (
-        await session.execute(
-            sa.select(AuditLog).where(AuditLog.action == "compliance.report.generated")
+        (
+            await session.execute(
+                sa.select(AuditLog).where(AuditLog.action == "compliance.report.generated")
+            )
         )
-    ).scalars().one()
+        .scalars()
+        .one()
+    )
     assert row.payload["counter"] == generated.counter
     assert row.payload["content_sha256"] == generated.content_sha256
     # Recorded *after* the reported head, so it belongs to the next period.
@@ -202,9 +206,7 @@ async def test_rewritten_history_is_caught_by_the_ledger(
 
     # Tamper: rewrite the attested record's hash in place.
     await session.execute(
-        sa.update(AuditLog)
-        .where(AuditLog.id == attested_head.head_id)
-        .values(hash="ff" * 32)
+        sa.update(AuditLog).where(AuditLog.id == attested_head.head_id).values(hash="ff" * 32)
     )
     await session.flush()
 

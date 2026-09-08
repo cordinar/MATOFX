@@ -40,9 +40,7 @@ _UNSIGNED_AUDIT = AuditWriter(signing_key=None, key_id=None)
 
 
 async def _make_user(session: AsyncSession, *, username: str, role: str) -> User:
-    role_id = (
-        await session.execute(sa.select(Role.id).where(Role.name == role))
-    ).scalar_one()
+    role_id = (await session.execute(sa.select(Role.id).where(Role.name == role))).scalar_one()
     user = User(
         username=username,
         email=f"{username}@example.com",
@@ -118,7 +116,9 @@ async def _confirm(
 
 def _csl(settings: Settings, tmp_path: Path, issuer: Ed25519PrivateKey, n_slots: int) -> Settings:
     path = write_licence(
-        tmp_path / f"csl-{n_slots}.json", issuer_private=issuer, licence_type="csl",
+        tmp_path / f"csl-{n_slots}.json",
+        issuer_private=issuer,
+        licence_type="csl",
         n_slots=n_slots,
     )
     return settings.model_copy(update={"licence": LicenceSettings(file=path)})
@@ -128,9 +128,7 @@ def _csl(settings: Settings, tmp_path: Path, issuer: Ed25519PrivateKey, n_slots:
 
 
 @pytest.mark.asyncio
-async def test_only_live_sessions_hold_a_place(
-    session: AsyncSession, settings: Settings
-) -> None:
+async def test_only_live_sessions_hold_a_place(session: AsyncSession, settings: Settings) -> None:
     """Revoked, idle-timed-out and hard-timed-out rows must not count.
 
     Same rule as ``SessionService.validate`` — anything else and the
@@ -229,10 +227,14 @@ async def test_super_user_gets_in_over_the_cap(
     final = await _confirm(session, settings=licensed, user=user, decision=decision)
     assert final.outcome == "breakglass"
     event = (
-        await session.execute(
-            sa.select(AuditLog).where(AuditLog.action == "licence.slot.breakglass")
+        (
+            await session.execute(
+                sa.select(AuditLog).where(AuditLog.action == "licence.slot.breakglass")
+            )
         )
-    ).scalars().one()
+        .scalars()
+        .one()
+    )
     # The excess must be explained, not merely permitted.
     assert event.reason == "admitted over the cap as a Super User"
     assert event.payload["in_use"] == 2
@@ -365,9 +367,7 @@ async def test_release_records_under_csl(
 
 
 @pytest.mark.asyncio
-async def test_release_is_silent_without_csl(
-    session: AsyncSession, settings: Settings
-) -> None:
+async def test_release_is_silent_without_csl(session: AsyncSession, settings: Settings) -> None:
     """No cap, no meaning — don't fill the chain with empty events."""
     await ensure_chain_head(session)
     unlicensed = settings.model_copy(update={"licence": LicenceSettings(file=None)})
@@ -414,10 +414,7 @@ async def test_concurrent_logins_at_the_boundary_cannot_exceed_the_cap(
     await ensure_chain_head(session)
     licensed = _csl(settings, tmp_path, issuer, n_slots=3)
     resolution = resolve_licence(licensed)
-    users = [
-        await _make_user(session, username=f"racer{i}", role="regular_user")
-        for i in range(5)
-    ]
+    users = [await _make_user(session, username=f"racer{i}", role="regular_user") for i in range(5)]
 
     # Every request decides first — nobody has inserted yet.
     decisions = [
@@ -481,8 +478,12 @@ async def test_a_withdrawn_login_leaves_no_granted_event(
     decisions = {}
     for user in (winner, loser):
         decisions[user.username] = await admit_session(
-            session, settings=licensed, resolution=resolution, user=user,
-            role_name="regular_user", audit=_UNSIGNED_AUDIT,
+            session,
+            settings=licensed,
+            resolution=resolution,
+            user=user,
+            role_name="regular_user",
+            audit=_UNSIGNED_AUDIT,
         )
 
     for user in (winner, loser):
@@ -495,14 +496,16 @@ async def test_a_withdrawn_login_leaves_no_granted_event(
         session.add(row)
         await session.flush()
         await confirm_admission(
-            session, settings=licensed, resolution=resolution, user=user,
-            decision=decisions[user.username], session_id=int(row.id),
+            session,
+            settings=licensed,
+            resolution=resolution,
+            user=user,
+            decision=decisions[user.username],
+            session_id=int(row.id),
             audit=_UNSIGNED_AUDIT,
         )
 
-    actions = list(
-        (await session.execute(sa.select(AuditLog.action, AuditLog.payload))).all()
-    )
+    actions = list((await session.execute(sa.select(AuditLog.action, AuditLog.payload))).all())
     granted = [a for a, _ in actions if a == "licence.slot.granted"]
     denied = [a for a, _ in actions if a == "licence.slot.denied"]
     assert len(granted) == 1, f"expected exactly one grant, got {granted}"
@@ -525,8 +528,12 @@ async def test_break_glass_is_never_withdrawn(
     await _open_sessions(session, count=1, prefix="occupied")
 
     decision = await admit_session(
-        session, settings=licensed, resolution=resolution, user=boss,
-        role_name="super_user", audit=_UNSIGNED_AUDIT,
+        session,
+        settings=licensed,
+        resolution=resolution,
+        user=boss,
+        role_name="super_user",
+        audit=_UNSIGNED_AUDIT,
     )
     assert decision.outcome == "breakglass"
 
@@ -536,8 +543,13 @@ async def test_break_glass_is_never_withdrawn(
     session.add(row)
     await session.flush()
     final = await confirm_admission(
-        session, settings=licensed, resolution=resolution, user=boss,
-        decision=decision, session_id=int(row.id), audit=_UNSIGNED_AUDIT,
+        session,
+        settings=licensed,
+        resolution=resolution,
+        user=boss,
+        decision=decision,
+        session_id=int(row.id),
+        audit=_UNSIGNED_AUDIT,
     )
     assert final.outcome == "breakglass"
     assert final.admitted

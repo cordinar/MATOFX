@@ -200,9 +200,7 @@ async def test_the_counter_advances_across_reports(
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
         headers = await _sign_in(client, seeded)
         for _ in range(3):
-            response = await client.post(
-                "/api/admin/compliance/reports", headers=headers, json={}
-            )
+            response = await client.post("/api/admin/compliance/reports", headers=headers, json={})
             assert response.status_code == _CREATED
 
         listed = (await client.get("/api/admin/compliance/reports", headers=headers)).json()
@@ -262,9 +260,7 @@ async def test_generation_keeps_working_while_read_only(
         # The site really is read-only...
         mode = (await client.get("/api/site/mode", headers=headers)).json()
         assert mode["read_only"] is True
-        blocked = await client.post(
-            "/api/projects", headers=headers, json={"name": "Nope"}
-        )
+        blocked = await client.post("/api/projects", headers=headers, json={"name": "Nope"})
         assert blocked.status_code == _UNAVAILABLE
 
         # ...and a report is still generated, and downloadable.

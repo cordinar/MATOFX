@@ -114,9 +114,9 @@ def _render_grouped_list(
     collapsed beneath it.
     """
     if not tutorials:
-        ui.label(
-            "No tutorials uploaded yet. Click 'Upload tutorial' above to add one."
-        ).style("color: var(--matofx-muted-text);")
+        ui.label("No tutorials uploaded yet. Click 'Upload tutorial' above to add one.").style(
+            "color: var(--matofx-muted-text);"
+        )
         return
 
     current = [t for t in tutorials if not t.get("is_archived")]
@@ -243,9 +243,7 @@ def _render_tutorial_card(
                         "font-weight: 650; font-size: 1.05rem; color: var(--matofx-body-text);"
                     )
                     _status_badge(is_active)
-                    ui.chip(f"v{version}" if version else "v1", icon="label").props(
-                        "outline dense"
-                    )
+                    ui.chip(f"v{version}" if version else "v1", icon="label").props("outline dense")
                     ui.chip(media_label, icon=icon).props("outline dense")
                 if description:
                     ui.label(description).style(
@@ -301,8 +299,10 @@ def _render_previous_versions(
         if len(previous_versions) == 1
         else f"Previous versions ({len(previous_versions)})"
     )
-    expansion = ui.expansion(label, icon="history").classes("w-full").style(
-        "border: 1px solid var(--matofx-card-border); border-radius: 10px;"
+    expansion = (
+        ui.expansion(label, icon="history")
+        .classes("w-full")
+        .style("border: 1px solid var(--matofx-card-border); border-radius: 10px;")
     )
     with expansion, ui.column().classes("w-full gap-1").style("padding: 0.2rem 0.2rem 0.4rem;"):
         for prev in previous_versions:
@@ -404,9 +404,7 @@ def _open_update_dialog(client: ApiClient, row: dict[str, Any], reload_fn: Any) 
                 "outline dense"
             )
 
-        title_input = (
-            ui.input("Title", value=title_text).classes("w-full").props("dense")
-        )
+        title_input = ui.input("Title", value=title_text).classes("w-full").props("dense")
         version_input = (
             ui.input(
                 "New version label",
@@ -422,9 +420,7 @@ def _open_update_dialog(client: ApiClient, row: dict[str, Any], reload_fn: Any) 
             .props("dense autogrow")
         )
 
-        upload_status = ui.label("").style(
-            "color: var(--matofx-muted-text); font-size: 0.85rem;"
-        )
+        upload_status = ui.label("").style("color: var(--matofx-muted-text); font-size: 0.85rem;")
 
         async def _on_upload(event: events.UploadEventArguments) -> None:
             data = await event.file.read()
@@ -548,9 +544,7 @@ def _open_upload_dialog(client: ApiClient, reload_fn: Any) -> None:
         )
         activate_switch = ui.switch("Make this the active version once uploaded", value=True)
 
-        upload_status = ui.label("").style(
-            "color: var(--matofx-muted-text); font-size: 0.85rem;"
-        )
+        upload_status = ui.label("").style("color: var(--matofx-muted-text); font-size: 0.85rem;")
 
         async def _on_upload(event: events.UploadEventArguments) -> None:
             # NiceGUI 3.x: event.file is a FileUpload; read() is async.

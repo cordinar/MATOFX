@@ -110,21 +110,15 @@ async def _make_user(
 
 
 @pytest.fixture
-async def seed_roles(
-    workflows_engine: AsyncEngine, user_service: UserService
-) -> dict[str, int]:
+async def seed_roles(workflows_engine: AsyncEngine, user_service: UserService) -> dict[str, int]:
     """One user per built-in role keyed by role name."""
     factory = make_session_factory(workflows_engine)
     return {
-        "super_user": await _make_user(
-            factory, user_service, username="root", role="super_user"
-        ),
+        "super_user": await _make_user(factory, user_service, username="root", role="super_user"),
         "administrator": await _make_user(
             factory, user_service, username="ada", role="administrator"
         ),
-        "beta_tester": await _make_user(
-            factory, user_service, username="beth", role="beta_tester"
-        ),
+        "beta_tester": await _make_user(factory, user_service, username="beth", role="beta_tester"),
         "regular_user": await _make_user(
             factory, user_service, username="alice", role="regular_user"
         ),

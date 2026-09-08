@@ -196,10 +196,14 @@ async def test_share_list_reconciled(
     assert wf.visibility == WorkflowVisibility.SHARED.value
     async with session_scope(factory) as session:
         shares = (
-            await session.execute(
-                select(WorkflowShare.user_id).where(WorkflowShare.workflow_id == wf.id)
+            (
+                await session.execute(
+                    select(WorkflowShare.user_id).where(WorkflowShare.workflow_id == wf.id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert sorted(shares) == [bob_id]
 
     # Swap Bob for Carol — Bob's row deleted, Carol's added.
@@ -217,10 +221,14 @@ async def test_share_list_reconciled(
         )
     async with session_scope(factory) as session:
         shares = (
-            await session.execute(
-                select(WorkflowShare.user_id).where(WorkflowShare.workflow_id == wf.id)
+            (
+                await session.execute(
+                    select(WorkflowShare.user_id).where(WorkflowShare.workflow_id == wf.id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert sorted(shares) == [carol_id]
 
     # Empty list flips back to private + clears all share rows.
@@ -239,10 +247,14 @@ async def test_share_list_reconciled(
     assert wf.visibility == WorkflowVisibility.PRIVATE.value
     async with session_scope(factory) as session:
         shares = (
-            await session.execute(
-                select(WorkflowShare.user_id).where(WorkflowShare.workflow_id == wf.id)
+            (
+                await session.execute(
+                    select(WorkflowShare.user_id).where(WorkflowShare.workflow_id == wf.id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert shares == []
 
 
@@ -499,17 +511,11 @@ async def test_reordered_members_via_descriptor_chain(
     owner_id = seed_roles["regular_user"]
 
     for d in (
-        make_tool_descriptor(
-            alias="tool_a", downstream_tools=["tool_b"], teams=["World"]
-        ),
-        make_tool_descriptor(
-            alias="tool_b", downstream_tools=["tool_c"], teams=["World"]
-        ),
+        make_tool_descriptor(alias="tool_a", downstream_tools=["tool_b"], teams=["World"]),
+        make_tool_descriptor(alias="tool_b", downstream_tools=["tool_c"], teams=["World"]),
         make_tool_descriptor(alias="tool_c", teams=["World"]),
     ):
-        await install_released_tool(
-            factory, tool_service, actor_user_id=admin_id, descriptor=d
-        )
+        await install_released_tool(factory, tool_service, actor_user_id=admin_id, descriptor=d)
 
     wf = await _seed_simple_workflow(
         workflow_service, factory, owner_id=owner_id, aliases=("tool_a", "tool_b")

@@ -24,9 +24,7 @@ import pytest
 
 skfem = pytest.importorskip("skfem")
 
-_MOD = (
-    Path(__file__).resolve().parents[2] / "example_tools" / "_shared" / "bracket_mesh.py"
-)
+_MOD = Path(__file__).resolve().parents[2] / "example_tools" / "_shared" / "bracket_mesh.py"
 _spec = importlib.util.spec_from_file_location("bracket_mesh", _MOD)
 assert _spec is not None
 assert _spec.loader is not None

@@ -1080,16 +1080,24 @@ async def audit_log_filters(
     await _require_audit_read(db, current_user.id)
 
     actions = (
-        await db.execute(sa.select(AuditLog.action).distinct().order_by(AuditLog.action))
-    ).scalars().all()
+        (await db.execute(sa.select(AuditLog.action).distinct().order_by(AuditLog.action)))
+        .scalars()
+        .all()
+    )
     resource_types = (
-        await db.execute(
-            sa.select(AuditLog.resource_type).distinct().order_by(AuditLog.resource_type)
+        (
+            await db.execute(
+                sa.select(AuditLog.resource_type).distinct().order_by(AuditLog.resource_type)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     actor_types = (
-        await db.execute(sa.select(AuditLog.actor_type).distinct().order_by(AuditLog.actor_type))
-    ).scalars().all()
+        (await db.execute(sa.select(AuditLog.actor_type).distinct().order_by(AuditLog.actor_type)))
+        .scalars()
+        .all()
+    )
 
     return AdminAuditFiltersResponse(
         actions=list(actions),

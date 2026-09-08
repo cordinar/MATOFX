@@ -189,9 +189,7 @@ async def confirm_admission(
         rank = await _rank_of(session, session_id=session_id, settings=settings, now=now)
         if rank > decision.n_slots:
             await _revoke(session, session_id=session_id, now=now)
-            final = SlotDecision(
-                outcome="denied", in_use=rank - 1, n_slots=decision.n_slots
-            )
+            final = SlotDecision(outcome="denied", in_use=rank - 1, n_slots=decision.n_slots)
             await _record(
                 session,
                 audit=audit,
@@ -200,8 +198,7 @@ async def confirm_admission(
                 ip_address=ip_address,
                 resolution=resolution,
                 reason=(
-                    "admitted provisionally, then withdrawn: a concurrent login took the "
-                    "last place"
+                    "admitted provisionally, then withdrawn: a concurrent login took the last place"
                 ),
             )
             return final
@@ -211,9 +208,7 @@ async def confirm_admission(
         # page needs to point at the over-cap sessions, and the session
         # policy needs to time-box them.
         await session.execute(
-            sa.update(AuthSession)
-            .where(AuthSession.id == session_id)
-            .values(breakglass=True)
+            sa.update(AuthSession).where(AuthSession.id == session_id).values(breakglass=True)
         )
         await session.flush()
 
@@ -243,9 +238,7 @@ async def _rank_of(
     """
     row = (
         await session.execute(
-            sa.select(AuthSession.created_at, AuthSession.id).where(
-                AuthSession.id == session_id
-            )
+            sa.select(AuthSession.created_at, AuthSession.id).where(AuthSession.id == session_id)
         )
     ).first()
     if row is None:  # pragma: no cover - the caller just inserted it
@@ -316,9 +309,7 @@ async def _record(
     resolution: LicenceResolution,
     reason: str | None = None,
 ) -> None:
-    licence_id = (
-        resolution.status.manifest.licence_id if resolution.status is not None else "none"
-    )
+    licence_id = resolution.status.manifest.licence_id if resolution.status is not None else "none"
     await audit.record(
         session,
         RecordInput(

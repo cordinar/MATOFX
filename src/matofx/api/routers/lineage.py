@@ -260,8 +260,7 @@ async def export_lineage(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
-                f"'{format}' isn't a recognised export format. "
-                "Expected one of: svg, json, graphml."
+                f"'{format}' isn't a recognised export format. Expected one of: svg, json, graphml."
             ),
         )
 
@@ -287,10 +286,7 @@ async def export_lineage(
             # draw legibly. Steer the caller to the data export instead.
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=(
-                    "This graph is too large to render as an image. "
-                    "Download JSON instead."
-                ),
+                detail=("This graph is too large to render as an image. Download JSON instead."),
             )
         return Response(
             content=svg,

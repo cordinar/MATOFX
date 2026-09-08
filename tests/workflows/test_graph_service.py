@@ -21,22 +21,18 @@ the run-creation pipeline.
 
 from __future__ import annotations
 
-import datetime as _dt
-
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from matofx.audit import AuditWriter
 from matofx.db import make_session_factory, session_scope
+from matofx.hierarchy.errors import NotFoundError
 from matofx.hierarchy.orm import Job, Project, Scenario
 from matofx.tools import ToolService
 from matofx.tools.orm import ToolVersion
 from matofx.workflows import (
-    Workflow,
     WorkflowGraphService,
-    WorkflowKind,
-    WorkflowMember,
     WorkflowRun,
     WorkflowService,
     make_workflow_graph_service,
@@ -48,7 +44,6 @@ from matofx.workflows.errors import (
 )
 from matofx.workflows.graph_types import WorkflowNodeRunState
 from matofx.workflows.service import CustomWorkflowDraft, WorkflowDraft
-from matofx.hierarchy.errors import NotFoundError
 
 from .conftest import install_released_tool, make_tool_descriptor
 
@@ -109,9 +104,7 @@ async def test_build_structure_only_chain(
         wf_id = wf.id
 
     async with session_scope(factory) as session:
-        graph = await graph_service.build(
-            session, workflow_id=wf_id, actor_user_id=admin_id
-        )
+        graph = await graph_service.build(session, workflow_id=wf_id, actor_user_id=admin_id)
 
     assert graph.workflow_id == wf_id
     assert graph.workflow_alias == "chain_wf"
@@ -182,9 +175,7 @@ async def test_build_per_field_edge_labels(
         wf_id = wf.id
 
     async with session_scope(factory) as session:
-        graph = await graph_service.build(
-            session, workflow_id=wf_id, actor_user_id=admin_id
-        )
+        graph = await graph_service.build(session, workflow_id=wf_id, actor_user_id=admin_id)
 
     assert len(graph.edges) == 1
     edge = graph.edges[0]
@@ -229,9 +220,7 @@ async def test_build_with_floating_node(
         wf_id = wf.id
 
     async with session_scope(factory) as session:
-        graph = await graph_service.build(
-            session, workflow_id=wf_id, actor_user_id=admin_id
-        )
+        graph = await graph_service.build(session, workflow_id=wf_id, actor_user_id=admin_id)
 
     assert [n.tool_alias for n in graph.nodes] == ["solo_a", "solo_b"]
     assert graph.edges == ()
@@ -277,17 +266,13 @@ async def test_build_hides_unowned_private_custom_workflow(
 
     # Owner can build the graph.
     async with session_scope(factory) as session:
-        owner_graph = await graph_service.build(
-            session, workflow_id=wf_id, actor_user_id=owner_id
-        )
+        owner_graph = await graph_service.build(session, workflow_id=wf_id, actor_user_id=owner_id)
     assert [n.tool_alias for n in owner_graph.nodes] == ["alpha", "beta"]
 
     # The other user is existence-hidden — same shape as a missing id.
     async with session_scope(factory) as session:
         with pytest.raises(WorkflowNotFoundError):
-            await graph_service.build(
-                session, workflow_id=wf_id, actor_user_id=other_id
-            )
+            await graph_service.build(session, workflow_id=wf_id, actor_user_id=other_id)
 
 
 # ---- run overlay --------------------------------------------------------
@@ -349,9 +334,7 @@ async def _seed_run_with_children(
                 .order_by(ToolVersion.created_at.desc())
                 .limit(1)
             )
-            version_id_by_alias[alias] = int(
-                (await session.execute(stmt)).scalar_one()
-            )
+            version_id_by_alias[alias] = int((await session.execute(stmt)).scalar_one())
         run = WorkflowRun(
             workflow_id=workflow_id,
             workflow_version_snapshot=workflow_version,
@@ -401,9 +384,7 @@ async def test_build_with_run_id_overlays_states(
         make_tool_descriptor(alias="c1", teams=["World"]),
     ]
     for d in descriptors:
-        await install_released_tool(
-            factory, tool_service, actor_user_id=admin_id, descriptor=d
-        )
+        await install_released_tool(factory, tool_service, actor_user_id=admin_id, descriptor=d)
 
     async with session_scope(factory) as session:
         wf = await workflow_service.install(
@@ -476,9 +457,7 @@ async def test_build_with_run_id_waiting_when_upstream_not_complete(
         ),
     ]
     for d in descriptors:
-        await install_released_tool(
-            factory, tool_service, actor_user_id=admin_id, descriptor=d
-        )
+        await install_released_tool(factory, tool_service, actor_user_id=admin_id, descriptor=d)
 
     async with session_scope(factory) as session:
         wf = await workflow_service.install(
@@ -545,9 +524,7 @@ async def test_build_preview_projects_descriptor_chain(
         make_tool_descriptor(alias="p_c", teams=["World"]),
     ]
     for d in descriptors:
-        await install_released_tool(
-            factory, tool_service, actor_user_id=admin_id, descriptor=d
-        )
+        await install_released_tool(factory, tool_service, actor_user_id=admin_id, descriptor=d)
 
     async with session_scope(factory) as session:
         graph = await graph_service.build_preview(

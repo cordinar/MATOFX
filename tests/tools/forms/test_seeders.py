@@ -175,9 +175,7 @@ def test_descriptor_presets_returned_as_runtime_preset_dataclass(tmp_path: Path)
     ``load_presets`` defensively copies the ``values`` dict so an
     end-user form mutation can't reach back into the descriptor.
     """
-    d = _descriptor(
-        presets=[{"name": "A", "description": "first", "values": {"x": 1}}]
-    )
+    d = _descriptor(presets=[{"name": "A", "description": "first", "values": {"x": 1}}])
     result = load_presets(tmp_path, d)
     assert result == [Preset(name="A", description="first", values={"x": 1})]
     # Mutating the returned values must not bleed back into the descriptor.

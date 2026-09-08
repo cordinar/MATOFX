@@ -294,9 +294,7 @@ def _features(value: Any, *, source: str) -> dict[str, bool]:
     if value is None:
         return {}
     if not isinstance(value, dict):
-        raise LicenceInvalidError(
-            f"{source}: 'features' must be a map of slug → true/false."
-        )
+        raise LicenceInvalidError(f"{source}: 'features' must be a map of slug → true/false.")
     return {str(slug): bool(enabled) for slug, enabled in value.items()}
 
 

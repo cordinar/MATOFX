@@ -149,9 +149,7 @@ def test_require_uses_author_message_when_given() -> None:
 
 
 def test_require_gated_by_when() -> None:
-    desc = _desc(
-        [Dependency(when="a > 50", effects=[RequireEffect(field="b", expr="b > a")])]
-    )
+    desc = _desc([Dependency(when="a > 50", effects=[RequireEffect(field="b", expr="b > a")])])
     # Gate off → no requirement.
     assert validate_inputs(desc, {"a": 10.0, "b": 5.0}) == {"a": 10.0, "b": 5.0}
     # Gate on → enforced.

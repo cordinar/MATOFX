@@ -136,8 +136,15 @@ async def test_collect_field_skips_invalid_result(
                 session, basics, study.id, storage_id, mount, x=x, snapshots=[_field(x)]
             )
         await _seed_field_run(
-            session, basics, study.id, storage_id, mount, x=9.0, snapshots=[_field(9.0)],
-            validity="invalid", validity_reasons=[{"output": "fi_max", "code": "above_max"}],
+            session,
+            basics,
+            study.id,
+            storage_id,
+            mount,
+            x=9.0,
+            snapshots=[_field(9.0)],
+            validity="invalid",
+            validity_reasons=[{"output": "fi_max", "code": "above_max"}],
         )
         data = await collect_field_training_data(
             session,

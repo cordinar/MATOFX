@@ -1227,8 +1227,11 @@ class ModelService:
                     )
                     continue
                 try:
+                    # Defaults capture this iteration's data/method; a lambda
+                    # whose only parameters are defaulted gives mypy no
+                    # signature to infer, hence the ignore.
                     fsurr = await asyncio.to_thread(
-                        lambda d=data, m=method: fit_field_surrogate(
+                        lambda d=data, m=method: fit_field_surrogate(  # type: ignore[misc]
                             d.snapshots,
                             d.factor_columns,
                             categorical_columns=d.categorical_columns,

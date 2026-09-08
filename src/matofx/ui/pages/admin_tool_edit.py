@@ -146,8 +146,7 @@ async def admin_tool_edit_page(alias: str) -> None:
             .classes("w-full")
             .props("align=left active-color=primary indicator-color=primary")
             .style(
-                "background-color: transparent;"
-                " border-bottom: 1px solid var(--matofx-card-border);"
+                "background-color: transparent; border-bottom: 1px solid var(--matofx-card-border);"
             ) as tabs
         ):
             metadata_tab = ui.tab("Metadata", icon="tune").props("no-caps")
@@ -883,8 +882,10 @@ def _render_guides_section(tool: dict[str, Any]) -> dict[str, Any]:
             .classes("w-full items-center gap-2 p-2")
             .style("border: 1px solid var(--matofx-card-border); border-radius: 6px;")
         ):
-            thumb = ui.column().classes("items-center justify-center").style(
-                "width: 72px; height: 72px; flex: 0 0 72px;"
+            thumb = (
+                ui.column()
+                .classes("items-center justify-center")
+                .style("width: 72px; height: 72px; flex: 0 0 72px;")
             )
             with thumb:
                 if it.get("data_url"):
@@ -914,9 +915,9 @@ def _render_guides_section(tool: dict[str, Any]) -> dict[str, Any]:
             ).props("flat dense")
             if idx == len(items) - 1:
                 down.disable()
-            ui.button(
-                icon="delete", on_click=lambda _e=None, _i=idx: _remove(_i)
-            ).props("flat dense color=negative")
+            ui.button(icon="delete", on_click=lambda _e=None, _i=idx: _remove(_i)).props(
+                "flat dense color=negative"
+            )
 
     def _move(i: int, delta: int) -> None:
         j = i + delta
@@ -1425,7 +1426,7 @@ async def _render_wizard_tab(
     alias: str,
     tool: dict[str, Any],
     existing_tools: list[dict[str, Any]],
-    material_classes_with_props: dict[str, list[str]] | None = None,
+    material_classes_with_props: dict[str, list[dict[str, str]]] | None = None,
 ) -> None:
     """Pre-populated wizard for editing inputs / outputs / groups / layout.
 
@@ -1579,9 +1580,7 @@ async def _render_vv_tab(client: ApiClient, *, tool: dict[str, Any]) -> None:
             client, body, tool_version_id=tool_version_id, tool_label=tool_label
         )
 
-    await _render_vv_tab_body(
-        client, body, tool_version_id=tool_version_id, tool_label=tool_label
-    )
+    await _render_vv_tab_body(client, body, tool_version_id=tool_version_id, tool_label=tool_label)
     _ = _reload  # closure kept available for future per-action refreshes
 
 

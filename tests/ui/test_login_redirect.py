@@ -35,11 +35,7 @@ def test_safe_next_blocks_open_redirect_and_loops(dest: str, expected: str) -> N
 
 
 def _fake_context(path: str | None, query: str = "") -> SimpleNamespace:
-    request = (
-        None
-        if path is None
-        else SimpleNamespace(url=SimpleNamespace(path=path, query=query))
-    )
+    request = None if path is None else SimpleNamespace(url=SimpleNamespace(path=path, query=query))
     return SimpleNamespace(client=SimpleNamespace(request=request))
 
 

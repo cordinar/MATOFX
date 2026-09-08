@@ -395,7 +395,7 @@ def test_each_support_status_gets_its_own_badge(
 
 
 def test_the_badge_names_the_offending_input() -> None:
-    """"Outside the trained range" on its own is not something anybody can act
+    """ "Outside the trained range" on its own is not something anybody can act
     on; the engine's reason names the input, and that is the part shown."""
     badge = support_badge(
         {

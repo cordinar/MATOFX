@@ -4839,14 +4839,18 @@ class SensitivityMatrixResponse(_Frozen):
 class LiveJobItem(_Frozen):
     """One in-flight row in the Live Jobs list.
 
-    ``kind`` discriminates the three row types (``job`` / ``workflow`` /
-    ``study``); ``name`` is the tool name (job), the workflow name
-    (workflow run), or the study name. ``cancellable`` reflects whether
+    ``kind`` discriminates the four row types (``job`` / ``workflow`` /
+    ``study`` / ``optimisation_study``); ``name`` is the tool name (job), the
+    workflow name (workflow run), or the study name. ``cancellable`` reflects whether
     the underlying cancel flow can act on it now — the UI disables the
     row's tick when it can't.
     """
 
-    kind: Literal["job", "workflow", "study"]
+    # Mirrors ``matofx.live_jobs.service.LiveKind``. The service has emitted
+    # ``optimisation_study`` since optimisation landed; this schema did not
+    # list it, so building a response for a live optimisation raised a
+    # ValidationError and the Live Jobs endpoint 500ed whenever one ran.
+    kind: Literal["job", "workflow", "study", "optimisation_study"]
     id: int
     name: str
     state: str
@@ -4890,7 +4894,11 @@ class LiveJobsCancelRequest(_Frozen):
 class LiveJobsCancelOutcome(_Frozen):
     """The result of attempting to cancel one item."""
 
-    kind: Literal["job", "workflow", "study"]
+    # Mirrors ``matofx.live_jobs.service.LiveKind``. The service has emitted
+    # ``optimisation_study`` since optimisation landed; this schema did not
+    # list it, so building a response for a live optimisation raised a
+    # ValidationError and the Live Jobs endpoint 500ed whenever one ran.
+    kind: Literal["job", "workflow", "study", "optimisation_study"]
     id: int
     cancelled: bool
     reason: str = ""

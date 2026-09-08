@@ -32,6 +32,10 @@ from typing import TYPE_CHECKING, Any
 from matofx.studies.optimisation.errors import OptimisationConfigError
 from matofx.studies.optimisation.sumcheck import pick_balance_heuristic
 
+_MIN_CANDIDATE_POOL = 16
+_MAX_CANDIDATE_POOL = 1_000_000
+"""Bounds on ``surrogate_candidate_pool`` (§5.3)."""
+
 if TYPE_CHECKING:
     from matofx.tools.descriptor import InputField, ToolDescriptor
 
@@ -143,19 +147,27 @@ def weighted_sum_value(responses: Mapping[str, Any], config: Mapping[str, Any]) 
     for r in config.get("responses") or []:
         if not isinstance(r, Mapping) or r.get("goal") not in _OPTIMISED_GOALS:
             continue
-        spec = r.get("spec") if isinstance(r.get("spec"), Mapping) else {}
-        key = str(spec.get("name") or r.get("name")) if spec.get("kind") == "scalar" else str(
-            r.get("name")
+        raw_spec = r.get("spec")
+        spec: Mapping[str, Any] = raw_spec if isinstance(raw_spec, Mapping) else {}
+        key = (
+            str(spec.get("name") or r.get("name"))
+            if spec.get("kind") == "scalar"
+            else str(r.get("name"))
         )
         value = responses.get(key)
         if not isinstance(value, int | float) or isinstance(value, bool):
             return None
         weight = r.get("weight", 1.0)
-        weight = float(weight) if isinstance(weight, int | float) and not isinstance(weight, bool) else 1.0
+        weight = (
+            float(weight)
+            if isinstance(weight, int | float) and not isinstance(weight, bool)
+            else 1.0
+        )
         sign = 1.0 if r.get("goal") == "minimise" else -1.0
         total += weight * sign * float(value)
         seen = True
     return total if seen else None
+
 
 # Strategies that bootstrap their own initial design and need no external
 # LHS seed batch (§11) — used only to relax the rule-8 seed check. The
@@ -168,9 +180,7 @@ _SELF_SEEDING_STRATEGIES: frozenset[str] = frozenset(
 )
 
 
-def validate_config(
-    config: Mapping[str, Any], descriptor: ToolDescriptor
-) -> list[dict[str, Any]]:
+def validate_config(config: Mapping[str, Any], descriptor: ToolDescriptor) -> list[dict[str, Any]]:
     """Validate a study config against its pinned tool descriptor (§3.3).
 
     Raises :class:`OptimisationConfigError` on the first failure with a
@@ -214,9 +224,7 @@ def validate_config(
     _validate_fixed_inputs(config, required)
     # §3.6 — a descriptor sum-check whose members are varied must be held exact
     # by the optimiser (derive one balance member). Tool axis key == input name.
-    return _collect_sum_groups(
-        config, descriptor.inputs, member=None, varied_keys=factor_names
-    )
+    return _collect_sum_groups(config, descriptor.inputs, member=None, varied_keys=factor_names)
 
 
 def validate_workflow_config(
@@ -303,9 +311,7 @@ def validate_workflow_config(
     return groups
 
 
-def _validate_fixed_inputs(
-    config: Mapping[str, Any], required_labels: Mapping[str, str]
-) -> None:
+def _validate_fixed_inputs(config: Mapping[str, Any], required_labels: Mapping[str, str]) -> None:
     """Rule 9b (§3.5) — every required, non-varied input is held constant.
 
     ``required_labels`` maps each input key that must carry a fixed value
@@ -316,9 +322,7 @@ def _validate_fixed_inputs(
     """
     raw = config.get("fixed_inputs")
     fixed = raw if isinstance(raw, Mapping) else {}
-    missing = [
-        label for key, label in required_labels.items() if fixed.get(key) in (None, "")
-    ]
+    missing = [label for key, label in required_labels.items() if fixed.get(key) in (None, "")]
     if missing:
         joined = ", ".join(sorted(missing))
         raise OptimisationConfigError(
@@ -638,7 +642,11 @@ def _validate_surrogate_pool(config: Mapping[str, Any]) -> None:
     pool = config.get("surrogate_candidate_pool")
     if pool is None:
         return
-    if not isinstance(pool, int) or isinstance(pool, bool) or not (16 <= pool <= 1_000_000):
+    if (
+        not isinstance(pool, int)
+        or isinstance(pool, bool)
+        or not (_MIN_CANDIDATE_POOL <= pool <= _MAX_CANDIDATE_POOL)
+    ):
         raise OptimisationConfigError(
             "'surrogate_candidate_pool' must be a whole number between 16 and 1000000."
         )
@@ -712,9 +720,7 @@ def _validate_factors(config: Mapping[str, Any], inputs_by_name: Mapping[str, An
     return names
 
 
-def factor_precisions(
-    config: Mapping[str, Any], descriptor: ToolDescriptor
-) -> dict[str, float]:
+def factor_precisions(config: Mapping[str, Any], descriptor: ToolDescriptor) -> dict[str, float]:
     """Each float factor's declared step, by name (empty when none declare one).
 
     Frozen into the config by ``configure`` so the runtime snaps candidates
@@ -726,7 +732,7 @@ def factor_precisions(
     for factor in config.get("factors") or []:
         if not isinstance(factor, Mapping) or factor.get("type") != "float":
             continue
-        field = fields.get(factor.get("name"))
+        field = fields.get(str(factor.get("name") or ""))
         precision = getattr(field, "precision", None)
         if isinstance(precision, int | float) and precision > 0:
             out[str(factor["name"])] = float(precision)

@@ -470,9 +470,7 @@ async def _render_table_view(state: dict[str, Any], body: ui.column, client: Api
         # then read as removable chips in the results toolbar. (Sorting is on
         # the result table's own headers, not here.)
         filter_expansion = (
-            ui.expansion("Filter", icon="filter_list", value=True)
-            .classes("w-full")
-            .props("dense")
+            ui.expansion("Filter", icon="filter_list", value=True).classes("w-full").props("dense")
         )
         with filter_expansion:
             builder_slot = ui.column().classes("w-full gap-2")
@@ -1303,9 +1301,9 @@ def _render_subject_card(subject: dict[str, Any]) -> None:
                 "font-size: 1.1rem; font-weight: 600;"
             )
             role_label = format_role_label(str(subject.get("role") or "")) or "—"
-            ui.label(
-                f"Username: {subject.get('username', '')} · Role: {role_label}"
-            ).style("color: #b0b3b8; font-size: 0.85rem;")
+            ui.label(f"Username: {subject.get('username', '')} · Role: {role_label}").style(
+                "color: #b0b3b8; font-size: 0.85rem;"
+            )
         if subject.get("is_approver"):
             ui.badge("APPROVER").props("color=info")
         ui.badge("ACTIVE" if subject.get("is_active") else "DEACTIVATED").props(

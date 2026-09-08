@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 if TYPE_CHECKING:
     import plotly.graph_objects as go
@@ -249,7 +249,7 @@ def themed_plotly(fig: go.Figure, theme: ThemeName | None = None) -> dict[str, o
     apply_theme_to_plotly(fig, theme)
     payload: dict[str, object] = dict(fig.to_plotly_json())
     payload["config"] = dict(MATOFX_PLOTLY_CONFIG)
-    return _finitize(payload)
+    return cast("dict[str, object]", _finitize(payload))
 
 
 def export_plotly_html(fig: go.Figure, theme: ThemeName | None = None) -> bytes:

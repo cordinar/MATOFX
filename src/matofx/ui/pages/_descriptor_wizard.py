@@ -40,7 +40,8 @@ metadata form supplies the rest.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Iterable
-from dataclasses import dataclass, field as _dc_field
+from dataclasses import dataclass
+from dataclasses import field as _dc_field
 from typing import Any, cast
 
 from nicegui import ui
@@ -105,7 +106,9 @@ def outputs_summary_from_descriptor(descriptor: dict[str, Any]) -> list[dict[str
     return summary
 
 
-def upstream_candidate_map(existing_tools: list[dict[str, Any]], current_alias: str) -> dict[str, str]:
+def upstream_candidate_map(
+    existing_tools: list[dict[str, Any]], current_alias: str
+) -> dict[str, str]:
     """``{alias: name}`` of non-archived tools that declare ``current_alias`` downstream.
 
     The two-sided handshake: a tool only appears as a selectable upstream
@@ -208,7 +211,7 @@ async def reconcile_downstream_registrations(
         try:
             if await register(upstream, current_alias):
                 patched.append(upstream)
-        except Exception:  # noqa: BLE001 — source patch is best-effort
+        except Exception:  # noqa: BLE001,S112 - source patch is best-effort
             continue
     return patched
 
@@ -988,9 +991,7 @@ def build_descriptor_payload(state: dict[str, Any]) -> dict[str, Any]:
         # (the per-input Dependencies card's "must be true" outcome is the
         # authoring surface now); carry any that already exist on the
         # descriptor through untouched so editing a tool never drops them.
-        "cross_field_constraints": [
-            dict(c) for c in (state.get("cross_field_constraints") or [])
-        ],
+        "cross_field_constraints": [dict(c) for c in (state.get("cross_field_constraints") or [])],
         "output_groups": [dict(g) for g in state.get("output_groups", [])],
         "outputs": [_output_to_descriptor(f) for f in state.get("outputs", [])],
         "presets": [_preset_to_descriptor(p, state) for p in state.get("presets", [])],
@@ -2291,19 +2292,27 @@ def _render_one_input(
                     stored_upstream, wiring.all_tools.get(stored_upstream, stored_upstream)
                 )
             with ui.row().classes("w-full gap-2 items-center flex-wrap"):
-                upstream = ui.select(
-                    {"": "(none)"} | candidate_options,
-                    label="Upstream tool",
-                    value=stored_upstream or "",
-                    on_change=_on_upstream_tool_change,
-                ).classes("flex-1 min-w-48").props("dense")
+                upstream = (
+                    ui.select(
+                        {"": "(none)"} | candidate_options,
+                        label="Upstream tool",
+                        value=stored_upstream or "",
+                        on_change=_on_upstream_tool_change,
+                    )
+                    .classes("flex-1 min-w-48")
+                    .props("dense")
+                )
                 refs["upstream_select"] = upstream
-                output_select = ui.select(
-                    _upstream_output_options(stored_upstream or ""),
-                    label="Upstream output",
-                    value=field.get("upstream_output") or None,
-                    on_change=_on_output_change,
-                ).classes("flex-1 min-w-48").props("dense")
+                output_select = (
+                    ui.select(
+                        _upstream_output_options(stored_upstream or ""),
+                        label="Upstream output",
+                        value=field.get("upstream_output") or None,
+                        on_change=_on_output_change,
+                    )
+                    .classes("flex-1 min-w-48")
+                    .props("dense")
+                )
                 refs["upstream_output_select"] = output_select
             add_source_button = ui.button(
                 "+ Make another tool a source", on_click=_reveal_add_source
@@ -2313,16 +2322,19 @@ def _render_one_input(
             add_source_row.visible = False
             refs["add_source_row"] = add_source_row
             with add_source_row:
-                add_source_select = ui.select(
-                    _add_source_options(),
-                    label="Pick a tool to make available as a source",
-                    with_input=True,
-                    on_change=_on_add_source_pick,
-                ).classes("flex-1 min-w-64").props("dense")
+                add_source_select = (
+                    ui.select(
+                        _add_source_options(),
+                        label="Pick a tool to make available as a source",
+                        with_input=True,
+                        on_change=_on_add_source_pick,
+                    )
+                    .classes("flex-1 min-w-64")
+                    .props("dense")
+                )
                 refs["add_source_select"] = add_source_select
                 ui.label(
-                    "Saving updates that tool to offer its output here "
-                    "(a small version bump)."
+                    "Saving updates that tool to offer its output here (a small version bump)."
                 ).style("color: #9a7d0a; font-size: 0.78rem;")
 
         # --- Dependencies ------------------------------------------
@@ -3206,8 +3218,7 @@ def _render_one_output(
                     value="",
                     label="Group",
                 ).props("outlined dense readonly").tooltip(
-                    f"Shown as ± on {field['uncertainty_for']}, so it follows that "
-                    "output's group."
+                    f"Shown as ± on {field['uncertainty_for']}, so it follows that output's group."
                 )
             else:
                 _bind_select(
@@ -3369,14 +3380,11 @@ def _render_kpi_editor(field: dict[str, Any]) -> None:
             clear_kpi_overrides(field)
         _refresh_overrides()
 
-    checkbox = ui.checkbox(
-        "Mark as KPI", value=bool(field.get("kpi"))
-    ).on_value_change(lambda e: _on_toggle(e.value))
+    checkbox = ui.checkbox("Mark as KPI", value=bool(field.get("kpi"))).on_value_change(
+        lambda e: _on_toggle(e.value)
+    )
     with checkbox:
-        ui.tooltip(
-            "Headline KPI for the per-tool results warehouse "
-            "(/results/{alias})."
-        )
+        ui.tooltip("Headline KPI for the per-tool results warehouse (/results/{alias}).")
     _refresh_overrides()
 
 
@@ -3395,7 +3403,7 @@ def _preset_set_value(values: dict[str, Any], input_name: str, value: Any) -> No
     live state and the serialised payload agree on what counts as
     "the preset overrides this input".
     """
-    if value is None or value == "" or value == []:
+    if value is None or value in ("", []):
         values.pop(input_name, None)
         return
     values[input_name] = value
@@ -3515,9 +3523,7 @@ def _render_preset_value_editor(values: dict[str, Any], field: dict[str, Any]) -
 
         # Unknown type — render as plain text so the operator can still
         # author *something*, but flag it visibly under the label.
-        ui.label(f"(unknown type: {field_type})").style(
-            "color: #b58900; font-size: 0.75rem;"
-        )
+        ui.label(f"(unknown type: {field_type})").style("color: #b58900; font-size: 0.75rem;")
         ui.input(
             value="" if current is None else str(current),
             on_change=lambda e, n=input_name: _preset_set_value(values, n, e.value),
@@ -3541,9 +3547,7 @@ def _render_preset_label(field: dict[str, Any]) -> None:
             "overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
         )
         if unit:
-            ui.label(f"({unit})").style(
-                "color: #888; font-size: 0.78rem; flex-shrink: 0;"
-            )
+            ui.label(f"({unit})").style("color: #888; font-size: 0.78rem; flex-shrink: 0;")
 
 
 def _preset_input_label_text(field: dict[str, Any]) -> str:
@@ -3642,9 +3646,7 @@ def _group_inputs_for_presets(
     # Input Groups tab after assigning an input to it). Either way,
     # the operator still gets a path to override the input from here.
     ungrouped = [
-        f
-        for f in inputs
-        if not f.get("group") or str(f.get("group")) not in known_group_names
+        f for f in inputs if not f.get("group") or str(f.get("group")) not in known_group_names
     ]
     if ungrouped:
         blocks.append(("Ungrouped", ungrouped))
@@ -3690,8 +3692,7 @@ def _render_presets_tab(state: dict[str, Any]) -> None:
             inputs_now = list(state.get("inputs") or [])
             if not inputs_now:
                 ui.label(
-                    "Define at least one input on the Inputs tab before "
-                    "authoring presets."
+                    "Define at least one input on the Inputs tab before authoring presets."
                 ).style("color: #b58900; font-size: 0.85rem;")
             grouped_inputs = _group_inputs_for_presets(state) if inputs_now else []
             for index, preset in enumerate(presets):
@@ -3715,9 +3716,7 @@ def _render_presets_tab(state: dict[str, Any]) -> None:
                         )
                         _row_toolbar(presets, index, render)
                     if inputs_now:
-                        ui.label("Values").style(
-                            "font-weight: 600; margin-top: 0.5rem;"
-                        )
+                        ui.label("Values").style("font-weight: 600; margin-top: 0.5rem;")
                         # One sub-card per input group, in the same
                         # ``(column, row)`` order the live submit form
                         # renders them. Inputs without a group land in
@@ -3727,9 +3726,7 @@ def _render_presets_tab(state: dict[str, Any]) -> None:
                             with _subcard(group_label):
                                 with ui.grid(columns=2).classes("w-full gap-3"):
                                     for field in fields:
-                                        _render_preset_value_editor(
-                                            preset["values"], field
-                                        )
+                                        _render_preset_value_editor(preset["values"], field)
             ui.button(
                 "+ Add preset",
                 on_click=_then(lambda: presets.append(empty_preset()), render),
@@ -3864,8 +3861,7 @@ def render_descriptor_wizard(
         .classes("w-full")
         .props("align=left active-color=primary indicator-color=primary")
         .style(
-            "background-color: transparent;"
-            " border-bottom: 1px solid var(--matofx-card-border);"
+            "background-color: transparent; border-bottom: 1px solid var(--matofx-card-border);"
         ) as tabs
     ):
         ig = ui.tab("Input Groups", icon="folder").props("no-caps")
@@ -3874,11 +3870,7 @@ def render_descriptor_wizard(
         o = ui.tab("Outputs", icon="output").props("no-caps")
         pr = ui.tab("Presets", icon="bookmark").props("no-caps")
         adv = ui.tab("Advanced", icon="settings").props("no-caps")
-    with (
-        ui.tab_panels(tabs, value=ig)
-        .classes("w-full")
-        .style("background-color: transparent;")
-    ):
+    with ui.tab_panels(tabs, value=ig).classes("w-full").style("background-color: transparent;"):
         with ui.tab_panel(ig):
             _render_input_groups_tab(state)
         with ui.tab_panel(i):

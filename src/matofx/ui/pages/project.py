@@ -342,8 +342,8 @@ def _share_dialog(
             body_box.clear()
             with body_box:
                 ui.label("People with access").style("font-weight: 600;")
-                with ui.column().classes("w-full gap-1").style(
-                    "max-height: 40vh; overflow-y: auto;"
+                with (
+                    ui.column().classes("w-full gap-1").style("max-height: 40vh; overflow-y: auto;")
                 ):
                     with ui.row().classes("items-center justify-between w-full"):
                         ui.label(_person(directory, creator_id)).classes("grow")

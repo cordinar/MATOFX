@@ -119,13 +119,9 @@ async def test_released_workflow_with_prerelease_member_hidden_from_regular_user
         tool_aliases=["visible", "hidden"],
     )
 
-    assert "wf" not in await _visible_aliases(
-        factory, workflow_service, actor_user_id=regular_id
-    )
+    assert "wf" not in await _visible_aliases(factory, workflow_service, actor_user_id=regular_id)
     # Admin (holds tools.see_new_state) sees everything regardless.
-    assert "wf" in await _visible_aliases(
-        factory, workflow_service, actor_user_id=admin_id
-    )
+    assert "wf" in await _visible_aliases(factory, workflow_service, actor_user_id=admin_id)
 
 
 @pytest.mark.asyncio
@@ -142,9 +138,7 @@ async def test_released_workflow_with_test_member_visible_to_beta_tester(
     beta_id = seed_roles["beta_tester"]
 
     await _install_tool(factory, tool_service, admin_id=admin_id, alias="visible")
-    await _install_tool(
-        factory, tool_service, admin_id=admin_id, alias="beta_only", state="test"
-    )
+    await _install_tool(factory, tool_service, admin_id=admin_id, alias="beta_only", state="test")
     await _install_released_workflow(
         factory,
         workflow_service,
@@ -153,9 +147,7 @@ async def test_released_workflow_with_test_member_visible_to_beta_tester(
         tool_aliases=["visible", "beta_only"],
     )
 
-    assert "wf" in await _visible_aliases(
-        factory, workflow_service, actor_user_id=beta_id
-    )
+    assert "wf" in await _visible_aliases(factory, workflow_service, actor_user_id=beta_id)
 
 
 @pytest.mark.asyncio
@@ -195,9 +187,7 @@ async def test_released_workflow_with_team_restricted_member_hidden(
     )
 
     # Regular user belongs to no teams → can't see the Aero-only member.
-    assert "wf" not in await _visible_aliases(
-        factory, workflow_service, actor_user_id=regular_id
-    )
+    assert "wf" not in await _visible_aliases(factory, workflow_service, actor_user_id=regular_id)
 
 
 @pytest.mark.asyncio
@@ -223,6 +213,4 @@ async def test_released_workflow_with_all_members_visible_is_shown(
         tool_aliases=["alpha", "beta"],
     )
 
-    assert "wf" in await _visible_aliases(
-        factory, workflow_service, actor_user_id=regular_id
-    )
+    assert "wf" in await _visible_aliases(factory, workflow_service, actor_user_id=regular_id)

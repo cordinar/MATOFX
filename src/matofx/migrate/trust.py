@@ -86,7 +86,8 @@ class TrustedPeerService:
         """``True`` when ``fingerprint`` (canonicalised) is in the trust list.
 
         Convenience predicate for the import path. Equivalent to
-        ``get_by_fingerprint(...) is not None``."""
+        ``get_by_fingerprint(...) is not None``.
+        """
         return (await self.get_by_fingerprint(session, fingerprint)) is not None
 
     # ------------------------------------------------------------------

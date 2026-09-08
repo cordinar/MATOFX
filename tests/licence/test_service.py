@@ -124,8 +124,10 @@ async def test_install_records_the_licence_and_audits_it(
     assert stored.manifest_sha256 == loaded.file_sha256
 
     event = (
-        await session.execute(sa.select(AuditLog).where(AuditLog.action == "licence.installed"))
-    ).scalars().one()
+        (await session.execute(sa.select(AuditLog).where(AuditLog.action == "licence.installed")))
+        .scalars()
+        .one()
+    )
     assert event.payload["licence_id"] == "LIC-TEST-0001"
     assert event.payload["n_slots"] == 10
     assert event.payload["replaced_licence_id"] is None
@@ -158,10 +160,16 @@ async def test_replacing_a_licence_names_what_it_replaced(
     assert row.n_slots == 25
     assert row.licence_id == "LIC-TEST-0002"
     events = (
-        await session.execute(
-            sa.select(AuditLog).where(AuditLog.action == "licence.installed").order_by(AuditLog.id)
+        (
+            await session.execute(
+                sa.select(AuditLog)
+                .where(AuditLog.action == "licence.installed")
+                .order_by(AuditLog.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(events) == 2
     assert events[1].payload["replaced_licence_id"] == "LIC-TEST-0001"
     assert events[1].reason == "replaces LIC-TEST-0001"
@@ -277,9 +285,7 @@ async def test_report_measures_against_the_installed_licence(
     issued = report_identity(resolution)
     assert issued is not None
     await adopt_identity(session, issued, now=utcnow())
-    await install_licence(
-        session, settings=active, loaded=resolution.loaded, actor="user:1"
-    )
+    await install_licence(session, settings=active, loaded=resolution.loaded, actor="user:1")
 
     generated = await generate_report(
         session,
@@ -340,8 +346,9 @@ async def test_expired_licence_still_reports_and_says_so(
 # ----- install binding (ADR-0019 §A3, Gap 2) --------------------------
 
 
-async def _adopt(session: AsyncSession, tmp_path: Path, issuer: Ed25519PrivateKey,
-                 install_id: str) -> None:
+async def _adopt(
+    session: AsyncSession, tmp_path: Path, issuer: Ed25519PrivateKey, install_id: str
+) -> None:
     """Adopt an identity so there is something to bind against."""
     from matofx.compliance import load_identity_file  # noqa: PLC0415
     from tests.compliance.conftest import write_identity_file  # noqa: PLC0415
@@ -353,9 +360,7 @@ async def _adopt(session: AsyncSession, tmp_path: Path, issuer: Ed25519PrivateKe
         issuer_private=issuer,
         install_id=install_id,
     )
-    issued = load_identity_file(
-        path, extra_issuer_keys={ISSUER_KEY_ID: public_hex(issuer)}
-    )
+    issued = load_identity_file(path, extra_issuer_keys={ISSUER_KEY_ID: public_hex(issuer)})
     await adopt_identity(session, issued, now=_dt.datetime.now(tz=_dt.UTC))
 
 
@@ -392,9 +397,7 @@ async def test_the_matching_licence_is_accepted(
     await ensure_chain_head(session)
     await _adopt(session, tmp_path, issuer, "inst_REAL0001")
 
-    path = write_licence(
-        tmp_path / "ours.json", issuer_private=issuer, install_id="inst_REAL0001"
-    )
+    path = write_licence(tmp_path / "ours.json", issuer_private=issuer, install_id="inst_REAL0001")
     licensed = settings.model_copy(update={"licence": LicenceSettings(file=path)})
     await verify_install_binding(session, resolve_licence(licensed))  # must not raise
 
@@ -450,12 +453,17 @@ async def test_the_go_live_licence_keeps_the_setup_install_id(
     await _adopt(session, tmp_path, issuer, "inst_CUST0001")
 
     setup = write_licence(
-        tmp_path / "setup.json", issuer_private=issuer,
-        install_id="inst_CUST0001", expires_at="2027-01-14T00:00:00Z",
+        tmp_path / "setup.json",
+        issuer_private=issuer,
+        install_id="inst_CUST0001",
+        expires_at="2027-01-14T00:00:00Z",
     )
     live = write_licence(
-        tmp_path / "live.json", issuer_private=issuer,
-        install_id="inst_CUST0001", expires_at="2099-01-14T00:00:00Z", n_slots=50,
+        tmp_path / "live.json",
+        issuer_private=issuer,
+        install_id="inst_CUST0001",
+        expires_at="2099-01-14T00:00:00Z",
+        n_slots=50,
     )
     for path in (setup, live):
         licensed = settings.model_copy(update={"licence": LicenceSettings(file=path)})

@@ -24,7 +24,7 @@ import httpx
 import pytest
 
 from matofx.audit import AuditWriter
-from matofx.config import EmailSettings, Settings
+from matofx.config import EmailSettings
 from matofx.db import session_scope
 from matofx.db.session import SessionFactory
 from matofx.notify.email import EmailNotifier
@@ -33,7 +33,7 @@ from matofx.ui.branding_cache import refresh_branding_cache
 
 
 @pytest.fixture(autouse=True)
-def _reset_branding_cache() -> "object":
+def _reset_branding_cache() -> object:
     """Snapshot + restore the module-level branding cache around each test.
 
     The cache is process-wide so a test that saves a title would

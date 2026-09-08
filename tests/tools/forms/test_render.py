@@ -372,9 +372,9 @@ def test_required_table_with_blank_cells_blocks_submit(
 
     # Fill one row fully but leave the other blank — still blocked.
     handle.seed({"curve": [{"x": 1.0, "y": 2.0}, {"x": None, "y": None}]})
-    assert any("Fill in every cell of Curve" in b for b in handle.submit_blockers(
-        require_job_name=False
-    ))
+    assert any(
+        "Fill in every cell of Curve" in b for b in handle.submit_blockers(require_job_name=False)
+    )
 
     # Every cell filled → no table blocker.
     handle.seed({"curve": [{"x": 1.0, "y": 2.0}]})
@@ -405,8 +405,7 @@ def test_optional_table_partial_row_blocks_but_blank_rows_are_fine(
 
     handle.seed({"curve": [{"x": 1.0, "y": None}]})  # partly filled row
     assert any(
-        "partly-filled row in Curve" in b
-        for b in handle.submit_blockers(require_job_name=False)
+        "partly-filled row in Curve" in b for b in handle.submit_blockers(require_job_name=False)
     )
 
 
@@ -505,9 +504,7 @@ def test_format_other_job_label_and_output_option() -> None:
     )
     assert opt == "Temperature field  ·  temperature_final.vtu"
     # Filename falls back to the value's basename.
-    opt2 = _format_output_option(
-        {"output_name": "temp", "value": "/mnt/job/outputs/t.vtu"}
-    )
+    opt2 = _format_output_option({"output_name": "temp", "value": "/mnt/job/outputs/t.vtu"})
     assert opt2 == "temp  ·  t.vtu"
 
 

@@ -29,7 +29,7 @@ import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, SupportsInt, cast
 
 import sqlalchemy as sa
 
@@ -140,7 +140,7 @@ async def run_retention_pass(session: AsyncSession, *, audit: AuditWriter) -> Re
 def _window(raw: object) -> int:
     """Coerce a retention-window value to a non-negative int (0 = off)."""
     try:
-        return max(int(raw), 0)  # type: ignore[arg-type]
+        return max(int(cast("SupportsInt", raw)), 0)
     except (TypeError, ValueError):
         return 0
 
@@ -265,8 +265,7 @@ async def _delete_workdirs(
                 resource_id=str(job.id),
                 outcome="success",
                 reason=(
-                    f"{state.capitalize()}-job working directory older than "
-                    "the retention window."
+                    f"{state.capitalize()}-job working directory older than the retention window."
                 ),
             ),
         )

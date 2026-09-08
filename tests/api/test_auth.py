@@ -286,9 +286,7 @@ async def test_me_ui_preferences_rejects_empty_offlist_and_range(
         {"sidebar_width": 9999},
         {"sidebar_width": 10},
     ):
-        resp = await client.post(
-            "/api/auth/me/ui-preferences", headers=auth_headers, json=bad_body
-        )
+        resp = await client.post("/api/auth/me/ui-preferences", headers=auth_headers, json=bad_body)
         assert resp.status_code == 422, f"{bad_body} -> {resp.text}"
 
     me = await client.get("/api/auth/me", headers=auth_headers)

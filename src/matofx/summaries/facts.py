@@ -40,9 +40,7 @@ SURFACE_KINDS: tuple[SurfaceKind, ...] = (
     "optimisation_study",
 )
 
-TERMINAL_STATES: frozenset[str] = frozenset(
-    {"complete", "failed", "partial", "cancelled"}
-)
+TERMINAL_STATES: frozenset[str] = frozenset({"complete", "failed", "partial", "cancelled"})
 """States for which a summary is produced. A collector handed anything else
 raises :class:`~matofx.summaries.errors.NonTerminalResultError`."""
 

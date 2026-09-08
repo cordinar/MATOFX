@@ -343,6 +343,8 @@ def _licence_entitlement(settings: Settings | None) -> tuple[int | None, str | N
         return (None, None, None)
     manifest = resolution.status.manifest
     return (manifest.n_slots, manifest.licence_type, resolution.status.state)
+
+
 @dataclass(frozen=True)
 class TargetUsage:
     """Jobs + compute on one execution target (local / aos / hpc)."""

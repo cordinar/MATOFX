@@ -71,9 +71,7 @@ async def _seed_run(
     *,
     child_states: list[str],
 ) -> int:
-    aliases = await _install_member_tools(
-        factory, audit, actor_user_id=seeded["user_id"]
-    )
+    aliases = await _install_member_tools(factory, audit, actor_user_id=seeded["user_id"])
     async with session_scope(factory) as session:
         version_by_alias: dict[str, int] = {}
         for alias in aliases:
@@ -142,15 +140,11 @@ async def _facts_for(factory: SessionFactory, run_id: int, settings: Settings):
         children = list(
             (
                 await session.execute(
-                    select(Job)
-                    .where(Job.workflow_run_id == run_id)
-                    .order_by(Job.workflow_position)
+                    select(Job).where(Job.workflow_run_id == run_id).order_by(Job.workflow_position)
                 )
             ).scalars()
         )
-        return await collect_workflow_facts(
-            session, run=run, children=children, settings=settings
-        )
+        return await collect_workflow_facts(session, run=run, children=children, settings=settings)
 
 
 async def test_complete_run_facts(
@@ -159,9 +153,7 @@ async def test_complete_run_facts(
     api_audit: AuditWriter,
     api_settings: Settings,
 ) -> None:
-    run_id = await _seed_run(
-        api_factory, seeded, api_audit, child_states=["complete", "complete"]
-    )
+    run_id = await _seed_run(api_factory, seeded, api_audit, child_states=["complete", "complete"])
     facts = await _facts_for(api_factory, run_id, api_settings)
     assert facts.surface_kind == "workflow_run"
     assert facts.state == "complete"
@@ -194,9 +186,7 @@ async def test_non_terminal_run_is_refused(
     api_audit: AuditWriter,
     api_settings: Settings,
 ) -> None:
-    run_id = await _seed_run(
-        api_factory, seeded, api_audit, child_states=["complete", "running"]
-    )
+    run_id = await _seed_run(api_factory, seeded, api_audit, child_states=["complete", "running"])
     with pytest.raises(NonTerminalResultError):
         await _facts_for(api_factory, run_id, api_settings)
 
@@ -210,9 +200,7 @@ async def test_tool_label_resolves_to_display_name(
     run_id = await _seed_run(api_factory, seeded, api_audit, child_states=["complete"])
     async with session_scope(api_factory) as session:
         tool = (
-            await session.execute(
-                select(Tool).where(Tool.alias == _MEMBER_TOOLS[0])
-            )
+            await session.execute(select(Tool).where(Tool.alias == _MEMBER_TOOLS[0]))
         ).scalar_one()
         expected = tool.name
     facts = await _facts_for(api_factory, run_id, api_settings)

@@ -166,9 +166,7 @@ async def current_status(
         return IntegrityStatus(ok=True, acknowledged=False)
     now = now or _dt.datetime.now(tz=_dt.UTC)
     checked_at = _aware(row.checked_at)
-    age_hours = (
-        None if checked_at is None else max(0.0, (now - checked_at).total_seconds() / 3600)
-    )
+    age_hours = None if checked_at is None else max(0.0, (now - checked_at).total_seconds() / 3600)
     return IntegrityStatus(
         ok=bool(row.chain_ok),
         acknowledged=row.acknowledged_at is not None,
@@ -214,9 +212,7 @@ async def verify_recent(
     from matofx.audit.keys import collect_public_keys  # noqa: PLC0415
     from matofx.audit.orm import AuditLog  # noqa: PLC0415
 
-    head_id = (
-        await session.execute(sa.select(sa.func.max(AuditLog.id)))
-    ).scalar_one_or_none()
+    head_id = (await session.execute(sa.select(sa.func.max(AuditLog.id)))).scalar_one_or_none()
     if head_id is None:
         # Nothing recorded yet: an empty chain is trivially intact, and
         # stamping a verification keeps a fresh install out of staleness.
@@ -296,8 +292,7 @@ async def record_verify_result(
                 payload={
                     "records_checked": result.records_checked,
                     "failures": [
-                        {"record_id": f.record_id, "reason": f.reason}
-                        for f in result.failures[:20]
+                        {"record_id": f.record_id, "reason": f.reason} for f in result.failures[:20]
                     ],
                 },
                 reason=detail,

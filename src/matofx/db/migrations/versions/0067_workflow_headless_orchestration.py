@@ -63,9 +63,7 @@ def upgrade() -> None:
             ["id"],
             ondelete="RESTRICT",
         )
-        batch.create_index(
-            "ix_workflow_run_optimisation_study_id", ["optimisation_study_id"]
-        )
+        batch.create_index("ix_workflow_run_optimisation_study_id", ["optimisation_study_id"])
 
 
 def downgrade() -> None:

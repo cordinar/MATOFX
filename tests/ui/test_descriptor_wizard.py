@@ -80,8 +80,13 @@ def test_non_field_output_does_not_emit_field_keys() -> None:
     descriptor validator forbids them off a field output)."""
     descriptor = {
         "outputs": [
-            {"name": "report", "label": "Report", "type": "file",
-             "file_type": "html_plot", "filename": "outputs/r.html"},
+            {
+                "name": "report",
+                "label": "Report",
+                "type": "file",
+                "file_type": "html_plot",
+                "filename": "outputs/r.html",
+            },
         ],
     }
     payload = build_descriptor_payload(state_from_descriptor(descriptor))
@@ -147,9 +152,17 @@ def test_kpi_flag_dropped_when_output_is_not_numeric() -> None:
     numeric output) — the flag is scoped to numeric outputs at serialise time."""
     state = state_from_descriptor({})
     field = empty_output_field()
-    field.update({"name": "report", "label": "Report", "type": "file",
-                  "file_type": "html_plot", "filename": "outputs/r.html",
-                  "kpi": True, "kpi_label": "stale"})
+    field.update(
+        {
+            "name": "report",
+            "label": "Report",
+            "type": "file",
+            "file_type": "html_plot",
+            "filename": "outputs/r.html",
+            "kpi": True,
+            "kpi_label": "stale",
+        }
+    )
     state["outputs"] = [field]
     out = build_descriptor_payload(state)["outputs"][0]
     assert "kpi" not in out
@@ -844,7 +857,10 @@ def test_inputs_tab_renders_card_layout(nicegui_client: object) -> None:  # noqa
             },
             # Formula-driven bound + value + a validity rule — exercises the
             # new outcome param widgets (source toggle, require fields).
-            {"when": "True", "effects": [{"kind": "set_min_max", "field": "f", "minimum_expr": "n"}]},
+            {
+                "when": "True",
+                "effects": [{"kind": "set_min_max", "field": "f", "minimum_expr": "n"}],
+            },
             {"when": "True", "effects": [{"kind": "set_value", "field": "p2", "value_expr": "p1"}]},
             {"when": "True", "effects": [{"kind": "require", "field": "f", "expr": "f >= n"}]},
         ],
@@ -1060,9 +1076,7 @@ def test_preset_round_trip_validates_against_tool_descriptor() -> None:
             "unit_custom": "",
         }
     ]
-    state["presets"] = [
-        {"name": "Default", "description": "Starting point", "values": {"x": 10}}
-    ]
+    state["presets"] = [{"name": "Default", "description": "Starting point", "values": {"x": 10}}]
     payload = build_descriptor_payload(state)
     full = {
         "alias": "demo",

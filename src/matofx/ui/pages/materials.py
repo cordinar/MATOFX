@@ -593,7 +593,8 @@ def _build_create_section(client: ApiClient, refresh_holder: dict[str, Any]) -> 
     async def _ensure_class() -> int | None:
         """Return the (creating if needed) class id, or None on a problem."""
         if create_ctx["class_id"] is not None:
-            return int(create_ctx["class_id"])
+            class_id = create_ctx.get("class_id")
+        return int(class_id) if class_id is not None else None
         cname = (name_in.value or "").strip()
         if not cname:
             ui.notify("Give the class a name first.", type="warning")

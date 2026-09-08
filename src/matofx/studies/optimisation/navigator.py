@@ -108,16 +108,12 @@ def recommend_strategy(config: Mapping[str, Any]) -> StrategyRecommendation:
     # High-dimensional or integer/categorical-dominated spaces outscale the
     # continuous GP that backs BO; CMA-ES is the workhorse there.
     if n_factors > _HIGH_DIM or (n_discrete > 0 and n_discrete > n_continuous):
-        reason = (
-            f"{n_factors} factors" if n_factors > _HIGH_DIM else "an integer/categorical space"
-        )
+        reason = f"{n_factors} factors" if n_factors > _HIGH_DIM else "an integer/categorical space"
         return StrategyRecommendation(
             strategy="cmaes",
             run_mode=run_mode,
             batch_size=8,
-            rationale=(
-                f"With {reason}, CMA-ES scales past surrogate search while staying robust."
-            ),
+            rationale=(f"With {reason}, CMA-ES scales past surrogate search while staying robust."),
         )
 
     # The sweet spot for the MATOFX surrogate: one objective, a modest

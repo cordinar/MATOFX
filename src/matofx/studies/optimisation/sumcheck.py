@@ -70,9 +70,7 @@ class _Bounded(Protocol):
     def high(self) -> float | None: ...
 
 
-def pick_balance_heuristic(
-    varied_keys: Sequence[str], specs: Mapping[str, _Bounded]
-) -> str | None:
+def pick_balance_heuristic(varied_keys: Sequence[str], specs: Mapping[str, _Bounded]) -> str | None:
     """Default balance member: the widest-range varied member (deterministic).
 
     A wide range gives the balance the most room to absorb the residual without
@@ -218,9 +216,7 @@ def sum_check_notes(
         if signature in seen:
             continue
         seen.add(signature)
-        labels = [
-            f"{prefix}{by_name[p].get('label') or p}" for p in params if p in by_name
-        ]
+        labels = [f"{prefix}{by_name[p].get('label') or p}" for p in params if p in by_name]
         if labels:
             notes.append((float(sc.get("value") or 0.0), labels))
     return notes

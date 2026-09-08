@@ -155,9 +155,7 @@ def test_a_genuinely_thin_axis_is_still_named_by_its_label() -> None:
 
 def test_the_envelope_is_where_a_label_is_resolved() -> None:
     """One place decides what an axis is called; everything else asks it."""
-    points = resolve_points(
-        training([{"a": float(i), "b": float(i % 3)} for i in range(12)])
-    )
+    points = resolve_points(training([{"a": float(i), "b": float(i % 3)} for i in range(12)]))
     envelope = build_envelope(points)
     for factor in envelope.factors:
         # No descriptor in this fixture, so the fallback must be the name —
@@ -168,8 +166,10 @@ def test_the_envelope_is_where_a_label_is_resolved() -> None:
 @pytest.mark.parametrize(
     ("factor", "expected"),
     [
-        ({"name": "thermal_conductivity", "label": "Material conductivity"},
-         "Material conductivity"),
+        (
+            {"name": "thermal_conductivity", "label": "Material conductivity"},
+            "Material conductivity",
+        ),
         ({"name": "thermal_conductivity", "label": ""}, "thermal_conductivity"),
         ({"name": "thermal_conductivity"}, "thermal_conductivity"),
     ],
@@ -194,7 +194,7 @@ def test_a_factor_row_reads_in_labels_not_names() -> None:
 
 
 def test_the_percentage_is_explained_as_a_gap() -> None:
-    """"98% covered" said nothing checkable; the untried stretch does."""
+    """ "98% covered" said nothing checkable; the untried stretch does."""
     row = {
         "name": "v",
         "label": "Air velocity",
@@ -217,7 +217,7 @@ def test_factor_labels_maps_every_axis_for_the_surfaces_keyed_by_name() -> None:
 
 
 def test_a_pinned_input_gets_a_grey_not_varied_badge() -> None:
-    """"Well covered: the same in every run" is nonsense on its face.
+    """ "Well covered: the same in every run" is nonsense on its face.
 
     The engine scores a pinned axis 1.0 because there is nothing left to
     cover -- defensible internally, and it rendered as the most reassuring
@@ -237,7 +237,7 @@ def test_a_measured_row_still_gets_its_verdict_badge() -> None:
 
 
 def test_the_row_says_the_simulated_range() -> None:
-    """"its range" was ambiguous -- the input's? the declared envelope's?"""
+    """ "its range" was ambiguous -- the input's? the declared envelope's?"""
     text = factor_row_text(
         {
             "name": "v",
@@ -360,7 +360,7 @@ def test_a_constant_input_is_pinned_until_it_is_given_a_range() -> None:
 
 
 def test_a_range_on_a_held_constant_axis_opens_it_up() -> None:
-    """"Always 60" is a fact about the runs so far, not a rule."""
+    """ "Always 60" is a fact about the runs so far, not a rule."""
     points, desc = _pinned_fixture()
     envelope = build_envelope(
         points,

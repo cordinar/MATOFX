@@ -29,14 +29,18 @@ from tests.licence.conftest import utcnow, write_licence
 
 
 def _at(days_from_now: int) -> str:
-    return (
-        (utcnow() + _dt.timedelta(days=days_from_now)).isoformat().replace("+00:00", "Z")
-    )
+    return (utcnow() + _dt.timedelta(days=days_from_now)).isoformat().replace("+00:00", "Z")
 
 
 def _licensed(
-    settings: Settings, path: Path, issuer: Ed25519PrivateKey, *, expires_in_days: int,
-    grace: int = 30, licence_type: str = "csl", n_slots: int = 10,
+    settings: Settings,
+    path: Path,
+    issuer: Ed25519PrivateKey,
+    *,
+    expires_in_days: int,
+    grace: int = 30,
+    licence_type: str = "csl",
+    n_slots: int = 10,
 ) -> Settings:
     write_licence(
         path,
@@ -99,9 +103,7 @@ async def test_readonly_entered_and_left_are_both_recorded(
     active = _licensed(settings, tmp_path / "l.json", issuer, expires_in_days=10)
     state = await recheck_licence(session, settings=active)
 
-    expired = _licensed(
-        settings, tmp_path / "l.json", issuer, expires_in_days=-400, grace=30
-    )
+    expired = _licensed(settings, tmp_path / "l.json", issuer, expires_in_days=-400, grace=30)
     state = await recheck_licence(session, settings=expired, previous=state)
     assert state.read_only is True
 
@@ -126,10 +128,14 @@ async def test_transition_event_names_both_ends(
     await recheck_licence(session, settings=grace, previous=first)
 
     row = (
-        await session.execute(
-            sa.select(AuditLog).where(AuditLog.action == "licence.expiry.transition")
+        (
+            await session.execute(
+                sa.select(AuditLog).where(AuditLog.action == "licence.expiry.transition")
+            )
         )
-    ).scalars().one()
+        .scalars()
+        .one()
+    )
     assert row.payload["from"] == "active"
     assert row.payload["to"] == "grace"
     assert row.reason == "active -> grace"
@@ -230,6 +236,4 @@ def test_cap_suffix_names_the_figure_it_governs() -> None:
     )
     assert _cap_suffix({"cap": None}) == "no licence installed"
     # A non-active state is worth saying out loud on the tile.
-    assert "(grace)" in _cap_suffix(
-        {"cap": 10, "licence_type": "csl", "licence_state": "grace"}
-    )
+    assert "(grace)" in _cap_suffix({"cap": 10, "licence_type": "csl", "licence_state": "grace"})

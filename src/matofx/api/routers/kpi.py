@@ -34,6 +34,7 @@ contract is forwards-compatible: slice 9 only adds a query parameter.
 
 from __future__ import annotations
 
+import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -72,9 +73,7 @@ def _require_kpi_feature(
 ) -> None:
     """404 every route when the KPI feature flag is off (routes *absent*)."""
     if not feature_enabled(settings.features, Feature.KPI_EXTRACTION):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Not found."
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found.")
 
 
 router = APIRouter(dependencies=[Depends(_require_kpi_feature)])
@@ -98,9 +97,7 @@ async def get_tool_kpis(
 ) -> ToolKpiCatalogResponse:
     """List the KPIs declared by the tool's released version(s)."""
     del current_user
-    entries = await list_kpis_for_tool(
-        db, tool_alias=tool_alias, tool_version_id=version_id
-    )
+    entries = await list_kpis_for_tool(db, tool_alias=tool_alias, tool_version_id=version_id)
     return ToolKpiCatalogResponse(
         tool_alias=tool_alias,
         tool_version_id=version_id,
@@ -352,9 +349,7 @@ async def get_tool_results_csv(
         kpi_ranges=_parse_kpi_ranges(kpi_range),
         vv_status=vv_status,
     )
-    catalog = await list_kpis_for_tool(
-        db, tool_alias=tool_alias, tool_version_id=version_id
-    )
+    catalog = await list_kpis_for_tool(db, tool_alias=tool_alias, tool_version_id=version_id)
     chunks = iter_warehouse_csv(
         db,
         actor_user_id=current_user.id,
@@ -366,9 +361,7 @@ async def get_tool_results_csv(
         chunks,
         media_type="text/csv",
         headers={
-            "Content-Disposition": (
-                f'attachment; filename="{tool_alias}_results.csv"'
-            ),
+            "Content-Disposition": (f'attachment; filename="{tool_alias}_results.csv"'),
         },
     )
 
@@ -423,9 +416,7 @@ async def get_tool_results_pdf(
         kpi_ranges=_parse_kpi_ranges(kpi_range),
         vv_status=vv_status,
     )
-    catalog = await list_kpis_for_tool(
-        db, tool_alias=tool_alias, tool_version_id=version_id
-    )
+    catalog = await list_kpis_for_tool(db, tool_alias=tool_alias, tool_version_id=version_id)
     page = await list_warehouse_rows(
         db,
         actor_user_id=current_user.id,
@@ -496,9 +487,7 @@ async def get_tool_results_pdf(
 
     # Show the tool's human display name in the report title, not its
     # internal alias ([[feedback_use_labels_not_names]]).
-    tool_row = (
-        await db.execute(select(Tool).where(Tool.alias == tool_alias))
-    ).scalar_one_or_none()
+    tool_row = (await db.execute(select(Tool).where(Tool.alias == tool_alias))).scalar_one_or_none()
     tool_name = tool_row.name if tool_row is not None else tool_alias
 
     context = WarehouseReportContext(
@@ -519,7 +508,7 @@ async def get_tool_results_pdf(
 # ---- helpers ----------------------------------------------------------
 
 
-def _parse_iso_datetime(raw: str | None, field: str):  # type: ignore[no-untyped-def]
+def _parse_iso_datetime(raw: str | None, field: str) -> datetime.datetime | None:
     """Lenient ISO-8601 parser; 400 on garbage."""
     if raw is None:
         return None

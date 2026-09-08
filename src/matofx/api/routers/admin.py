@@ -214,6 +214,7 @@ async def _release_assignment(
         target_user_id=target_user_id,
     )
 
+
 async def _user_to_response(session: AsyncSession, user: User) -> AdminUserResponse:
     """Render a :class:`User` ORM row as the admin API response."""
     role_name = ""
@@ -774,9 +775,7 @@ async def add_role_members(
     return await _role_to_response(db, role_service, role_id)
 
 
-@router.delete(
-    "/admin/roles/{role_id}/members/{user_id}", response_model=AdminRoleResponse
-)
+@router.delete("/admin/roles/{role_id}/members/{user_id}", response_model=AdminRoleResponse)
 async def remove_role_member(
     role_id: int,
     user_id: int,
@@ -1159,9 +1158,7 @@ async def list_tool_versions(
                     .where(
                         AuditLog.resource_type == "tool",
                         AuditLog.resource_id == str(tool.id),
-                        AuditLog.action.in_(
-                            ["tools.tool.archive", "tools.tool.unarchive"]
-                        ),
+                        AuditLog.action.in_(["tools.tool.archive", "tools.tool.unarchive"]),
                     )
                     .order_by(AuditLog.timestamp.desc(), AuditLog.id.desc())
                 )
@@ -1180,9 +1177,7 @@ async def list_tool_versions(
                 user_ids.add(int(a.actor.split(":", 1)[1]))
     label_by_id: dict[int, str] = {}
     if user_ids:
-        user_stmt = sa.select(User.id, User.full_name, User.username).where(
-            User.id.in_(user_ids)
-        )
+        user_stmt = sa.select(User.id, User.full_name, User.username).where(User.id.in_(user_ids))
         for uid, full_name, username in (await db.execute(user_stmt)).all():
             full = (full_name or "").strip()
             username_str = str(username or "")
@@ -1251,9 +1246,7 @@ async def _tool_draft_to_summary(row: ToolDraft) -> ToolDraftSummary:
     )
 
 
-async def _fetch_owned_draft(
-    db: AsyncSession, *, draft_id: int, owner_user_id: int
-) -> ToolDraft:
+async def _fetch_owned_draft(db: AsyncSession, *, draft_id: int, owner_user_id: int) -> ToolDraft:
     """Load a draft, 404ing when missing or owned by someone else.
 
     Existence-hide: another user's draft 404s rather than 403s, so the
@@ -1321,9 +1314,7 @@ async def save_tool_draft(
     await _require(db, current_user.id, Permission.TOOLS_INSTALL)
     payload = dict(body.payload) if isinstance(body.payload, dict) else {}
     if body.draft_id is not None:
-        row = await _fetch_owned_draft(
-            db, draft_id=body.draft_id, owner_user_id=current_user.id
-        )
+        row = await _fetch_owned_draft(db, draft_id=body.draft_id, owner_user_id=current_user.id)
         row.title = body.title or ""
         row.alias = body.alias or ""
         row.payload = payload
@@ -2051,9 +2042,7 @@ async def update_tool_guide_images(
             expected_row_version=existing_tool.row_version,
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _tool_to_admin_response(refreshed)
 
 
@@ -2921,6 +2910,8 @@ async def get_site_mode(
     # middleware; the banner has to say so too, or a user hits a 503 the
     # page cannot explain.
     foreign = _foreign_install(request, resolution) if _licence_enforced(settings) else None
+    reason: str | None
+    banner: str | None
     if foreign is not None:
         reason, banner = foreign.code, foreign.message
         licence_read_only = True

@@ -32,8 +32,10 @@ CAD previews degrade.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import logging
+import os
 import tempfile
 from collections import OrderedDict
 from pathlib import Path
@@ -211,8 +213,8 @@ def _convert_iges(content: bytes) -> bytes:
     cadquery uses for STEP under the hood.
     """
     from OCP.BRepMesh import BRepMesh_IncrementalMesh  # noqa: PLC0415
-    from OCP.IGESControl import IGESControl_Reader  # noqa: PLC0415
     from OCP.IFSelect import IFSelect_RetDone  # noqa: PLC0415
+    from OCP.IGESControl import IGESControl_Reader  # noqa: PLC0415
     from OCP.StlAPI import StlAPI_Writer  # noqa: PLC0415
 
     in_path = _write_temp(content, ".iges")
@@ -256,7 +258,8 @@ def _convert_obj(content: bytes) -> bytes:
     except Exception as exc:  # noqa: BLE001 — trimesh raises a broad family
         raise CadConversionError(f"Couldn't read OBJ file: {exc}") from exc
     try:
-        return bytes(mesh.export(file_type="stl"))
+        # trimesh ships no stubs; ``export`` returns bytes for file_type=stl.
+        return bytes(mesh.export(file_type="stl"))  # type: ignore[no-untyped-call,call-arg]
     except Exception as exc:  # noqa: BLE001
         raise CadConversionError(f"Couldn't export STL from OBJ: {exc}") from exc
 
@@ -265,7 +268,7 @@ def _write_temp(content: bytes, suffix: str) -> Path:
     """Write ``content`` to a unique temp file; return the path."""
     fd, name = tempfile.mkstemp(suffix=suffix)
     try:
-        with open(fd, "wb") as fh:
+        with os.fdopen(fd, "wb") as fh:
             fh.write(content)
     except Exception:
         # Clean up the file descriptor on write failure so we don't
@@ -285,10 +288,8 @@ def _new_temp_path(suffix: str) -> Path:
 
 
 def _unlink_quietly(path: Path) -> None:
-    try:
+    with contextlib.suppress(OSError):
         path.unlink(missing_ok=True)
-    except OSError:
-        pass
 
 
 def clear_cache() -> None:

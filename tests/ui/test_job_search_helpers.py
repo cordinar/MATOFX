@@ -29,9 +29,7 @@ from matofx.ui.pages.job_search import (
 
 
 def test_tool_label_includes_version_when_present() -> None:
-    assert _tool_label({"name": "Heat Transfer", "version": "1.0.0"}) == (
-        "Heat Transfer v1.0.0"
-    )
+    assert _tool_label({"name": "Heat Transfer", "version": "1.0.0"}) == ("Heat Transfer v1.0.0")
 
 
 def test_tool_label_falls_back_to_alias_when_name_missing() -> None:

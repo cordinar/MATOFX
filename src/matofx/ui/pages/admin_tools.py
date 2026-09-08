@@ -181,9 +181,11 @@ def _render_drafts_section(drafts: list[dict[str, Any]]) -> None:
     discards the draft. Uploaded bundle files are never part of a draft,
     so the heading says so to set expectations on resume.
     """
-    with ui.expansion(
-        f"Drafts in progress ({len(drafts)})", icon="drafts"
-    ).classes("w-full").props("default-opened"):
+    with (
+        ui.expansion(f"Drafts in progress ({len(drafts)})", icon="drafts")
+        .classes("w-full")
+        .props("default-opened")
+    ):
         ui.label(
             "Saved New Tool setups you haven't installed yet. Resume to pick up "
             "where you left off — you'll need to re-attach the descriptor / static "
@@ -437,9 +439,7 @@ def _open_change_log_dialog(
                     ui.label("No snapshots yet.").style("color: #555;")
                     return
                 for entry in versions:
-                    _render_change_log_entry(
-                        entry, tool_name_by_alias, user_label_by_username
-                    )
+                    _render_change_log_entry(entry, tool_name_by_alias, user_label_by_username)
 
         ui.timer(0.0, _populate, once=True)
 

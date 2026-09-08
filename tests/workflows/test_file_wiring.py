@@ -362,8 +362,13 @@ async def test_resolve_wired_files_for_non_member_is_empty(
     service = make_workflow_run_service(AuditWriter(signing_key=None, key_id=None))
     async with session_scope(factory) as session:
         job = Job(
-            scenario_id=1, name="standalone", tool_alias="x", tool_version_id=1,
-            state="created", inputs={}, created_by_user_id=seed_roles["administrator"],
+            scenario_id=1,
+            name="standalone",
+            tool_alias="x",
+            tool_version_id=1,
+            state="created",
+            inputs={},
+            created_by_user_id=seed_roles["administrator"],
         )
         primaries, sources = await service.resolve_wired_files_for_member(session, job)
     assert primaries == {}

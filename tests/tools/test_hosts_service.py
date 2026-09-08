@@ -120,14 +120,24 @@ async def test_create_aos_host_duplicate_name_raises(engine: AsyncEngine) -> Non
     service = make_aos_hosts_service(_audit())
     async with session_scope(factory) as session:
         await service.create(
-            session, actor_user_id=uid, name="dup", hostname="h", os="linux",
-            username="u", secret_ref="r",
+            session,
+            actor_user_id=uid,
+            name="dup",
+            hostname="h",
+            os="linux",
+            username="u",
+            secret_ref="r",
         )
     async with session_scope(factory) as session:
         with pytest.raises(DuplicateNameError):
             await service.create(
-                session, actor_user_id=uid, name="dup", hostname="h2", os="linux",
-                username="u", secret_ref="r",
+                session,
+                actor_user_id=uid,
+                name="dup",
+                hostname="h2",
+                os="linux",
+                username="u",
+                secret_ref="r",
             )
 
 
@@ -138,15 +148,28 @@ async def test_update_aos_host_changes_fields_and_transport(engine: AsyncEngine)
     service = make_aos_hosts_service(_audit())
     async with session_scope(factory) as session:
         row = await service.create(
-            session, actor_user_id=uid, name="h", hostname="old", os="linux",
-            username="u", secret_ref="r",
+            session,
+            actor_user_id=uid,
+            name="h",
+            hostname="old",
+            os="linux",
+            username="u",
+            secret_ref="r",
         )
         rid = row.id
     async with session_scope(factory) as session:
         updated = await service.update(
-            session, actor_user_id=uid, row_id=rid, hostname="new", os="windows",
-            username="u2", secret_ref="r2", port=5986, max_concurrency=2,
-            cpu_cores=8, memory_mb=None,
+            session,
+            actor_user_id=uid,
+            row_id=rid,
+            hostname="new",
+            os="windows",
+            username="u2",
+            secret_ref="r2",
+            port=5986,
+            max_concurrency=2,
+            cpu_cores=8,
+            memory_mb=None,
         )
         assert updated.hostname == "new"
         assert updated.transport == "winrm"  # re-derived from os
@@ -161,8 +184,13 @@ async def test_set_active_toggles(engine: AsyncEngine) -> None:
     service = make_aos_hosts_service(_audit())
     async with session_scope(factory) as session:
         row = await service.create(
-            session, actor_user_id=uid, name="h", hostname="h", os="linux",
-            username="u", secret_ref="r",
+            session,
+            actor_user_id=uid,
+            name="h",
+            hostname="h",
+            os="linux",
+            username="u",
+            secret_ref="r",
         )
         rid = row.id
     async with session_scope(factory) as session:
@@ -181,9 +209,17 @@ async def test_update_missing_aos_host_raises(engine: AsyncEngine) -> None:
     async with session_scope(factory) as session:
         with pytest.raises(NotFoundError):
             await service.update(
-                session, actor_user_id=uid, row_id=9999, hostname="x", os="linux",
-                username="u", secret_ref="r", port=22, max_concurrency=1,
-                cpu_cores=None, memory_mb=None,
+                session,
+                actor_user_id=uid,
+                row_id=9999,
+                hostname="x",
+                os="linux",
+                username="u",
+                secret_ref="r",
+                port=22,
+                max_concurrency=1,
+                cpu_cores=None,
+                memory_mb=None,
             )
 
 
@@ -196,8 +232,13 @@ async def test_aos_create_denied_for_regular_user(engine: AsyncEngine) -> None:
     async with session_scope(factory) as session:
         with pytest.raises(PermissionDeniedError):
             await service.create(
-                session, actor_user_id=regular, name="h", hostname="h", os="linux",
-                username="u", secret_ref="r",
+                session,
+                actor_user_id=regular,
+                name="h",
+                hostname="h",
+                os="linux",
+                username="u",
+                secret_ref="r",
             )
 
 
@@ -211,13 +252,24 @@ async def test_create_hpc_cluster_slurm_and_mshpc(engine: AsyncEngine) -> None:
     service = make_hpc_clusters_service(_audit())
     async with session_scope(factory) as session:
         slurm = await service.create(
-            session, actor_user_id=uid, name="slurm1", head_node="h", scheduler="slurm",
-            username="u", secret_ref="r", default_queue="batch",
+            session,
+            actor_user_id=uid,
+            name="slurm1",
+            head_node="h",
+            scheduler="slurm",
+            username="u",
+            secret_ref="r",
+            default_queue="batch",
         )
         assert (slurm.transport, slurm.port, slurm.default_queue) == ("ssh", 22, "batch")
         mshpc = await service.create(
-            session, actor_user_id=uid, name="mshpc1", head_node="h", scheduler="mshpc",
-            username="u", secret_ref="r",
+            session,
+            actor_user_id=uid,
+            name="mshpc1",
+            head_node="h",
+            scheduler="mshpc",
+            username="u",
+            secret_ref="r",
         )
         assert (mshpc.transport, mshpc.port) == ("winrm", 5986)
 
@@ -229,14 +281,26 @@ async def test_update_hpc_cluster(engine: AsyncEngine) -> None:
     service = make_hpc_clusters_service(_audit())
     async with session_scope(factory) as session:
         row = await service.create(
-            session, actor_user_id=uid, name="c", head_node="old", scheduler="slurm",
-            username="u", secret_ref="r",
+            session,
+            actor_user_id=uid,
+            name="c",
+            head_node="old",
+            scheduler="slurm",
+            username="u",
+            secret_ref="r",
         )
         rid = row.id
     async with session_scope(factory) as session:
         updated = await service.update(
-            session, actor_user_id=uid, row_id=rid, head_node="new", scheduler="mshpc",
-            username="u2", secret_ref="r2", port=5986, default_queue="gpu",
+            session,
+            actor_user_id=uid,
+            row_id=rid,
+            head_node="new",
+            scheduler="mshpc",
+            username="u2",
+            secret_ref="r2",
+            port=5986,
+            default_queue="gpu",
         )
         assert updated.head_node == "new"
         assert updated.transport == "winrm"
@@ -256,16 +320,31 @@ async def test_hpc_cluster_accounting_fields_round_trip(engine: AsyncEngine) -> 
     service = make_hpc_clusters_service(_audit())
     async with session_scope(factory) as session:
         row = await service.create(
-            session, actor_user_id=uid, name="c", head_node="h", scheduler="slurm",
-            username="u", secret_ref="r", account="cfd-team", wckey="matofx",
+            session,
+            actor_user_id=uid,
+            name="c",
+            head_node="h",
+            scheduler="slurm",
+            username="u",
+            secret_ref="r",
+            account="cfd-team",
+            wckey="matofx",
         )
         assert (row.account, row.wckey) == ("cfd-team", "matofx")
         rid = row.id
     async with session_scope(factory) as session:
         updated = await service.update(
-            session, actor_user_id=uid, row_id=rid, head_node="h", scheduler="slurm",
-            username="u", secret_ref="r", port=22, default_queue=None,
-            account="   ", wckey=None,
+            session,
+            actor_user_id=uid,
+            row_id=rid,
+            head_node="h",
+            scheduler="slurm",
+            username="u",
+            secret_ref="r",
+            port=22,
+            default_queue=None,
+            account="   ",
+            wckey=None,
         )
         assert updated.account is None
         assert updated.wckey is None
@@ -279,8 +358,13 @@ async def test_hpc_cluster_accounting_defaults_to_none(engine: AsyncEngine) -> N
     service = make_hpc_clusters_service(_audit())
     async with session_scope(factory) as session:
         row = await service.create(
-            session, actor_user_id=uid, name="plain", head_node="h", scheduler="slurm",
-            username="u", secret_ref="r",
+            session,
+            actor_user_id=uid,
+            name="plain",
+            head_node="h",
+            scheduler="slurm",
+            username="u",
+            secret_ref="r",
         )
         assert row.account is None
         assert row.wckey is None
@@ -293,8 +377,13 @@ async def test_hpc_set_active_and_list(engine: AsyncEngine) -> None:
     service = make_hpc_clusters_service(_audit())
     async with session_scope(factory) as session:
         row = await service.create(
-            session, actor_user_id=uid, name="c", head_node="h", scheduler="slurm",
-            username="u", secret_ref="r",
+            session,
+            actor_user_id=uid,
+            name="c",
+            head_node="h",
+            scheduler="slurm",
+            username="u",
+            secret_ref="r",
         )
         rid = row.id
         await service.set_active(session, actor_user_id=uid, row_id=rid, is_active=False)

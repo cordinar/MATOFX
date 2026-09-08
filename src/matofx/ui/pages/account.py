@@ -79,8 +79,10 @@ async def account_page() -> None:
 
         # Two-column card grid (mirrors the home "My Work" grid); the
         # wide password card sits full-width beneath it.
-        with ui.element("div").classes("w-full").style(
-            "display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start;"
+        with (
+            ui.element("div")
+            .classes("w-full")
+            .style("display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start;")
         ):
             _render_identity_card(me)
             _render_teams_card(me)
@@ -452,9 +454,7 @@ def _render_password_card(client: ApiClient, password_policy: dict[str, Any]) ->
 
 def _row(label: str, value: str) -> None:
     with ui.row().classes("w-full items-baseline"):
-        ui.label(label).style(
-            "font-weight: 600; min-width: 9rem; color: var(--matofx-label-text);"
-        )
+        ui.label(label).style("font-weight: 600; min-width: 9rem; color: var(--matofx-label-text);")
         ui.label(value).style("color: var(--matofx-body-text);")
 
 

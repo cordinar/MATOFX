@@ -211,9 +211,7 @@ def _usage_sections(usage: dict[str, Any]) -> list[str]:
             continue
         label = "Concurrent sessions (CSL)" if kind == CSL else "Floating assignments (FAL)"
         tag = (
-            _pill("authoritative", "ok")
-            if authoritative == kind
-            else _pill("observation", "warn")
+            _pill("authoritative", "ok") if authoritative == kind else _pill("observation", "warn")
         )
         rows = _csl_rows(block) if kind == CSL else _fal_rows(block)
         sections.append(_section(f"{label} {tag}", rows))

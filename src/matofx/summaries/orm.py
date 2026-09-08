@@ -81,9 +81,7 @@ class ResultSummary(_Base):
     )
 
     __table_args__ = (
-        sa.UniqueConstraint(
-            "surface_kind", "surface_id", name="uq_result_summary_surface"
-        ),
+        sa.UniqueConstraint("surface_kind", "surface_id", name="uq_result_summary_surface"),
         sa.CheckConstraint(
             f"surface_kind IN ({_SURFACE_KINDS_SQL})",
             name="ck_result_summary_surface_kind",

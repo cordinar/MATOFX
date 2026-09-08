@@ -12,6 +12,8 @@ The Creator is *not* stored here (it is ``project.creator_user_id``).
 
 from __future__ import annotations
 
+from typing import Any
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -21,7 +23,7 @@ branch_labels: str | None = None
 depends_on: str | None = None
 
 
-def _bigint() -> sa.types.TypeEngine:
+def _bigint() -> sa.types.TypeEngine[Any]:
     return sa.BigInteger().with_variant(sa.Integer(), "sqlite")
 
 

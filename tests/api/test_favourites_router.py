@@ -24,9 +24,7 @@ from matofx.favourites.orm import UserFavourite
 from matofx.users import make_password_hasher, make_user_service
 
 
-async def _enable_favourites(
-    client: httpx.AsyncClient, headers: dict[str, str]
-) -> None:
+async def _enable_favourites(client: httpx.AsyncClient, headers: dict[str, str]) -> None:
     """Flip the admin toggle on so mutation routes accept writes."""
     response = await client.post(
         "/api/admin/general-settings/favourites_enabled",
@@ -69,9 +67,7 @@ async def test_put_adds_favourite_when_enabled(
     client: httpx.AsyncClient, auth_headers: dict[str, str]
 ) -> None:
     await _enable_favourites(client, auth_headers)
-    response = await client.put(
-        "/api/me/favourites/tool/material_properties", headers=auth_headers
-    )
+    response = await client.put("/api/me/favourites/tool/material_properties", headers=auth_headers)
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["enabled"] is True
@@ -80,15 +76,11 @@ async def test_put_adds_favourite_when_enabled(
 
 
 @pytest.mark.asyncio
-async def test_put_is_idempotent(
-    client: httpx.AsyncClient, auth_headers: dict[str, str]
-) -> None:
+async def test_put_is_idempotent(client: httpx.AsyncClient, auth_headers: dict[str, str]) -> None:
     """Re-favouriting the same item is a no-op upsert, never a duplicate."""
     await _enable_favourites(client, auth_headers)
     for _ in range(3):
-        response = await client.put(
-            "/api/me/favourites/tool/alpha", headers=auth_headers
-        )
+        response = await client.put("/api/me/favourites/tool/alpha", headers=auth_headers)
         assert response.status_code == 200, response.text
         assert response.json()["tools"] == ["alpha"]
 
@@ -98,9 +90,7 @@ async def test_put_when_disabled_returns_409(
     client: httpx.AsyncClient, auth_headers: dict[str, str]
 ) -> None:
     """Feature off → mutation is rejected with a 409 + plain-English reason."""
-    response = await client.put(
-        "/api/me/favourites/tool/material_properties", headers=auth_headers
-    )
+    response = await client.put("/api/me/favourites/tool/material_properties", headers=auth_headers)
     assert response.status_code == 409, response.text
     assert "turned off" in response.text.lower()
 
@@ -110,9 +100,7 @@ async def test_put_rejects_unknown_kind(
     client: httpx.AsyncClient, auth_headers: dict[str, str]
 ) -> None:
     await _enable_favourites(client, auth_headers)
-    response = await client.put(
-        "/api/me/favourites/scenario/anything", headers=auth_headers
-    )
+    response = await client.put("/api/me/favourites/scenario/anything", headers=auth_headers)
     assert response.status_code == 400, response.text
     assert "scenario" in response.text
 
@@ -122,9 +110,7 @@ async def test_put_accepts_workflow_kind(
     client: httpx.AsyncClient, auth_headers: dict[str, str]
 ) -> None:
     await _enable_favourites(client, auth_headers)
-    response = await client.put(
-        "/api/me/favourites/workflow/heat_transfer", headers=auth_headers
-    )
+    response = await client.put("/api/me/favourites/workflow/heat_transfer", headers=auth_headers)
     body = response.json()
     assert body["workflows"] == ["heat_transfer"]
     assert body["tools"] == []
@@ -157,9 +143,7 @@ async def test_delete_removes_favourite(
 ) -> None:
     await _enable_favourites(client, auth_headers)
     await client.put("/api/me/favourites/tool/alpha", headers=auth_headers)
-    response = await client.delete(
-        "/api/me/favourites/tool/alpha", headers=auth_headers
-    )
+    response = await client.delete("/api/me/favourites/tool/alpha", headers=auth_headers)
     assert response.status_code == 200, response.text
     assert response.json()["tools"] == []
 
@@ -170,9 +154,7 @@ async def test_delete_is_idempotent(
 ) -> None:
     """Deleting a non-existent favourite is a no-op, never an error."""
     await _enable_favourites(client, auth_headers)
-    response = await client.delete(
-        "/api/me/favourites/tool/never_added", headers=auth_headers
-    )
+    response = await client.delete("/api/me/favourites/tool/never_added", headers=auth_headers)
     assert response.status_code == 200, response.text
     assert response.json()["tools"] == []
 
@@ -181,9 +163,7 @@ async def test_delete_is_idempotent(
 async def test_delete_when_disabled_returns_409(
     client: httpx.AsyncClient, auth_headers: dict[str, str]
 ) -> None:
-    response = await client.delete(
-        "/api/me/favourites/tool/alpha", headers=auth_headers
-    )
+    response = await client.delete("/api/me/favourites/tool/alpha", headers=auth_headers)
     assert response.status_code == 409, response.text
 
 
@@ -244,9 +224,7 @@ async def test_user_delete_cascades_favourites(
         password_min_length=8,
     )
     audit = AuditWriter(signing_key=None, key_id=None)
-    user_service = make_user_service(
-        auth, audit, hasher=make_password_hasher(auth)
-    )
+    user_service = make_user_service(auth, audit, hasher=make_password_hasher(auth))
 
     async with session_scope(api_factory) as session:
         await ensure_chain_head(session)
@@ -258,25 +236,17 @@ async def test_user_delete_cascades_favourites(
             full_name="Fav Only",
         )
         user_id = user.id
-        session.add(
-            UserFavourite(user_id=user_id, kind="tool", alias="alpha")
-        )
+        session.add(UserFavourite(user_id=user_id, kind="tool", alias="alpha"))
 
     async with session_scope(api_factory) as session:
-        rows = (
-            (await session.execute(select(UserFavourite))).scalars().all()
-        )
+        rows = (await session.execute(select(UserFavourite))).scalars().all()
         assert len(rows) == 1
 
     # Raw DELETE — the API delete-user route is admin-only; this test
     # asserts the DB-level cascade in isolation.
     async with session_scope(api_factory) as session:
-        await session.execute(
-            text("DELETE FROM user WHERE id = :id").bindparams(id=user_id)
-        )
+        await session.execute(text("DELETE FROM user WHERE id = :id").bindparams(id=user_id))
 
     async with session_scope(api_factory) as session:
-        rows = (
-            (await session.execute(select(UserFavourite))).scalars().all()
-        )
+        rows = (await session.execute(select(UserFavourite))).scalars().all()
         assert rows == []

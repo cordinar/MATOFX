@@ -231,9 +231,7 @@ async def test_overview_world_team_filter_means_all(
     await _seed_jobs(api_factory, seeded, specs=[("complete", 60), ("failed", None)])
 
     async with session_scope(api_factory) as session:
-        world_id = (
-            await session.execute(select(Team.id).where(Team.name == "World"))
-        ).scalar_one()
+        world_id = (await session.execute(select(Team.id).where(Team.name == "World"))).scalar_one()
         empty_team = Team(name="Empty team", description="")
         session.add(empty_team)
         await session.flush()

@@ -361,9 +361,7 @@ async def field_predict(
         field_std=result.field_std,
         mode_coefficients=result.mode_coefficients,
         has_geometry=result.has_geometry,
-        support=(
-            PredictSupportResponse(**result.support) if result.support is not None else None
-        ),
+        support=(PredictSupportResponse(**result.support) if result.support is not None else None),
     )
 
 

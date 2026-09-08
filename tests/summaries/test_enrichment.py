@@ -40,9 +40,7 @@ class FakeClient:
         self.calls += 1
         if self.exc is not None:
             raise self.exc
-        return LlmResponse(
-            text=self.text, model="fake-1", input_tokens=10, output_tokens=20
-        )
+        return LlmResponse(text=self.text, model="fake-1", input_tokens=10, output_tokens=20)
 
 
 def _facts(surface_id: int = 555) -> SummaryFacts:
@@ -63,9 +61,7 @@ _HALLUCINATED = "The Heat sink job completed in 4 min 12 s, a 30% improvement."
 
 
 async def _ctx(audit: AuditWriter, **client_kwargs: Any) -> EnrichmentContext:
-    return EnrichmentContext(
-        client=FakeClient(**client_kwargs), audit=audit, actor="user:1"
-    )
+    return EnrichmentContext(client=FakeClient(**client_kwargs), audit=audit, actor="user:1")
 
 
 async def _audit_actions(factory: SessionFactory) -> list[str]:
@@ -111,9 +107,7 @@ async def test_hallucination_falls_back_and_audits(
     assert "summary.enrichment_failed" in await _audit_actions(api_factory)
 
 
-async def test_llm_error_falls_back(
-    api_factory: SessionFactory, api_audit: AuditWriter
-) -> None:
+async def test_llm_error_falls_back(api_factory: SessionFactory, api_audit: AuditWriter) -> None:
     await _ensure_chain(api_factory)
     svc = SummaryService()
     ctx = await _ctx(api_audit, exc=LlmTimeoutError("slow"))

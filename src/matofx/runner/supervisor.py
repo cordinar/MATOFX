@@ -287,9 +287,7 @@ class RunnerSupervisor:
             asyncio.create_task(self._optimisation_loop(), name="runner.optimisation"),
         ]
         if self.app_settings is not None:
-            self._tasks.append(
-                asyncio.create_task(self._licence_loop(), name="runner.licence")
-            )
+            self._tasks.append(asyncio.create_task(self._licence_loop(), name="runner.licence"))
 
     async def stop(self) -> None:
         """Signal all loops to stop, await their exit, drain handles."""
@@ -384,11 +382,7 @@ class RunnerSupervisor:
             return
 
         banner = getattr(after, "banner", None)
-        detail = (
-            str(banner)
-            if banner
-            else "Contact your supplier for a renewal licence."
-        )
+        detail = str(banner) if banner else "Contact your supplier for a renewal licence."
         if after_state == "grace":
             summary = "your licence has expired and is in its grace period"
             detail = (
@@ -1339,9 +1333,7 @@ class RunnerSupervisor:
         # heartbeat loop wraps each poll in a savepoint as a backstop for the
         # residual race between this check and the fail-flush.
         if await session.scalar(select(Job.id).where(Job.id == job.id)) is None:
-            _log.info(
-                "Job %s no longer exists (deleted concurrently); skipping fail", job.id
-            )
+            _log.info("Job %s no longer exists (deleted concurrently); skipping fail", job.id)
             return
         previous = job.state
         now = _utcnow()

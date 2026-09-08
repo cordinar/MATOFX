@@ -253,9 +253,7 @@ async def record_validation(
             actor_type="system",
             action="licence.validated.ok" if ok else "licence.validated.failed",
             resource_type="licence",
-            resource_id=(
-                resolution.status.manifest.licence_id if resolution.status else "none"
-            ),
+            resource_id=(resolution.status.manifest.licence_id if resolution.status else "none"),
             outcome="success" if ok else "failure",
             payload={
                 "state": resolution.status.state if resolution.status else None,
@@ -343,9 +341,7 @@ def report_identity(resolution: LicenceResolution) -> IssuedIdentity | None:
     )
 
 
-async def verify_install_binding(
-    session: AsyncSession, resolution: LicenceResolution
-) -> None:
+async def verify_install_binding(session: AsyncSession, resolution: LicenceResolution) -> None:
     """Refuse a licence issued for a *different* install (ADR-0019 §A3).
 
     The manifest has always carried an ``install_id``; nothing compared

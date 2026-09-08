@@ -530,9 +530,7 @@ class WorkflowRunService:
     ) -> dict[str, dict[str, Any]]:
         if not aliases:
             return {}
-        rows = (
-            await session.execute(select(Tool).where(Tool.alias.in_(aliases)))
-        ).scalars()
+        rows = (await session.execute(select(Tool).where(Tool.alias.in_(aliases)))).scalars()
         return {t.alias: dict(t.descriptor or {}) for t in rows}
 
     async def _read_member_outputs(

@@ -21,10 +21,7 @@ from matofx.ui.pages.compare.page import (
 )
 
 _DESCRIPTOR_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "example_tools"
-    / "heat_transfer"
-    / "descriptor.toml"
+    Path(__file__).resolve().parents[3] / "example_tools" / "heat_transfer" / "descriptor.toml"
 )
 
 

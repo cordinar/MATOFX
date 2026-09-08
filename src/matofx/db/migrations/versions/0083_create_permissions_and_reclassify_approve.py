@@ -56,7 +56,7 @@ _ADR_PAREN = re.compile(r"\s*\(ADR-\d+[^)]*\)")
 _ADR_BARE = re.compile(r"\s*ADR-\d+(?:\s*§[\d.]+)?")
 
 
-def _perm_table() -> sa.Table:
+def _perm_table() -> sa.TableClause:
     return sa.table(
         "role_permission",
         sa.column("role_id", sa.Integer()),
@@ -65,7 +65,7 @@ def _perm_table() -> sa.Table:
     )
 
 
-def _member_table() -> sa.Table:
+def _member_table() -> sa.TableClause:
     return sa.table(
         "user_role",
         sa.column("user_id", sa.Integer()),
@@ -88,8 +88,10 @@ def _role_id(bind: sa.engine.Connection, name: str) -> int | None:
 
 
 def upgrade() -> None:
-    """Grant the new create perms to every base role, migrate approve to the
-    capability pool, scrub ADRs."""
+    """Add the create permissions, move approve to the capability pool.
+
+    Grants the new create perms to every base role and scrubs ADRs.
+    """
     bind = op.get_bind()
     now = _dt.datetime.now(tz=_dt.UTC)
     perm_tbl = _perm_table()

@@ -15,9 +15,7 @@ import pytest
 pytestmark = pytest.mark.asyncio
 
 
-async def test_default_is_opted_in(
-    client: httpx.AsyncClient, auth_headers: dict[str, str]
-) -> None:
+async def test_default_is_opted_in(client: httpx.AsyncClient, auth_headers: dict[str, str]) -> None:
     response = await client.get("/api/auth/me", headers=auth_headers)
     assert response.status_code == 200
     assert response.json()["summary_enrichment_enabled"] is True

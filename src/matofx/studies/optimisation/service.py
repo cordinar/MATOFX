@@ -286,6 +286,10 @@ class OptimisationService:
             raise OptimisationStateError(
                 f"This study is {study.state!r}; only a draft study can be configured."
             )
+        # Initialised before the branch: only the tool path assigns
+        # ``precisions``, and the freeze below reads it either way — a
+        # workflow-target study raised UnboundLocalError here.
+        precisions: dict[str, float] = {}
         if study.target_kind == "workflow":
             members = await self._load_member_descriptors(session, study)
             sum_groups = validate_workflow_config(study.config_json, members)
@@ -323,9 +327,7 @@ class OptimisationService:
         gated = await self._start_gate_applies(session, study)
         terminal_state = "running"
         if gated:
-            approver = await self._validate_start_approver(
-                session, study, start_approver_user_id
-            )
+            approver = await self._validate_start_approver(session, study, start_approver_user_id)
             study.state = "pending_start_approval"
             study.start_approver_user_id = approver.id
             study.state_changed_at = _utcnow()
@@ -622,9 +624,7 @@ class OptimisationService:
         )
         return request, study
 
-    async def _start_gate_applies(
-        self, session: AsyncSession, study: OptimisationStudy
-    ) -> bool:
+    async def _start_gate_applies(self, session: AsyncSession, study: OptimisationStudy) -> bool:
         """Whether the campaign needs start approval — any target tool flagged (§14.1)."""
         from matofx.tools.orm import Tool  # noqa: PLC0415
 
@@ -679,9 +679,7 @@ class OptimisationService:
                 "This study's tool requires a nominated approver to start the campaign."
             )
         if approver_user_id == study.created_by_user_id:
-            raise OptimisationConfigError(
-                "You can't nominate yourself as the start-gate approver."
-            )
+            raise OptimisationConfigError("You can't nominate yourself as the start-gate approver.")
         approver = await session.get(User, approver_user_id)
         if approver is None:
             raise OptimisationConfigError("The nominated approver no longer exists.")

@@ -52,8 +52,7 @@ _RELEASE_NAME = "2026 R2"
 _SIGN_OUT_NOTICES: dict[str, str] = {
     # Client-side idle timer tripped (matofx.ui.pages._chrome._logout_idle).
     "idle": (
-        "You were signed out because you'd been inactive for a while. "
-        "Sign in again to carry on."
+        "You were signed out because you'd been inactive for a while. Sign in again to carry on."
     ),
     # The API rejected the stored token (idle/hard timeout reached
     # server-side, session revoked, or the account was deactivated).
@@ -180,9 +179,7 @@ def login_page(next: str = "", reason: str = "") -> None:
     # this dialog rather than a reset flow. Defined before the form so the
     # link handler can reference it directly.
     with ui.dialog() as forgot_dialog, ui.card().style("max-width: 380px; padding: 1.4rem;"):
-        ui.label("Password help").style(
-            f"font-size: 1.05rem; font-weight: 650; color: {_NAVY};"
-        )
+        ui.label("Password help").style(f"font-size: 1.05rem; font-weight: 650; color: {_NAVY};")
         ui.label(
             "MATOFX doesn't offer self-service password resets. Ask your "
             "administrator to reset your password — they can set a new "
@@ -190,9 +187,7 @@ def login_page(next: str = "", reason: str = "") -> None:
             "you're signed in."
         ).style(f"color: {_MUTED}; font-size: 0.9rem; line-height: 1.5;")
         with ui.row().classes("w-full justify-end"):
-            ui.button("Close", on_click=forgot_dialog.close).props(
-                "flat no-caps color=primary"
-            )
+            ui.button("Close", on_click=forgot_dialog.close).props("flat no-caps color=primary")
 
     # Logo — the shipped packaged asset, always present. Falls back to
     # the text wordmark if the assets folder was emptied. Rendered above
@@ -209,8 +204,7 @@ def login_page(next: str = "", reason: str = "") -> None:
         ui.column()
         .classes("items-center")
         .style(
-            "position: absolute; left: 50%; top: 42%; "
-            "transform: translate(-50%, -50%); gap: 1rem;"
+            "position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); gap: 1rem;"
         )
     ):
         # Logo at 85% of the card width (380px → ~323px), centred on the
@@ -235,8 +229,10 @@ def login_page(next: str = "", reason: str = "") -> None:
                 f'text-align:center;">{_wordmark_html(title, ofx_colour=_TEAL)}</div>'
             )
 
-        with ui.card().classes("matofx-login-card items-stretch").style(
-            "padding: 2rem 2.1rem; gap: 0.85rem; width: 380px; max-width: 92vw;"
+        with (
+            ui.card()
+            .classes("matofx-login-card items-stretch")
+            .style("padding: 2rem 2.1rem; gap: 0.85rem; width: 380px; max-width: 92vw;")
         ):
             ui.html(
                 f'<div style="font-size:1.25rem;font-weight:650;color:{_NAVY};'
@@ -247,10 +243,14 @@ def login_page(next: str = "", reason: str = "") -> None:
             # the user here itself. Amber-tinted note, not an error: the
             # sign-out is expected behaviour, not a failure.
             if notice:
-                with ui.row().classes("items-start no-wrap matofx-login-notice").style(
-                    "gap: 0.5rem; padding: 0.55rem 0.7rem; border-radius: 8px; "
-                    "background: rgba(214,169,59,0.14); "
-                    "border: 1px solid rgba(214,169,59,0.45);"
+                with (
+                    ui.row()
+                    .classes("items-start no-wrap matofx-login-notice")
+                    .style(
+                        "gap: 0.5rem; padding: 0.55rem 0.7rem; border-radius: 8px; "
+                        "background: rgba(214,169,59,0.14); "
+                        "border: 1px solid rgba(214,169,59,0.45);"
+                    )
                 ):
                     ui.icon("schedule").style(f"color: {_NAVY}; font-size: 1.05rem;")
                     ui.label(notice).style(
@@ -269,15 +269,20 @@ def login_page(next: str = "", reason: str = "") -> None:
             )
 
             # Caps-lock hint, toggled by the head-script above.
-            with ui.row().props("id=matofx-caps-hint").classes("items-center").style(
-                f"gap: 0.4rem; color: {_NAVY}; font-size: 0.78rem; margin-top: -0.3rem;"
+            with (
+                ui.row()
+                .props("id=matofx-caps-hint")
+                .classes("items-center")
+                .style(f"gap: 0.4rem; color: {_NAVY}; font-size: 0.78rem; margin-top: -0.3rem;")
             ):
                 ui.icon("keyboard_capslock").style("font-size: 1rem;")
                 ui.label("Caps Lock is on")
 
             # Remember username (left) + forgot-password help (right).
-            with ui.row().classes("w-full items-center justify-between no-wrap").style(
-                "margin-top: -0.1rem;"
+            with (
+                ui.row()
+                .classes("w-full items-center justify-between no-wrap")
+                .style("margin-top: -0.1rem;")
             ):
                 remember = (
                     ui.checkbox("Remember username")
@@ -286,13 +291,10 @@ def login_page(next: str = "", reason: str = "") -> None:
                 )
                 remember.style(f"color: {_NAVY};")
                 ui.link("Forgot password?", "#").classes("matofx-login-forgot").style(
-                    f"color: {_NAVY}; font-size: 0.82rem; font-weight: 600; "
-                    "text-decoration: none;"
+                    f"color: {_NAVY}; font-size: 0.82rem; font-weight: 600; text-decoration: none;"
                 ).on("click.prevent", forgot_dialog.open)
 
-            message = ui.label("").style(
-                f"color: {_ERROR}; font-size: 0.85rem; min-height: 1rem;"
-            )
+            message = ui.label("").style(f"color: {_ERROR}; font-size: 0.85rem; min-height: 1rem;")
 
             async def _submit() -> None:
                 # Validate client-side first so an empty field gives a
@@ -303,9 +305,7 @@ def login_page(next: str = "", reason: str = "") -> None:
                     return
                 client = ApiClient(get_app())
                 try:
-                    response = await client.login(
-                        username=username.value, password=password.value
-                    )
+                    response = await client.login(username=username.value, password=password.value)
                 except ApiError as exc:
                     if exc.status_code == 401:
                         message.text = "That username or password isn't right. Try again."
@@ -397,9 +397,7 @@ def login_page(next: str = "", reason: str = "") -> None:
                 # notice so the dashboard can explain it on arrival (a
                 # toast here would die with this page).
                 if response.get("breakglass") is True:
-                    store_breakglass_notice(
-                        response.get("slots_in_use"), response.get("n_slots")
-                    )
+                    store_breakglass_notice(response.get("slots_in_use"), response.get("n_slots"))
                 ui.navigate.to(target)
 
             ui.button("Sign in", on_click=_submit).classes("w-full").props(

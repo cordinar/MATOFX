@@ -91,12 +91,16 @@ async def _notify_material_pending(db: AsyncSession, notifier: Notifier, materia
     No-op when nothing is pending.
     """
     version_id = (
-        await db.execute(
-            select(MaterialVersion.id)
-            .where(MaterialVersion.material_id == material_id)
-            .order_by(MaterialVersion.ordinal.desc())
+        (
+            await db.execute(
+                select(MaterialVersion.id)
+                .where(MaterialVersion.material_id == material_id)
+                .order_by(MaterialVersion.ordinal.desc())
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     if version_id is not None:
         await notify_pending_approval(
             db,

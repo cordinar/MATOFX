@@ -33,7 +33,6 @@ from matofx.users.inactive_sweeper import (
 )
 from matofx.users.orm import User
 
-
 # --- helpers -----------------------------------------------------------
 
 
@@ -68,9 +67,7 @@ async def _set_last_login(
     """Bypass the normal login flow to backdate ``last_login_at`` for a test."""
     factory = make_session_factory(engine)
     async with session_scope(factory) as session:
-        await session.execute(
-            sa.update(User).where(User.id == user_id).values(last_login_at=at)
-        )
+        await session.execute(sa.update(User).where(User.id == user_id).values(last_login_at=at))
 
 
 async def _set_created_at(
@@ -82,9 +79,7 @@ async def _set_created_at(
     """Backdate ``created_at`` so the NULL-last-login test can hit the cutoff."""
     factory = make_session_factory(engine)
     async with session_scope(factory) as session:
-        await session.execute(
-            sa.update(User).where(User.id == user_id).values(created_at=at)
-        )
+        await session.execute(sa.update(User).where(User.id == user_id).values(created_at=at))
 
 
 class _RecordingNotifier:
@@ -377,9 +372,7 @@ async def test_grace_warning_emails_users_in_the_band(
         )
 
     await _seed_general_setting(users_engine, key="auto_disable_inactive_days", value=30)
-    await _seed_general_setting(
-        users_engine, key="auto_disable_grace_warning_days", value=7
-    )
+    await _seed_general_setting(users_engine, key="auto_disable_grace_warning_days", value=7)
     now = _dt.datetime.now(tz=_dt.UTC)
     # 25 days inactive — in the band (23 to 30).
     await _set_last_login(users_engine, user_id=user.id, at=now - _dt.timedelta(days=25))
@@ -416,9 +409,7 @@ async def test_grace_warning_deduped_via_last_grace_warning_at(
         )
 
     await _seed_general_setting(users_engine, key="auto_disable_inactive_days", value=30)
-    await _seed_general_setting(
-        users_engine, key="auto_disable_grace_warning_days", value=7
-    )
+    await _seed_general_setting(users_engine, key="auto_disable_grace_warning_days", value=7)
     now = _dt.datetime.now(tz=_dt.UTC)
     await _set_last_login(users_engine, user_id=user.id, at=now - _dt.timedelta(days=25))
 
@@ -524,9 +515,7 @@ async def test_preview_returns_count_and_users(
     await _set_last_login(users_engine, user_id=u_recent.id, at=now - _dt.timedelta(days=5))
 
     async with session_scope(factory) as session:
-        rows, total = await preview_inactive_users(
-            session, threshold_days=30, as_of=now
-        )
+        rows, total = await preview_inactive_users(session, threshold_days=30, as_of=now)
 
     assert total == 1
     assert len(rows) == 1
@@ -557,9 +546,7 @@ async def test_preview_excludes_super_users(
     await _set_last_login(users_engine, user_id=su.id, at=now - _dt.timedelta(days=200))
 
     async with session_scope(factory) as session:
-        rows, total = await preview_inactive_users(
-            session, threshold_days=30, as_of=now
-        )
+        rows, total = await preview_inactive_users(session, threshold_days=30, as_of=now)
 
     assert total == 0
     assert rows == []

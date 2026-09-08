@@ -128,10 +128,14 @@ def write_identity_file(
 
 def issuer_public_hex(private: Ed25519PrivateKey) -> str:
     """Hex of an issuer key's public half, for ``issuer_public_keys``."""
-    return private.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw,
-    ).hex()
+    return (
+        private.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        .hex()
+    )
 
 
 @pytest.fixture

@@ -101,9 +101,7 @@ class SeededJob:
 
 
 @pytest.fixture
-async def seeded_job(
-    approvals_engine: AsyncEngine, user_service: UserService
-) -> SeededJob:
+async def seeded_job(approvals_engine: AsyncEngine, user_service: UserService) -> SeededJob:
     """Seed admin/alice/bob + a tool + tool_version + project→scenario→job.
 
     ``alice`` is the job's requestor; ``bob`` is used as an approver.
@@ -275,9 +273,7 @@ async def phase2(
 
     counter = count(1)
 
-    async def _new_draft(
-        policy: str, approvers: tuple[str, ...]
-    ) -> tuple[int, str]:
+    async def _new_draft(policy: str, approvers: tuple[str, ...]) -> tuple[int, str]:
         n = next(counter)
         alias = f"demo{n}"
         descriptor = ToolDescriptor(

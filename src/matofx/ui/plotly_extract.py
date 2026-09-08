@@ -69,7 +69,7 @@ def extract_plotly_figure(html_text: str) -> dict[str, Any] | None:
 
 
 def _skip_js_string(s: str, pos: int) -> int:
-    """Step past a JS double-quoted string starting near ``pos``.
+    r"""Step past a JS double-quoted string starting near ``pos``.
 
     Whitespace before the opening quote is skipped; backslash escape
     sequences inside the string are honoured (so ``"He said \"hi\""``

@@ -155,9 +155,7 @@ async def test_post_policy_deny_cancels_and_withholds(
 
 
 @pytest.mark.asyncio
-async def test_no_post_gate_for_none_policy(
-    studies_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_no_post_gate_for_none_policy(studies_engine: AsyncEngine, basics: Basics) -> None:
     """A tool with no post policy completes straight away — no results gate."""
     factory, study_id = await _seed_and_run(studies_engine, basics, policy="none")
     async with session_scope(factory) as session:
@@ -167,9 +165,7 @@ async def test_no_post_gate_for_none_policy(
         rows = list(
             (
                 await session.execute(
-                    select(ApprovalRequest).where(
-                        ApprovalRequest.optimisation_study_id == study_id
-                    )
+                    select(ApprovalRequest).where(ApprovalRequest.optimisation_study_id == study_id)
                 )
             ).scalars()
         )

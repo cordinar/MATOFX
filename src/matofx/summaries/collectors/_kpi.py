@@ -35,8 +35,7 @@ async def headline_kpis(
         await session.execute(select(JobKpiValue).where(JobKpiValue.job_id == job.id))
     ).scalars()
     values = {
-        r.kpi_name: (float(r.value_numeric) if r.value_numeric is not None else None)
-        for r in rows
+        r.kpi_name: (float(r.value_numeric) if r.value_numeric is not None else None) for r in rows
     }
     return [
         HeadlineNumber(

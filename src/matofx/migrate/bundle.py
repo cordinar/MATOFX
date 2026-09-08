@@ -44,9 +44,9 @@ import io
 import json
 import re
 import tarfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Callable, Final
+from typing import Any, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -55,6 +55,12 @@ from matofx.migrate.signing import (
     PUBLIC_KEY_HEX_LEN,
     BundleSigningError,
 )
+
+_DRIVE_PREFIX_LEN = 3
+"""``C:/`` — the shortest Windows drive prefix worth rejecting."""
+
+_SHA256_HEX_LEN = 64
+"""A SHA-256 digest is 64 hex characters."""
 
 BUNDLE_VERSION: Final[int] = 1
 """Schema version of the manifest. Bumped on any incompatible change."""
@@ -122,7 +128,9 @@ class ToolManifestEntry(BaseModel):
     def _hashes_well_formed(cls, value: dict[str, str]) -> dict[str, str]:
         for path, hex_hash in value.items():
             _validate_relative_path(path)
-            if len(hex_hash) != 64 or not all(c in "0123456789abcdef" for c in hex_hash):
+            if len(hex_hash) != _SHA256_HEX_LEN or not all(
+                c in "0123456789abcdef" for c in hex_hash
+            ):
                 raise ValueError(f"file hash for {path!r} is not a 64-char lowercase hex SHA-256")
         return value
 
@@ -153,8 +161,11 @@ class WorkflowManifestEntry(BaseModel):
 
 
 class BundleManifest(BaseModel):
-    """Top-level signed manifest. Carries everything needed to verify
-    and reconstruct the bundle's contents on the destination install."""
+    """The bundle's top-level signed manifest.
+
+    Carries everything needed to verify and reconstruct the bundle's
+    contents on the destination install.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -286,8 +297,11 @@ def pack_bundle(
 
 
 def _rebuild_tool_entry(payload: ToolPayload) -> ToolPayload:
-    """Return a copy of ``payload`` with the manifest entry's ``files``
-    map regenerated from the actual file bytes."""
+    """Return ``payload`` with its ``files`` hash map regenerated.
+
+    The hashes come from the actual file bytes, not from what the manifest
+    claimed.
+    """
     fresh_hashes = {path: _sha256_hex(data) for path, data in payload.files.items()}
     # Validate path shapes early — defence in depth against a caller
     # passing exotic strings the tar layer might mishandle.
@@ -482,10 +496,13 @@ _MAX_UNCOMPRESSED_BUNDLE_BYTES = 1024 * 1024 * 1024
 
 
 def _read_tarball(bundle_bytes: bytes) -> dict[str, bytes]:
-    """Read every regular-file member into memory, hardened against
-    path-traversal, odd member types, and decompression bombs."""
+    """Read every regular-file member of the tar into memory.
+
+    Hardened against path traversal, odd member types, and decompression
+    bombs.
+    """
     try:
-        tar = tarfile.open(fileobj=io.BytesIO(bundle_bytes), mode="r:gz")
+        tar = tarfile.open(fileobj=io.BytesIO(bundle_bytes), mode="r:gz")  # noqa: SIM115 - closed in the finally below; the try wraps open + read
     except tarfile.ReadError as exc:
         raise BundleError(
             "The bundle file is not a valid gzipped tarball. "
@@ -555,7 +572,7 @@ def _validate_tar_member_name(name: str) -> None:
             f"The bundle contains an entry with a backslash in its "
             f"name ({name!r}). Migration bundles must use forward slashes."
         )
-    if len(name) >= 3 and name[1:3] == ":/":
+    if len(name) >= _DRIVE_PREFIX_LEN and name[1:3] == ":/":
         raise BundleError(
             f"The bundle contains an entry that looks like a Windows "
             f"drive path ({name!r}). Migration bundles must use "

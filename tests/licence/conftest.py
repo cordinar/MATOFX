@@ -80,10 +80,14 @@ def issuer() -> Ed25519PrivateKey:
 
 def public_hex(private: Ed25519PrivateKey) -> str:
     """Hex of a key's public half."""
-    return private.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw,
-    ).hex()
+    return (
+        private.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        .hex()
+    )
 
 
 def write_licence(

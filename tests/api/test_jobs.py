@@ -123,9 +123,7 @@ async def _bind_tool_env(
         )
         session.add(env)
         await session.flush()
-        tool = (
-            await session.execute(select(Tool).where(Tool.alias == tool_alias))
-        ).scalar_one()
+        tool = (await session.execute(select(Tool).where(Tool.alias == tool_alias))).scalar_one()
         tool.python_env_id = int(env.id)
 
 
@@ -168,9 +166,7 @@ async def test_submit_defaults_to_server_interpreter_without_pinned_env(
     fall back to the server's own interpreter (``sys.executable``).
     """
     _, scenario_id = await _make_project_and_scenario(client, auth_headers)
-    body = await _submit_material_job(
-        client, auth_headers, scenario_id, seeded["tool_alias"]
-    )
+    body = await _submit_material_job(client, auth_headers, scenario_id, seeded["tool_alias"])
     launcher_text = _staged_launcher_text(seeded["mount_path"], body["working_dir_relative"])
     assert f"INTERPRETER_PATH = {sys.executable!r}" in launcher_text
 
@@ -187,9 +183,7 @@ async def test_submit_uses_tool_pinned_absolute_env(
     await _bind_tool_env(api_factory, seeded["tool_alias"], interpreter_path=pinned)
 
     _, scenario_id = await _make_project_and_scenario(client, auth_headers)
-    body = await _submit_material_job(
-        client, auth_headers, scenario_id, seeded["tool_alias"]
-    )
+    body = await _submit_material_job(client, auth_headers, scenario_id, seeded["tool_alias"])
     launcher_text = _staged_launcher_text(seeded["mount_path"], body["working_dir_relative"])
     assert f"INTERPRETER_PATH = {pinned!r}" in launcher_text
 
@@ -216,9 +210,7 @@ async def test_submit_resolves_storage_relative_env(
     )
 
     _, scenario_id = await _make_project_and_scenario(client, auth_headers)
-    body = await _submit_material_job(
-        client, auth_headers, scenario_id, seeded["tool_alias"]
-    )
+    body = await _submit_material_job(client, auth_headers, scenario_id, seeded["tool_alias"])
     launcher_text = _staged_launcher_text(seeded["mount_path"], body["working_dir_relative"])
     expected = str(seeded["mount_path"] / relative)
     assert f"INTERPRETER_PATH = {expected!r}" in launcher_text
@@ -361,16 +353,12 @@ async def test_submit_pickup_complete_outputs_logs_cycle(
 
     # output-document — typed parse of outputs.json, mirrors what
     # JobResponse.inputs already does for the input side.
-    doc_resp = await client.get(
-        f"/api/jobs/{job_id}/output-document", headers=auth_headers
-    )
+    doc_resp = await client.get(f"/api/jobs/{job_id}/output-document", headers=auth_headers)
     assert doc_resp.status_code == 200, doc_resp.text
     doc_body = doc_resp.json()
     assert doc_body["tool_alias"] == seeded["tool_alias"]
     doc_by_name = {o["name"]: o for o in doc_body["outputs"]}
-    assert doc_by_name["thermal_conductivity"]["value"] == pytest.approx(
-        0.675, abs=1e-3
-    )
+    assert doc_by_name["thermal_conductivity"]["value"] == pytest.approx(0.675, abs=1e-3)
 
     # outputs.zip — flat archive with every file under outputs/.
     outputs_zip = await client.get(f"/api/jobs/{job_id}/outputs.zip", headers=auth_headers)
@@ -419,9 +407,7 @@ def test_resolve_preview_path_parses_owning_job(tmp_path: Path) -> None:
         str(mount / "drafts" / "staging" / "job_0000005" / "geom" / "a.stl"), mount
     )
     assert owner == 5
-    _, owner = _resolve_preview_path(
-        str(mount / "drafts" / "job_0000007" / "g" / "b.csv"), mount
-    )
+    _, owner = _resolve_preview_path(str(mount / "drafts" / "job_0000007" / "g" / "b.csv"), mount)
     assert owner == 7
     _, owner = _resolve_preview_path(
         str(mount / "jobs" / "prod" / "job_0000099" / "inputs" / "uploaded" / "c.obj"), mount
@@ -479,9 +465,7 @@ async def test_output_document_404_when_not_terminal(
     assert submit.status_code == 201
     job_id = submit.json()["id"]
 
-    response = await client.get(
-        f"/api/jobs/{job_id}/output-document", headers=auth_headers
-    )
+    response = await client.get(f"/api/jobs/{job_id}/output-document", headers=auth_headers)
     assert response.status_code == 404
 
 

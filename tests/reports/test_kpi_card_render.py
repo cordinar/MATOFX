@@ -8,7 +8,7 @@ from matofx.reports.builder import ReportContext, build_report
 
 
 def _ctx(**overrides):  # type: ignore[no-untyped-def]
-    base = dict(
+    base = dict(  # noqa: C408 - keyword form reads as the record it builds
         job_id=42,
         tool_alias="heat_transfer",
         tool_name="Heat Transfer",
@@ -103,6 +103,8 @@ def test_report_kpi_card_uses_kpi_name_when_label_absent() -> None:
 
 def test_report_stylesheet_includes_kpi_card_rules() -> None:
     """The stylesheet carries the KPI-card grid styles."""
-    html = build_report(_ctx(kpi_cards=[{"kpi_name": "x", "kpi_label": "X", "kpi_unit": None, "value": 1}]))
+    html = build_report(
+        _ctx(kpi_cards=[{"kpi_name": "x", "kpi_label": "X", "kpi_unit": None, "value": 1}])
+    )
     assert ".kpi-card-grid" in html
     assert ".kpi-card-value" in html

@@ -543,8 +543,13 @@ def _render_material_card(block: dict[str, Any], *, is_differing: bool) -> None:
     header = f"{name} v{ordinal}" if ordinal else name
     header_colour = "var(--matofx-error-text)" if is_differing else "var(--matofx-body-text)"
     props_map = block.get("properties") or {}
-    with ui.column().classes("w-full gap-0").style(
-        "border: 1px solid var(--matofx-card-border); border-radius: 6px; padding: 0.4rem 0.55rem;"
+    with (
+        ui.column()
+        .classes("w-full gap-0")
+        .style(
+            "border: 1px solid var(--matofx-card-border); border-radius: 6px; "
+            "padding: 0.4rem 0.55rem;"
+        )
     ):
         with ui.row().classes("items-baseline gap-2 no-wrap"):
             ui.label(header).style(f"font-size: 0.85rem; font-weight: 600; color: {header_colour};")

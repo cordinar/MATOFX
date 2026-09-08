@@ -14,10 +14,7 @@ from matofx.ui.pages.compare.diff import JobBundle, compute_differing_keys
 def test_zero_or_one_bundle_has_no_diff() -> None:
     """With nothing to compare against, the diff is always empty."""
     assert compute_differing_keys([]) == set()
-    assert (
-        compute_differing_keys([JobBundle(job_id=1, inputs={"a": 1}, outputs={"b": 2})])
-        == set()
-    )
+    assert compute_differing_keys([JobBundle(job_id=1, inputs={"a": 1}, outputs={"b": 2})]) == set()
 
 
 def test_identical_bundles_have_no_diff() -> None:

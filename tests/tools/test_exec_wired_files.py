@@ -93,6 +93,7 @@ def test_empty_sources_is_noop(tmp_path: Path) -> None:
     wd = tmp_path / "jobs" / "job_0000002"
     wd.mkdir(parents=True)
     inputs = {"a": 1, "b": "two"}
-    assert stage_wired_file_inputs(
-        working_dir_absolute=wd, inputs=inputs, wired_file_sources={}
-    ) == inputs
+    assert (
+        stage_wired_file_inputs(working_dir_absolute=wd, inputs=inputs, wired_file_sources={})
+        == inputs
+    )

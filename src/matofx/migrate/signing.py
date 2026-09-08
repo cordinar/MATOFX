@@ -81,13 +81,17 @@ class KeyPair:
 
     @classmethod
     def generate(cls) -> KeyPair:
-        """Make a fresh in-memory key pair. Intended for tests only —
-        production keys are persisted via :mod:`matofx.audit.keys`."""
+        """Make a fresh in-memory key pair.
+
+        Intended for tests only — production keys are persisted via
+        :mod:`matofx.audit.keys`.
+        """
         priv = Ed25519PrivateKey.generate()
         return cls(private_key=priv, public_key=priv.public_key())
 
     @classmethod
     def from_private_key(cls, private_key: Ed25519PrivateKey) -> KeyPair:
+        """Wrap an existing private key, deriving its public half."""
         return cls(private_key=private_key, public_key=private_key.public_key())
 
 

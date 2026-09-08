@@ -1110,9 +1110,9 @@ def _confirm_retire(client: ApiClient, file_id: int, reload: Any) -> None:
 def _confirm_restore(client: ApiClient, file_id: int, reload: Any) -> None:
     with ui.dialog() as dialog, ui.card().style("min-width: 420px;"):
         ui.label("Restore this file?").style("font-size: 1.1rem; font-weight: 600;")
-        ui.label(
-            "It will become active again — appearing in pickers and open to edits."
-        ).style("color: #888;")
+        ui.label("It will become active again — appearing in pickers and open to edits.").style(
+            "color: #888;"
+        )
 
         async def _confirm() -> None:
             try:

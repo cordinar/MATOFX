@@ -28,7 +28,7 @@ import logging
 import re
 import zipfile
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse, Response
@@ -63,6 +63,9 @@ from matofx.tools.exec.contracts import OutputsDocument
 from matofx.tools.orm import Tool, ToolVersion
 from matofx.users.orm import User
 from matofx.users.permissions import Permission, user_has_permission
+
+_MIN_DOWNSAMPLE_POINTS = 2
+"""Fewer than two points cannot be down-sampled."""
 
 _log = logging.getLogger(__name__)
 
@@ -204,11 +207,11 @@ async def _resolve_active_storage_location(db: AsyncSession) -> tuple[str, int]:
     return locations[0].mount_path, locations[0].id
 
 
-def _descriptor_file_field(descriptor: dict, field_name: str) -> dict | None:
+def _descriptor_file_field(descriptor: dict[str, Any], field_name: str) -> dict[str, Any] | None:
     """Find one declared ``file`` input by name; return ``None`` when missing."""
     for entry in descriptor.get("inputs") or []:
         if entry.get("name") == field_name and entry.get("type") == "file":
-            return entry
+            return cast("dict[str, Any]", entry)
     return None
 
 
@@ -249,8 +252,7 @@ def _resolve_preview_path(path: str, mount_root: Path) -> tuple[Path, int]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "Preview path must live under the drafts/ or jobs/ "
-                "namespace on the shared mount."
+                "Preview path must live under the drafts/ or jobs/ namespace on the shared mount."
             ),
         )
     # The owning job's directory sits at parts[1] (``<head>/job_<id>/…``)
@@ -370,9 +372,7 @@ async def upload_draft_file_input(
     # Read in bounded chunks, aborting at the cap, so a large upload can't
     # pin the API host's memory before the size check runs (the body is
     # never fully buffered for a rejected upload).
-    content = await read_upload_capped(
-        file, max_bytes=max_bytes, request=request, what="file"
-    )
+    content = await read_upload_capped(file, max_bytes=max_bytes, request=request, what="file")
 
     # 5. Stage the bytes onto the shared mount under the draft area.
     mount_path, location_id = await _resolve_active_storage_location(db)
@@ -1085,7 +1085,7 @@ down-sample (endpoints kept), not a head-slice, so the end of the series shows."
 def _even_stride(items: list[Any], max_n: int) -> list[Any]:
     """Down-sample a sequence to ``max_n`` evenly-spaced items, keeping both ends."""
     n = len(items)
-    if n <= max_n or max_n < 2:
+    if n <= max_n or max_n < _MIN_DOWNSAMPLE_POINTS:
         return items
     step = (n - 1) / (max_n - 1)
     idx = sorted({round(i * step) for i in range(max_n)})
@@ -1486,7 +1486,7 @@ async def hydrate_visible_job_responses(
 
     out: list[VisibleJobResponse] = []
     for job in jobs:
-        scenario = scenarios_by_id.get(job.scenario_id)
+        scenario = scenarios_by_id.get(job.scenario_id) if job.scenario_id is not None else None
         project = projects_by_id.get(scenario.project_id) if scenario is not None else None
         tool = tools_by_alias.get(job.tool_alias)
         submitter = submitters_by_id.get(job.created_by_user_id)

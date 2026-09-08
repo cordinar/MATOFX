@@ -894,9 +894,7 @@ async def _make_approved_tool_record(
 
 
 @pytest.mark.asyncio
-async def test_migrate_copies_approved_as_draft(
-    vv_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_migrate_copies_approved_as_draft(vv_engine: AsyncEngine, basics: Basics) -> None:
     """Migration copies an approved record to the target as a fresh draft."""
     svc = _make_service()
     factory = make_session_factory(vv_engine)

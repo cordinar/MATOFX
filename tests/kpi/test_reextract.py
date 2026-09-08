@@ -21,12 +21,12 @@ from matofx.db import make_session_factory, session_scope
 from matofx.kpi import (
     JobKpiValue,
     KpiReextractInProgressError,
+    _reextract_state,
     compute_kpi_signature,
     is_reextract_in_progress,
     reextract_tool_version,
     should_reextract_after_descriptor_change,
 )
-from matofx.kpi import _reextract_state
 from matofx.tools.exec.contracts import OutputsDocument, OutputValue
 
 from .conftest import Basics
@@ -84,25 +84,19 @@ def test_signature_handles_garbage_descriptor() -> None:
 def test_should_reextract_added_kpi() -> None:
     prev = {"outputs": [{"name": "x", "type": "number"}]}
     new = {"outputs": [{"name": "x", "type": "number", "kpi": True}]}
-    assert should_reextract_after_descriptor_change(
-        previous_descriptor=prev, new_descriptor=new
-    )
+    assert should_reextract_after_descriptor_change(previous_descriptor=prev, new_descriptor=new)
 
 
 def test_should_reextract_removed_kpi() -> None:
     prev = {"outputs": [{"name": "x", "type": "number", "kpi": True}]}
     new = {"outputs": [{"name": "x", "type": "number"}]}
-    assert should_reextract_after_descriptor_change(
-        previous_descriptor=prev, new_descriptor=new
-    )
+    assert should_reextract_after_descriptor_change(previous_descriptor=prev, new_descriptor=new)
 
 
 def test_should_reextract_changed_unit() -> None:
     prev = {"outputs": [{"name": "x", "type": "number", "unit": "K", "kpi": True}]}
     new = {"outputs": [{"name": "x", "type": "number", "unit": "C", "kpi": True}]}
-    assert should_reextract_after_descriptor_change(
-        previous_descriptor=prev, new_descriptor=new
-    )
+    assert should_reextract_after_descriptor_change(previous_descriptor=prev, new_descriptor=new)
 
 
 def test_should_not_reextract_when_unchanged() -> None:
@@ -165,9 +159,7 @@ def _outputs_for_temp(value: float) -> OutputsDocument:
     return OutputsDocument(
         tool_alias="heat_transfer",
         outputs=[
-            OutputValue(
-                name="max_temperature", label="Max temperature", type="number", value=value
-            )
+            OutputValue(name="max_temperature", label="Max temperature", type="number", value=value)
         ],
     )
 
@@ -209,9 +201,7 @@ async def _seed_storage_location(engine: AsyncEngine) -> int:
 
 
 @pytest.mark.asyncio
-async def test_reextract_walks_completed_jobs(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_reextract_walks_completed_jobs(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """The sweep extracts KPIs for every completed job of the version."""
     loc_id = await _seed_storage_location(kpi_engine)
     await _set_descriptor_and_staging(
@@ -255,11 +245,7 @@ async def test_reextract_walks_completed_jobs(
 
     async with session_scope(factory) as session:
         rows = list(
-            (
-                await session.execute(
-                    sa.select(JobKpiValue).order_by(JobKpiValue.job_id)
-                )
-            ).scalars()
+            (await session.execute(sa.select(JobKpiValue).order_by(JobKpiValue.job_id))).scalars()
         )
         by_job = {r.job_id: r for r in rows}
         assert by_job[basics.job_id_a].value_numeric == Decimal("372.15")
@@ -303,9 +289,7 @@ async def test_reextract_skips_jobs_with_missing_outputs(
     assert result.skipped_no_outputs == 2
 
     async with session_scope(factory) as session:
-        rows = list(
-            (await session.execute(sa.select(JobKpiValue))).scalars()
-        )
+        rows = list((await session.execute(sa.select(JobKpiValue))).scalars())
         assert rows == []
 
 
@@ -336,9 +320,7 @@ async def test_reextract_no_completed_jobs_is_no_op(
 
 
 @pytest.mark.asyncio
-async def test_reextract_audit_recorded(
-    kpi_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_reextract_audit_recorded(kpi_engine: AsyncEngine, basics: Basics) -> None:
     """A ``kpi.reextracted`` audit event lands with the sweep tally + trigger tag."""
     loc_id = await _seed_storage_location(kpi_engine)
     await _set_descriptor_and_staging(
@@ -408,9 +390,7 @@ async def test_reextract_system_trigger_uses_system_actor(
 
     async with session_scope(factory) as session:
         event = (
-            await session.execute(
-                sa.select(AuditLog).where(AuditLog.action == "kpi.reextracted")
-            )
+            await session.execute(sa.select(AuditLog).where(AuditLog.action == "kpi.reextracted"))
         ).scalar_one()
         assert event.actor == "system:runner"
         assert event.actor_type == "system"

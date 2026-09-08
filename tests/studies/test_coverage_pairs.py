@@ -88,9 +88,7 @@ def test_a_latin_hypercube_has_no_poor_pair(d: int) -> None:
 def test_uniform_random_runs_are_not_condemned(d: int) -> None:
     """The honest middle: scattered ad-hoc jobs are the modal archive."""
     rng = np.random.default_rng(9)
-    rows = [
-        {f"x{i}": float(v) for i, v in enumerate(row)} for row in rng.random((150, d))
-    ]
+    rows = [{f"x{i}": float(v) for i, v in enumerate(row)} for row in rng.random((150, d))]
     _, envelope, x = _points(rows)
     assert not [p for p in analyse_pairs(x, envelope, settings=_SETTINGS) if p.verdict == "poor"]
 
@@ -140,7 +138,7 @@ def test_the_warning_names_the_remedy_that_applies() -> None:
 
 
 def test_a_pair_with_too_few_placeable_runs_is_not_judged() -> None:
-    """"We cannot tell" is not "we can tell, and it is bad"."""
+    """ "We cannot tell" is not "we can tell, and it is bad"."""
     rows = [{"a": float(i), "b": float(i)} for i in range(5)]
     _, envelope, x = _points(rows)
     assert analyse_pairs(x, envelope, settings=_SETTINGS) == ()
@@ -215,6 +213,7 @@ def test_a_thin_pair_alone_does_not_demote_the_archive() -> None:
 
 def test_one_bad_corner_is_not_called_one_at_a_time() -> None:
     """Different diagnosis, different remedy — so it must not over-claim."""
+
     def pair(name: str, score: float, verdict: str) -> PairCoverage:
         return PairCoverage(
             a=name,

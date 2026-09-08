@@ -42,8 +42,14 @@ _GFRP = {"kx": 0.9, "ky": 0.9, "kz": 0.5, "rho": 2100.0, "cp": 1000.0}
 
 def test_initial_uniform_and_monotonic_heatup() -> None:
     _bracket, snaps = ts.solve_soak(
-        **_CFRP, thickness_m=0.004, heat_load=6.0, h_conv=30.0, ambient=25.0,
-        duration=600.0, n_steps=12, **_SMALL,
+        **_CFRP,
+        thickness_m=0.004,
+        heat_load=6.0,
+        h_conv=30.0,
+        ambient=25.0,
+        duration=600.0,
+        n_steps=12,
+        **_SMALL,
     )
     assert np.allclose(snaps[0], 25.0)  # uniform ambient initial condition
     peaks = [float(s.max()) for s in snaps]
@@ -58,8 +64,14 @@ def test_energy_is_conserved_at_steady_state() -> None:
 
     heat_load, h_conv, ambient = 6.0, 30.0, 25.0
     bracket, snaps = ts.solve_soak(
-        **_CFRP, thickness_m=0.004, heat_load=heat_load, h_conv=h_conv, ambient=ambient,
-        duration=40000.0, n_steps=60, **_SMALL,  # long enough to approach steady state
+        **_CFRP,
+        thickness_m=0.004,
+        heat_load=heat_load,
+        h_conv=h_conv,
+        ambient=ambient,
+        duration=40000.0,
+        n_steps=60,
+        **_SMALL,  # long enough to approach steady state
     )
     final = snaps[-1]
     # Convective heat shed = h * integral over the cooled faces of (T - T_amb).
@@ -75,8 +87,15 @@ def test_energy_is_conserved_at_steady_state() -> None:
 
 
 def test_low_conductivity_runs_hotter() -> None:
-    common = dict(thickness_m=0.004, heat_load=6.0, h_conv=30.0, ambient=25.0,
-                  duration=3600.0, n_steps=30, **_SMALL)
+    common = dict(
+        thickness_m=0.004,
+        heat_load=6.0,
+        h_conv=30.0,
+        ambient=25.0,
+        duration=3600.0,
+        n_steps=30,
+        **_SMALL,
+    )
     _b1, cfrp = ts.solve_soak(**_CFRP, **common)
     _b2, gfrp = ts.solve_soak(**_GFRP, **common)
     # GFRP's lower conductivity concentrates heat -> higher peak temperature.

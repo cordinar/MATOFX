@@ -78,9 +78,7 @@ async def _activity_of(session_factory, token: str) -> _dt.datetime:
     from matofx.users.tokens import hash_session_token  # noqa: PLC0415
 
     async with session_scope(session_factory) as session:
-        stmt = select(AuthSession).where(
-            AuthSession.token_hash == hash_session_token(token)
-        )
+        stmt = select(AuthSession).where(AuthSession.token_hash == hash_session_token(token))
         return (await session.execute(stmt)).scalar_one().last_activity_at
 
 
@@ -319,9 +317,7 @@ async def test_breakglass_session_expires_at_its_own_shorter_bound(
         for token, is_breakglass in ((ordinary.token, False), (emergency.token, True)):
             row = (
                 await session.execute(
-                    select(AuthSession).where(
-                        AuthSession.token_hash == hash_session_token(token)
-                    )
+                    select(AuthSession).where(AuthSession.token_hash == hash_session_token(token))
                 )
             ).scalar_one()
             row.created_at = aged

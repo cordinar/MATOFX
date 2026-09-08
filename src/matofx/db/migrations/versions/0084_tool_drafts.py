@@ -46,9 +46,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_index(
-        "ix_tool_draft_owner_updated", "tool_draft", ["owner_user_id", "updated_at"]
-    )
+    op.create_index("ix_tool_draft_owner_updated", "tool_draft", ["owner_user_id", "updated_at"])
 
 
 def downgrade() -> None:

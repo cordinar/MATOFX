@@ -105,9 +105,7 @@ def _parse_topic(path: Path, set_name: str) -> DocTopic:
     slug = _require_str(front_matter, "slug", path=path)
     audience = _require_str(front_matter, "audience", path=path)
     if audience != set_name:
-        raise DocError(
-            f"{path}: audience '{audience}' doesn't match its directory '{set_name}'."
-        )
+        raise DocError(f"{path}: audience '{audience}' doesn't match its directory '{set_name}'.")
 
     capability_raw = front_matter.get("capability")
     capability = (
@@ -159,8 +157,7 @@ def load_docs(root: Path | None = None) -> DocTree:
                 topic = _parse_topic(path, set_name)
                 if topic.slug in seen_slugs:
                     raise DocError(
-                        f"{path}: slug '{topic.slug}' is already used by "
-                        f"{seen_slugs[topic.slug]}."
+                        f"{path}: slug '{topic.slug}' is already used by {seen_slugs[topic.slug]}."
                     )
                 seen_slugs[topic.slug] = path
                 topics.append(topic)

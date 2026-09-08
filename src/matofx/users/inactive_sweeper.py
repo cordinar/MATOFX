@@ -55,9 +55,10 @@ import asyncio
 import datetime as _dt
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import sqlalchemy as sa
+from sqlalchemy import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from matofx.audit.schema import RecordInput
@@ -142,7 +143,7 @@ async def preview_inactive_users(
     limit: int = 100,
     as_of: _dt.datetime | None = None,
 ) -> tuple[list[_PreviewUserRow], int]:
-    """Return up to ``limit`` users a sweep at ``threshold_days`` would disable, plus the total count.
+    """Preview a sweep: up to ``limit`` users it would disable, and the total.
 
     The list is ordered by "most inactive first" so the operator
     sees the most-overdue users without paginating. ``as_of`` is
@@ -163,7 +164,9 @@ async def preview_inactive_users(
     out: list[_PreviewUserRow] = []
     for user, effective, role_name in sliced:
         eff_aware = _as_aware(effective)
-        assert eff_aware is not None  # narrowing — eligibility scan filters NULL
+        assert (  # noqa: S101 - narrowing for the type checker, not a runtime check
+            eff_aware is not None
+        )  # narrowing — eligibility scan filters NULL
         out.append(
             _PreviewUserRow(
                 user_id=user.id,
@@ -390,7 +393,7 @@ async def _attempt_disable(
                 logon_revoked_at=now,
             )
         )
-        if result.rowcount == 0:
+        if cast("CursorResult[Any]", result).rowcount == 0:
             # Either the user just logged in (race) or another
             # sweeper instance got there first.
             await sp.rollback()
@@ -402,10 +405,9 @@ async def _attempt_disable(
                     action="auth.user.auto_disable_skipped",
                     resource_type="user",
                     resource_id=str(user_id),
-                    outcome="skipped",
+                    outcome="denied",
                     reason=(
-                        "User logged in mid-sweep or another sweep instance "
-                        "disabled them first."
+                        "User logged in mid-sweep or another sweep instance disabled them first."
                     ),
                 ),
             )
@@ -452,11 +454,12 @@ async def _attempt_disable(
                 reason="Inactivity threshold exceeded.",
             ),
         )
-        return "disabled"
     except Exception:
         await sp.rollback()
         _log.exception("Failed to auto-disable user id=%s; continuing sweep", user_id)
         return "skipped"
+    else:
+        return "disabled"
 
 
 async def _send_grace_warnings(
@@ -505,7 +508,9 @@ async def _send_grace_warnings(
     for user in rows:
         # Compute days remaining at the user's effective activity.
         eff = _as_aware(user.last_login_at) or _as_aware(user.created_at)
-        assert eff is not None  # created_at is NOT NULL on the User table
+        assert (  # noqa: S101 - narrowing for the type checker, not a runtime check
+            eff is not None
+        )  # created_at is NOT NULL on the User table  # noqa: S101 - narrowing for the type checker
         days_inactive = max((now - eff).days, 0)
         days_remaining = max(threshold_days - days_inactive, 0)
         try:

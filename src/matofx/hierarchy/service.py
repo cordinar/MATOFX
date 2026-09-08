@@ -523,7 +523,11 @@ class ProjectService:
                 )
             )
         ).all()
-        explicit_owner: dict[int, int] = dict(owner_grant_rows)
+        # Not ``dict(rows)``: Row is a tuple at runtime but mypy will not
+        # take it as one, and the comprehension types.
+        explicit_owner: dict[int, int] = {  # noqa: C416
+            uid: pid for uid, pid in owner_grant_rows
+        }
 
         caller_rows = (
             await session.execute(
@@ -533,10 +537,8 @@ class ProjectService:
                 )
             )
         ).all()
-        caller_role: dict[int, str] = dict(caller_rows)
-        see_all = await user_has_permission(
-            session, actor_user_id, Permission.PROJECTS_SEE_ALL
-        )
+        caller_role: dict[int, str] = {pid: role for pid, role in caller_rows}  # noqa: C416
+        see_all = await user_has_permission(session, actor_user_id, Permission.PROJECTS_SEE_ALL)
 
         owner_ids: dict[int, int] = {
             p.id: explicit_owner.get(p.id, p.creator_user_id) for p in projects
@@ -2580,9 +2582,7 @@ class JobService:
         )
         if not await user_has_permission(session, actor_user_id, Permission.PROJECTS_SEE_ALL):
             shared = select(ProjectAcl.project_id).where(ProjectAcl.user_id == actor_user_id)
-            stmt = stmt.where(
-                (Project.creator_user_id == actor_user_id) | Project.id.in_(shared)
-            )
+            stmt = stmt.where((Project.creator_user_id == actor_user_id) | Project.id.in_(shared))
         return list((await session.execute(stmt)).scalars())
 
     async def list_file_output_candidates(
@@ -2639,9 +2639,7 @@ class JobService:
         # 1. Which tool versions declare a file output matching this input?
         #    A cheap descriptor scan (few rows) — not a job scan.
         descriptors_by_version: dict[int, Mapping[str, Any]] = {}
-        rows = await session.execute(
-            select(ToolVersion.id, ToolVersion.descriptor_snapshot)
-        )
+        rows = await session.execute(select(ToolVersion.id, ToolVersion.descriptor_snapshot))
         for vid, snap in rows.all():
             if isinstance(snap, Mapping) and _job_file_output_specs(
                 snap, accepted_exts, expected_field_array
@@ -3272,9 +3270,7 @@ class JobService:
         # so pass ``include_archived=True`` here to avoid masking it.
         from matofx.tools.service import can_user_see_tool  # noqa: PLC0415
 
-        if not await can_user_see_tool(
-            session, actor_user_id, tool, include_archived=True
-        ):
+        if not await can_user_see_tool(session, actor_user_id, tool, include_archived=True):
             raise ToolNotRunnableError(
                 job.tool_alias,
                 (
@@ -3435,9 +3431,7 @@ class JobService:
                 if env.storage_location_id is None:
                     interpreter_path = env.interpreter_path
                 else:
-                    env_location = await session.get(
-                        StorageLocation, env.storage_location_id
-                    )
+                    env_location = await session.get(StorageLocation, env.storage_location_id)
                     interpreter_path = (
                         str(Path(env_location.mount_path) / env.interpreter_path)
                         if env_location is not None

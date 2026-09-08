@@ -466,9 +466,12 @@ def _render_optimisation_meta(
     for r in cfg.get("responses") or []:
         if not isinstance(r, dict) or r.get("goal") not in ("minimise", "maximise"):
             continue
-        spec = r.get("spec") if isinstance(r.get("spec"), dict) else {}
-        key = str(spec.get("name") or r.get("name")) if spec.get("kind") == "scalar" else str(
-            r.get("name")
+        raw_spec = r.get("spec")
+        spec: dict[str, Any] = raw_spec if isinstance(raw_spec, dict) else {}
+        key = (
+            str(spec.get("name") or r.get("name"))
+            if spec.get("kind") == "scalar"
+            else str(r.get("name"))
         )
         objectives.append(f"{out_labels.get(key, key)} ({r.get('goal')})")
 
@@ -1191,10 +1194,8 @@ async def _render_file_output(
         # The render can take a while (heavy field/animation); if the panel was
         # torn down meanwhile (poll re-render / navigation) the spinner's parent
         # is already gone, so deleting it would raise. Guard it.
-        try:
+        with contextlib.suppress(ValueError, RuntimeError):
             loading.delete()
-        except (ValueError, RuntimeError):
-            pass
 
 
 def _field_download_link(client: ApiClient, job_id: int, filename: str) -> None:
@@ -1755,7 +1756,8 @@ def _render_download_row(
             ui.checkbox("Include provenance graph").bind_value(
                 include_provenance_state, "value"
             ).props("dense").classes("text-caption").tooltip(
-                "Add an inlined SVG of the job's lineage / provenance graph to the downloaded report."
+                "Add an inlined SVG of the job's lineage / provenance graph "
+                "to the downloaded report."
             )
         ui.button(
             "Download Input and Output Summary",

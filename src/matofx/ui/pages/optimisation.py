@@ -843,7 +843,7 @@ class _FactorWidgets:
                     # An integer input varies over whole numbers only, so its
                     # range must be whole too — step the field by 1 and show
                     # no decimals (Phase D; the config validator backstops it).
-                    num_kw = {"step": 1, "format": "%.0f"} if ftype == "int" else {}
+                    num_kw: dict[str, Any] = {"step": 1, "format": "%.0f"} if ftype == "int" else {}
                     row["min"] = ui.number("Min", value=lo, **num_kw).classes("w-32")
                     row["max"] = ui.number("Max", value=hi, **num_kw).classes("w-32")
                     if inp.get("unit"):
@@ -1041,7 +1041,7 @@ class _WorkflowFactorWidgets:
                     row["choices"].value = opts
                 else:
                     # Integer inputs vary over whole numbers only (Phase D).
-                    num_kw = {"step": 1, "format": "%.0f"} if ftype == "int" else {}
+                    num_kw: dict[str, Any] = {"step": 1, "format": "%.0f"} if ftype == "int" else {}
                     row["min"] = ui.number("Min", value=inp.get("minimum"), **num_kw).classes(
                         "w-32"
                     )
@@ -1736,7 +1736,7 @@ def _sig(x: float, n: int = 4) -> float:
     """Round a float to ``n`` significant figures (still a float, so it sorts)."""
     if x == 0 or not math.isfinite(x):
         return x
-    return round(x, -int(math.floor(math.log10(abs(x)))) + (n - 1))
+    return round(x, -math.floor(math.log10(abs(x))) + (n - 1))
 
 
 def _cell(v: Any) -> Any:
@@ -2297,7 +2297,7 @@ def _render_setup_outcome(
                 ui.label(f"Constraints: {con_txt}").style(muted)
             budget = next(
                 (
-                    int(s.get("value"))
+                    int(s.get("value") or 0)
                     for s in (cfg.get("stopping_criteria") or [])
                     if isinstance(s, dict) and s.get("kind") == "max_runs"
                 ),
@@ -2591,7 +2591,7 @@ def _render_objective_scatter(
             if sel == "_feasible":
                 return "Feasible"
             if sel.startswith("a"):
-                return axes[int(sel[1:])]["label"]
+                return str(axes[int(sel[1:])]["label"])
             return "Batch"
 
         def _draw() -> None:
@@ -3012,9 +3012,12 @@ async def _render_live(
     # picks (and any future explorer preferences) instead of resetting.
     scatter_prefs: dict[str, Any] = {}
     with ui.row().classes("w-full items-center gap-3"):
-        ui.button("Refresh results", icon="refresh", on_click=lambda: _refresh_explorer()).props(
-            "flat dense"
-        )
+        # ``_refresh_explorer`` is defined below; the lambda defers the lookup.
+        ui.button(
+            "Refresh results",
+            icon="refresh",
+            on_click=lambda: _refresh_explorer(),  # noqa: PLW0108 - deferred lookup
+        ).props("flat dense")
         refresh_hint = ui.label("").style("color: #b36b00; font-size: 0.85rem;")
     explorer_area = ui.column().classes("w-full gap-4")
 
@@ -3139,7 +3142,8 @@ def _render_convergence_plot(
                 name=metric_label,
                 customdata=[[_batch_label(b), _fmt(y)] for b, y in zip(xs, ys, strict=True)],
                 hovertemplate=(
-                    f"Batch: %{{customdata[0]}}<br>{metric_label}: %{{customdata[1]}}<extra></extra>"
+                    f"Batch: %{{customdata[0]}}<br>"
+                    f"{metric_label}: %{{customdata[1]}}<extra></extra>"
                 ),
             )
         )

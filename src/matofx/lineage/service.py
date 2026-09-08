@@ -446,9 +446,7 @@ class LineageService:
         # internal alias ([[feedback_use_labels_not_names]]); fall back to
         # the alias only if the tool row has gone missing.
         tool_name = (
-            await session.execute(
-                select(Tool.name).where(Tool.alias == job.tool_alias).limit(1)
-            )
+            await session.execute(select(Tool.name).where(Tool.alias == job.tool_alias).limit(1))
         ).scalar_one_or_none()
 
         node = LineageNode(

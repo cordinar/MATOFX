@@ -94,9 +94,7 @@ async def test_recheck_records_every_tick(session: AsyncSession, settings: Setti
 
     count = (
         await session.execute(
-            sa.select(sa.func.count(AuditLog.id)).where(
-                AuditLog.action == "licence.validated.ok"
-            )
+            sa.select(sa.func.count(AuditLog.id)).where(AuditLog.action == "licence.validated.ok")
         )
     ).scalar_one()
     assert count == 2
@@ -117,10 +115,14 @@ async def test_recheck_does_not_raise_when_the_licence_goes_bad(
     assert after.status is None
     assert after.fail_closed is True
     failed = (
-        await session.execute(
-            sa.select(AuditLog).where(AuditLog.action == "licence.validated.failed")
+        (
+            await session.execute(
+                sa.select(AuditLog).where(AuditLog.action == "licence.validated.failed")
+            )
         )
-    ).scalars().one()
+        .scalars()
+        .one()
+    )
     assert "not valid JSON" in (failed.reason or "")
 
 

@@ -332,21 +332,18 @@ async def test_run_study_workflow_target_reaches_terminal(
         assert done.convergence_trace
 
 
-async def _make_run(
-    factory: Any, b: Basics, *, mat_state: str, heat_state: str
-) -> int:
+async def _make_run(factory: Any, b: Basics, *, mat_state: str, heat_state: str) -> int:
     """One headless workflow run of the mat→heat chain with the given child states."""
     async with session_scope(factory) as session:
         workflow_id = int(
-            (await session.execute(select(Workflow.id).where(Workflow.alias == "mat_heat")))
-            .scalar_one()
+            (
+                await session.execute(select(Workflow.id).where(Workflow.alias == "mat_heat"))
+            ).scalar_one()
         )
         version_id = {
             alias: int(
                 (
-                    await session.execute(
-                        select(ToolVersion.id).where(ToolVersion.alias == alias)
-                    )
+                    await session.execute(select(ToolVersion.id).where(ToolVersion.alias == alias))
                 ).scalar_one()
             )
             for alias in ("mat", "heat")
@@ -483,9 +480,7 @@ async def test_record_run_result_writes_one_row_keyed_on_final_member(
         assert anchor.optimisation_metadata_json == {"batch": 3, "candidate": candidate}
 
 
-async def test_run_results_reads_workflow_rows(
-    studies_engine: AsyncEngine, basics: Basics
-) -> None:
+async def test_run_results_reads_workflow_rows(studies_engine: AsyncEngine, basics: Basics) -> None:
     from matofx.hierarchy.orm import Job  # noqa: PLC0415
 
     factory = make_session_factory(studies_engine)

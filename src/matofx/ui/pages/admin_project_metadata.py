@@ -279,9 +279,9 @@ def _new_field_dialog(client: ApiClient, refresh: Any) -> None:
             "The human-friendly name shown on every project's form and, if you "
             "tick the box below, beside the value on the Projects list (e.g. 'Region')."
         )
-        field_type = ui.select(
-            _FIELD_TYPE_LABELS, value="single_select", label="Type"
-        ).classes("w-full")
+        field_type = ui.select(_FIELD_TYPE_LABELS, value="single_select", label="Type").classes(
+            "w-full"
+        )
         number_format = ui.select(_NUMBER_FORMATS, value="decimal", label="Number format").classes(
             "w-full"
         )

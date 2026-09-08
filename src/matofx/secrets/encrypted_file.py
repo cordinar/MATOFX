@@ -145,8 +145,7 @@ class EncryptedFileSecretsStore:
             ) from exc
         if not isinstance(payload, dict):
             raise SecretsConfigError(
-                f"The secrets file {self._path} is not a JSON object of "
-                "reference → token entries."
+                f"The secrets file {self._path} is not a JSON object of reference → token entries."
             )
         # Coerce defensively: every value must be a string token.
         return {str(k): str(v) for k, v in payload.items()}

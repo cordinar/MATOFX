@@ -128,6 +128,7 @@ class TrustedPeerResponse(_Frozen):
 
     @classmethod
     def from_orm_row(cls, row: MigrateTrustedPeer) -> TrustedPeerResponse:
+        """Build the response from a stored trusted-peer row."""
         return cls(
             fingerprint=row.fingerprint,
             fingerprint_display=display_fingerprint(row.fingerprint),
@@ -187,6 +188,7 @@ class ProgressEventResponse(_Frozen):
 
     @classmethod
     def from_domain(cls, event: ProgressEvent) -> ProgressEventResponse:
+        """Build the response from a domain progress event."""
         return cls(
             level=event.level,
             message=event.message,
@@ -209,6 +211,7 @@ class ImportItemOutcomeResponse(_Frozen):
 
     @classmethod
     def from_domain(cls, item: ImportItemOutcome) -> ImportItemOutcomeResponse:
+        """Build the response from one item's import outcome."""
         return cls(
             kind=item.kind,
             alias=item.alias,
@@ -236,6 +239,7 @@ class ImportResultResponse(_Frozen):
 
     @classmethod
     def from_domain(cls, result: ImportResult) -> ImportResultResponse:
+        """Build the response from a completed import result."""
         return cls(
             source_fingerprint=result.source_fingerprint,
             source_fingerprint_display=display_fingerprint(result.source_fingerprint),

@@ -118,6 +118,4 @@ def test_combined_tamper_in_field_subtree_detected(tmp_path: Path) -> None:
 
 def test_combined_empty_rejected(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="empty combined bundle"):
-        write_combined_bundle(
-            tmp_path, {}, {}, factors=[], responses=[], field_formats={}
-        )
+        write_combined_bundle(tmp_path, {}, {}, factors=[], responses=[], field_formats={})

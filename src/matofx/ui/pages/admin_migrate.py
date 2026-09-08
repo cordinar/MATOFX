@@ -36,7 +36,6 @@ from matofx.ui.format import format_user_datetime
 from matofx.ui.pages._chrome import render_shell, require_logged_in
 from matofx.ui.state import current_token
 
-
 # Status-level → display style. The colour tokens map onto the existing
 # matofx theme palette so dark / light flips stay consistent.
 _LEVEL_STYLE: Final[dict[str, str]] = {
@@ -206,11 +205,16 @@ def _render_peer_row(client: ApiClient, peer: dict[str, Any], reload_fn: Any) ->
                 ui.label(f"Notes: {notes}").style(
                     "color: var(--matofx-secondary-text); font-size: 0.85rem;"
                 )
+        # Bound to locals rather than lambda defaults: the defaults existed
+        # only to capture this iteration's peer, and calling ``peer.get`` in
+        # a default list evaluates it at definition time (B008).
+        peer_fp = str(peer["fingerprint"])
+        peer_label = str(peer.get("label") or "")
         ui.button(
             "Remove",
             icon="delete",
-            on_click=lambda _e=None, fp=str(peer["fingerprint"]), label=str(peer.get("label") or ""): (
-                _open_remove_peer_dialog(client, fp, label, reload_fn)
+            on_click=lambda _e=None, fp=peer_fp, label=peer_label: _open_remove_peer_dialog(
+                client, fp, label, reload_fn
             ),
         ).props("flat dense color=negative")
 
@@ -480,7 +484,7 @@ async def _render_import_section(client: ApiClient) -> None:
             selected_row.visible = False
             file_label.visible = True
             log_container.clear()
-            log_container.visible = False  # type: ignore[attr-defined]
+            log_container.visible = False
 
         # File-drop area. ``auto_upload=True`` so the user doesn't have to
         # click an extra "Upload" button after dropping the file.
@@ -533,7 +537,7 @@ async def _render_import_section(client: ApiClient) -> None:
                 "max-height: 24rem; overflow-y: auto;"
             )
         )
-        log_container.visible = False  # type: ignore[attr-defined]
+        log_container.visible = False
 
         async def _run_import(*, dry_run: bool) -> None:
             if not state["bytes"]:
@@ -545,7 +549,7 @@ async def _render_import_section(client: ApiClient) -> None:
 
             # Reset the log panel for this run.
             log_container.clear()
-            log_container.visible = True  # type: ignore[attr-defined]
+            log_container.visible = True
 
             try:
                 envelope = await client.import_migration_bundle(

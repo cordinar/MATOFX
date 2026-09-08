@@ -83,9 +83,7 @@ def trust_service(audit_writer: AuditWriter) -> TrustedPeerService:
 
 
 @pytest.fixture
-async def seed_admin_user_id(
-    migrate_engine: AsyncEngine, user_service: UserService
-) -> int:
+async def seed_admin_user_id(migrate_engine: AsyncEngine, user_service: UserService) -> int:
     """One administrator user seeded so the ``added_by_user_id`` FK is satisfiable."""
     factory = make_session_factory(migrate_engine)
     async with session_scope(factory) as session:

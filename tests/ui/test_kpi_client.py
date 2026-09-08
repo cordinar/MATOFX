@@ -33,9 +33,7 @@ def _utcnow() -> _dt.datetime:
 
 def _enable_feature(app: FastAPI, api_settings: Settings) -> None:
     enabled = api_settings.model_copy(
-        update={
-            "features": FeatureSettings(enabled=[Feature.KPI_EXTRACTION.value])
-        }
+        update={"features": FeatureSettings(enabled=[Feature.KPI_EXTRACTION.value])}
     )
     app.dependency_overrides[get_settings] = lambda: enabled
 
@@ -165,9 +163,7 @@ async def test_list_tool_kpis_returns_catalog(
     """The catalog endpoint surfaces declared KPIs through the client."""
     _enable_feature(app, api_settings)
     await _seed_kpi_data(api_factory, seeded=seeded)
-    auth = await ApiClient(app).login(
-        username=seeded["username"], password=seeded["password"]
-    )
+    auth = await ApiClient(app).login(username=seeded["username"], password=seeded["password"])
     client = ApiClient(app, token=str(auth["access_token"]))
     catalog = await client.list_tool_kpis(seeded["tool_alias"])
     names = {e["kpi_name"] for e in catalog["entries"]}
@@ -184,9 +180,7 @@ async def test_list_tool_results_returns_pivoted_rows(
     """The warehouse list endpoint round-trips through the client."""
     _enable_feature(app, api_settings)
     _, job_ids = await _seed_kpi_data(api_factory, seeded=seeded)
-    auth = await ApiClient(app).login(
-        username=seeded["username"], password=seeded["password"]
-    )
+    auth = await ApiClient(app).login(username=seeded["username"], password=seeded["password"])
     client = ApiClient(app, token=str(auth["access_token"]))
     page = await client.list_tool_results(seeded["tool_alias"], page_size=10)
     assert page["total"] == 3
@@ -203,13 +197,9 @@ async def test_list_tool_results_with_job_ids_narrows(
     """The ``job_ids`` allow-list propagates correctly through the client."""
     _enable_feature(app, api_settings)
     _, job_ids = await _seed_kpi_data(api_factory, seeded=seeded)
-    auth = await ApiClient(app).login(
-        username=seeded["username"], password=seeded["password"]
-    )
+    auth = await ApiClient(app).login(username=seeded["username"], password=seeded["password"])
     client = ApiClient(app, token=str(auth["access_token"]))
-    page = await client.list_tool_results(
-        seeded["tool_alias"], job_ids=[job_ids[0], job_ids[2]]
-    )
+    page = await client.list_tool_results(seeded["tool_alias"], job_ids=[job_ids[0], job_ids[2]])
     assert {r["job_id"] for r in page["rows"]} == {job_ids[0], job_ids[2]}
 
 
@@ -223,13 +213,9 @@ async def test_tool_results_timeseries_returns_points(
     """The timeseries endpoint surfaces ``(extracted_at, value, job_id)`` points."""
     _enable_feature(app, api_settings)
     await _seed_kpi_data(api_factory, seeded=seeded)
-    auth = await ApiClient(app).login(
-        username=seeded["username"], password=seeded["password"]
-    )
+    auth = await ApiClient(app).login(username=seeded["username"], password=seeded["password"])
     client = ApiClient(app, token=str(auth["access_token"]))
-    body = await client.tool_results_timeseries(
-        seeded["tool_alias"], kpi_name="max_temperature"
-    )
+    body = await client.tool_results_timeseries(seeded["tool_alias"], kpi_name="max_temperature")
     assert body["kpi_name"] == "max_temperature"
     assert len(body["points"]) == 3
 
@@ -269,9 +255,7 @@ async def test_download_tool_results_csv_returns_real_csv(
     """
     _enable_feature(app, api_settings)
     await _seed_kpi_data(api_factory, seeded=seeded)
-    auth = await ApiClient(app).login(
-        username=seeded["username"], password=seeded["password"]
-    )
+    auth = await ApiClient(app).login(username=seeded["username"], password=seeded["password"])
     api_client = ApiClient(app, token=str(auth["access_token"]))
     data = await api_client.download_tool_results_csv(seeded["tool_alias"])
     assert isinstance(data, bytes)

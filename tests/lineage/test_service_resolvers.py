@@ -381,15 +381,9 @@ async def test_optimisation_study_resolver_edges_and_child(
     assert node.label == "opt-lin"
     assert node.deep_link == f"/optimisation/{study_id}"
     ref = (NodeKind.OPTIMISATION_STUDY, study_id)
-    assert any(
-        e.source == ref and e.target == (NodeKind.PROJECT, project.id) for e in graph.edges
-    )
-    assert any(
-        e.source == ref and e.target == (NodeKind.TOOL_VERSION, tv_id) for e in graph.edges
-    )
-    assert any(
-        e.source == ref and e.target == (NodeKind.USER, alice_id) for e in graph.edges
-    )
+    assert any(e.source == ref and e.target == (NodeKind.PROJECT, project.id) for e in graph.edges)
+    assert any(e.source == ref and e.target == (NodeKind.TOOL_VERSION, tv_id) for e in graph.edges)
+    assert any(e.source == ref and e.target == (NodeKind.USER, alice_id) for e in graph.edges)
     # The child job's reverse SEEDED_BY_STUDY edge points back at the study.
     seeded = [e for e in graph.edges if e.relation == EdgeKind.SEEDED_BY_STUDY]
     assert any(e.source == (NodeKind.JOB, child_id) and e.target == ref for e in seeded)

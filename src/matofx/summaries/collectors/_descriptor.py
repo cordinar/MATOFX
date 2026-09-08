@@ -42,9 +42,7 @@ class DescriptorMaps:
 _EMPTY = DescriptorMaps({}, {}, {}, {}, [])
 
 
-async def descriptor_maps(
-    session: AsyncSession, tool_version_id: int | None
-) -> DescriptorMaps:
+async def descriptor_maps(session: AsyncSession, tool_version_id: int | None) -> DescriptorMaps:
     """Load the label/unit maps for a tool version (empty when unknown)."""
     if tool_version_id is None:
         return _EMPTY

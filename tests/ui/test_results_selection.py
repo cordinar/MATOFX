@@ -18,7 +18,6 @@ from matofx.ui.pages._results_selection import (
     encode_job_ids_for_export,
 )
 
-
 # ---- Selection state mechanics ---------------------------------------
 
 

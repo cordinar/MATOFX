@@ -63,19 +63,15 @@ async def tutorials_page() -> None:
 
         if general:
             _render_group("General", None, general, client)
-        for alias in sorted(by_tool, key=lambda a: tool_labels.get(a, a).lower()):
+        for alias in sorted(by_tool, key=lambda a: str(tool_labels.get(a) or a).lower()):
             _render_group(tool_labels.get(alias, alias), "Tool", by_tool[alias], client)
-        for alias in sorted(by_workflow, key=lambda a: workflow_labels.get(a, a).lower()):
-            _render_group(
-                workflow_labels.get(alias, alias), "Workflow", by_workflow[alias], client
-            )
+        for alias in sorted(by_workflow, key=lambda a: str(workflow_labels.get(a) or a).lower()):
+            _render_group(workflow_labels.get(alias, alias), "Workflow", by_workflow[alias], client)
 
 
 def _bucket_tutorials(
     rows: list[dict[str, Any]],
-) -> tuple[
-    list[dict[str, Any]], dict[str, list[dict[str, Any]]], dict[str, list[dict[str, Any]]]
-]:
+) -> tuple[list[dict[str, Any]], dict[str, list[dict[str, Any]]], dict[str, list[dict[str, Any]]]]:
     """Split active tutorials into general / per-tool / per-workflow buckets."""
     general: list[dict[str, Any]] = []
     by_tool: dict[str, list[dict[str, Any]]] = {}
@@ -102,8 +98,7 @@ async def _resolve_labels(client: ApiClient) -> tuple[dict[str, str], dict[str, 
         tool_labels = {}
     try:
         workflow_labels = {
-            str(w["alias"]): str(w.get("name") or w["alias"])
-            for w in await client.list_workflows()
+            str(w["alias"]): str(w.get("name") or w["alias"]) for w in await client.list_workflows()
         }
     except ApiError:
         workflow_labels = {}
@@ -129,8 +124,13 @@ def _render_tutorial_row(tutorial: dict[str, Any], client: ApiClient) -> None:
     icon = "picture_as_pdf" if media_type == "document" else "play_circle"
     title = str(tutorial.get("title") or tutorial.get("original_filename") or "Tutorial")
     tutorial_id = int(tutorial["id"])
-    with ui.row().classes("items-center w-full no-wrap").style(
-        "gap: 0.6rem; padding: 0.4rem 0.2rem; border-bottom: 1px solid var(--matofx-card-border);"
+    with (
+        ui.row()
+        .classes("items-center w-full no-wrap")
+        .style(
+            "gap: 0.6rem; padding: 0.4rem 0.2rem; "
+            "border-bottom: 1px solid var(--matofx-card-border);"
+        )
     ):
         ui.icon(icon).style("color: var(--matofx-accent);")
         ui.label(title).style("flex: 1 1 0; min-width: 0;")

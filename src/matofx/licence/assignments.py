@@ -115,9 +115,7 @@ async def admit_assignment(
             actor=actor,
             actor_type="user" if actor.startswith("user:") else "system",
             action=(
-                "licence.assignment.granted"
-                if decision.admitted
-                else "licence.assignment.denied"
+                "licence.assignment.granted" if decision.admitted else "licence.assignment.denied"
             ),
             resource_type="licence",
             resource_id=status.manifest.licence_id,

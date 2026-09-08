@@ -207,10 +207,10 @@ async def list_user_directory(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[UserDirectoryEntry]:
-    """Active users as ``{user_id, username, full_name}`` for the share
-    dialog's people picker and the project page's access list.
+    """The org's user directory, for the share picker and the access list.
 
-    Any authenticated user may read it — picking who to share with is
+    Returned as ``{user_id, username, full_name}``. Any authenticated user may
+    read it — picking who to share with is
     an Owner action gated elsewhere; the directory itself is just the
     org's name list. Ordered by full name then username.
     """

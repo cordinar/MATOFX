@@ -50,13 +50,9 @@ async def _seed_pre_tool(
                 default=300,
                 group="bc",
             ),
-            InputField(
-                name="mesh", label="Mesh size", type="float", default=2
-            ),
+            InputField(name="mesh", label="Mesh size", type="float", default=2),
         ],
-        input_groups=[
-            InputGroup(name="bc", label="Boundary conditions", column=1, row=1)
-        ],
+        input_groups=[InputGroup(name="bc", label="Boundary conditions", column=1, row=1)],
         approvals_policy="pre",
         approver_usernames=[approver_username],
     ).model_dump(mode="json")
@@ -179,9 +175,7 @@ async def test_pre_flow_end_to_end(
     api_audit: AuditWriter,
     tmp_path: Path,
 ) -> None:
-    await _make_approver(
-        api_factory, api_settings, api_audit, username="appr", is_approver=True
-    )
+    await _make_approver(api_factory, api_settings, api_audit, username="appr", is_approver=True)
     await _seed_pre_tool(
         api_factory,
         alias="pretool",
@@ -261,12 +255,8 @@ async def test_non_approver_sees_nothing_and_detail_is_hidden(
     api_audit: AuditWriter,
     tmp_path: Path,
 ) -> None:
-    await _make_approver(
-        api_factory, api_settings, api_audit, username="appr", is_approver=True
-    )
-    await _make_approver(
-        api_factory, api_settings, api_audit, username="nobody", is_approver=False
-    )
+    await _make_approver(api_factory, api_settings, api_audit, username="appr", is_approver=True)
+    await _make_approver(api_factory, api_settings, api_audit, username="nobody", is_approver=False)
     await _seed_pre_tool(
         api_factory,
         alias="pretool",
@@ -284,9 +274,7 @@ async def test_non_approver_sees_nothing_and_detail_is_hidden(
     )
 
     appr = await _login(client, "appr")
-    request_id = (await client.get("/api/users/me/approvals", headers=appr)).json()[
-        0
-    ]["request_id"]
+    request_id = (await client.get("/api/users/me/approvals", headers=appr)).json()[0]["request_id"]
 
     nobody = await _login(client, "nobody")
     empty = await client.get("/api/users/me/approvals", headers=nobody)
@@ -313,9 +301,7 @@ async def test_batch_decisions_are_isolated(
 ) -> None:
     """One good approve + one deny-without-reason in the same batch:
     the approve lands, the bad item fails in isolation."""
-    await _make_approver(
-        api_factory, api_settings, api_audit, username="appr", is_approver=True
-    )
+    await _make_approver(api_factory, api_settings, api_audit, username="appr", is_approver=True)
     await _seed_pre_tool(
         api_factory,
         alias="pretool",
@@ -325,12 +311,8 @@ async def test_batch_decisions_are_isolated(
     )
     s1 = await _project_scenario(client, auth_headers, "P1")
     s2 = await _project_scenario(client, auth_headers, "P2")
-    job1 = await _draft_and_hold(
-        client, auth_headers, scenario_id=s1, alias="pretool", inputs={}
-    )
-    job2 = await _draft_and_hold(
-        client, auth_headers, scenario_id=s2, alias="pretool", inputs={}
-    )
+    job1 = await _draft_and_hold(client, auth_headers, scenario_id=s1, alias="pretool", inputs={})
+    job2 = await _draft_and_hold(client, auth_headers, scenario_id=s2, alias="pretool", inputs={})
 
     appr = await _login(client, "appr")
     rows = (await client.get("/api/users/me/approvals", headers=appr)).json()
@@ -354,9 +336,7 @@ async def test_batch_decisions_are_isolated(
     assert "reason" in results[by_job[job2]]["error"].lower()
 
     # job1 queued; job2 untouched (still held), proving isolation.
-    assert (
-        await client.get(f"/api/jobs/{job1}", headers=auth_headers)
-    ).json()["state"] == "queued"
-    assert (
-        await client.get(f"/api/jobs/{job2}", headers=auth_headers)
-    ).json()["state"] == "pending_approval"
+    assert (await client.get(f"/api/jobs/{job1}", headers=auth_headers)).json()["state"] == "queued"
+    assert (await client.get(f"/api/jobs/{job2}", headers=auth_headers)).json()[
+        "state"
+    ] == "pending_approval"

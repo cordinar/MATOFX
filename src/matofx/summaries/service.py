@@ -128,9 +128,7 @@ class SummaryService:
             await session.flush()
             return CachedSummary(templated, result.text, result.status, now)
 
-        row = ResultSummary(
-            surface_kind=facts.surface_kind, surface_id=facts.surface_id
-        )
+        row = ResultSummary(surface_kind=facts.surface_kind, surface_id=facts.surface_id)
         _apply(row, facts_hash, templated, result, now)
         session.add(row)
         try:
@@ -174,9 +172,7 @@ class SummaryService:
             await self._audit_failed(session, ctx, facts, f"guard:{guard.failed}")
             return _Enrichment(None, "fallback", model_label)
 
-        enriched = SummaryText(
-            title=templated.title, paragraphs=_split_paragraphs(response.text)
-        )
+        enriched = SummaryText(title=templated.title, paragraphs=_split_paragraphs(response.text))
         await self._audit_generated(session, ctx, facts, response)
         return _Enrichment(enriched, "enriched", response.model)
 
@@ -251,9 +247,7 @@ class SummaryService:
         except Exception:  # audit is best-effort here.
             _log.warning("summary audit failed: action=%s", action)
 
-    async def _load(
-        self, session: AsyncSession, facts: SummaryFacts
-    ) -> ResultSummary | None:
+    async def _load(self, session: AsyncSession, facts: SummaryFacts) -> ResultSummary | None:
         return (
             await session.execute(
                 select(ResultSummary).where(
@@ -287,11 +281,7 @@ def _apply(
 
 
 def _from_row(row: ResultSummary) -> CachedSummary:
-    enriched = (
-        SummaryText.from_dict(row.enriched_text)
-        if row.enriched_text is not None
-        else None
-    )
+    enriched = SummaryText.from_dict(row.enriched_text) if row.enriched_text is not None else None
     return CachedSummary(
         templated=SummaryText.from_dict(row.templated_text),
         enriched=enriched,
@@ -332,6 +322,4 @@ async def enrichment_context_if_enabled(
     client = make_llm_client(settings.llm)
     if client is None:  # pragma: no cover - provider != disabled already checked
         return None
-    return EnrichmentContext(
-        client=client, audit=audit, actor=actor, actor_type=actor_type
-    )
+    return EnrichmentContext(client=client, audit=audit, actor=actor, actor_type=actor_type)

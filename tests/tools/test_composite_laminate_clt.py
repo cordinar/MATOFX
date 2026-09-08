@@ -24,10 +24,7 @@ import numpy as np
 import pytest
 
 _ENGINE = (
-    Path(__file__).resolve().parents[2]
-    / "example_tools"
-    / "composite_laminate"
-    / "laminate_clt.py"
+    Path(__file__).resolve().parents[2] / "example_tools" / "composite_laminate" / "laminate_clt.py"
 )
 _spec = importlib.util.spec_from_file_location("laminate_clt", _ENGINE)
 assert _spec is not None

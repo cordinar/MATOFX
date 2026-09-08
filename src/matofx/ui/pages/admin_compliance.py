@@ -90,9 +90,7 @@ def _render_identity(data: dict[str, Any]) -> None:
 
     with ui.card().classes("w-full").style("padding: 0.9rem 1.1rem;"):
         with ui.row().classes("items-center no-wrap").style("gap: 0.7rem;"):
-            ui.icon("fingerprint").style(
-                "color: var(--matofx-muted-text); font-size: 1.4rem;"
-            )
+            ui.icon("fingerprint").style("color: var(--matofx-muted-text); font-size: 1.4rem;")
             with ui.column().classes("gap-0"):
                 if install_id:
                     ui.label(f"Install {install_id}").style("font-weight: 600;")
@@ -150,9 +148,11 @@ def _render_generate(data: dict[str, Any], client: ApiClient, refresh: Any) -> N
             ).style("color: var(--matofx-muted-text); font-size: 0.86rem;")
 
             with ui.row().classes("items-center gap-2"):
-                since = ui.input(placeholder="YYYY-MM-DD (optional)").props(
-                    "dense outlined"
-                ).style("width: 200px;")
+                since = (
+                    ui.input(placeholder="YYYY-MM-DD (optional)")
+                    .props("dense outlined")
+                    .style("width: 200px;")
+                )
                 since.tooltip(
                     "Leave empty to cover the period since the last report. "
                     "Set a date to cover a specific window instead."
@@ -161,8 +161,7 @@ def _render_generate(data: dict[str, Any], client: ApiClient, refresh: Any) -> N
                 async def generate() -> None:
                     button.disable()
                     notice = ui.notification(
-                        "Generating — this checks every audit record, so it can take "
-                        "a moment…",
+                        "Generating — this checks every audit record, so it can take a moment…",
                         type="ongoing",
                         timeout=None,
                     )
@@ -219,10 +218,14 @@ def _render_table(data: dict[str, Any], client: ApiClient) -> None:
 
 
 def _header_row() -> None:
-    with ui.row().classes("w-full items-center no-wrap").style(
-        "padding: 0.55rem 1.1rem; gap: 0.75rem; font-size: 0.78rem; font-weight: 650; "
-        "letter-spacing: 0.02em; text-transform: uppercase; "
-        "color: var(--matofx-muted-text); border-bottom: 1px solid var(--matofx-border);"
+    with (
+        ui.row()
+        .classes("w-full items-center no-wrap")
+        .style(
+            "padding: 0.55rem 1.1rem; gap: 0.75rem; font-size: 0.78rem; font-weight: 650; "
+            "letter-spacing: 0.02em; text-transform: uppercase; "
+            "color: var(--matofx-muted-text); border-bottom: 1px solid var(--matofx-border);"
+        )
     ):
         ui.label("Report").style("flex: 0 0 80px;")
         ui.label("Generated").style("flex: 1.4 1 0;")
@@ -244,9 +247,13 @@ def _report_row(row: dict[str, Any], client: ApiClient) -> None:
         suffix = "html" if fmt == "html" else "json"
         ui.download.content(payload, f"compliance-report-{counter:04d}.{suffix}")
 
-    with ui.row().classes("w-full items-center no-wrap").style(
-        "padding: 0.6rem 1.1rem; gap: 0.75rem; font-size: 0.88rem; "
-        "border-bottom: 1px solid var(--matofx-border);"
+    with (
+        ui.row()
+        .classes("w-full items-center no-wrap")
+        .style(
+            "padding: 0.6rem 1.1rem; gap: 0.75rem; font-size: 0.88rem; "
+            "border-bottom: 1px solid var(--matofx-border);"
+        )
     ):
         ui.label(f"#{counter}").style("flex: 0 0 80px; font-weight: 600;")
         with ui.column().classes("gap-0").style("flex: 1.4 1 0; min-width: 0;"):
@@ -271,17 +278,17 @@ def _report_row(row: dict[str, Any], client: ApiClient) -> None:
                 ui.icon("warning").style("color: #d6a93b; font-size: 1rem;")
                 ui.label("check failed").style("color: #d6a93b; font-weight: 550;")
 
-        with ui.row().classes("items-center justify-end no-wrap").style(
-            "flex: 0 0 210px; gap: 0.3rem;"
+        with (
+            ui.row()
+            .classes("items-center justify-end no-wrap")
+            .style("flex: 0 0 210px; gap: 0.3rem;")
         ):
-            ui.button(
-                "Read (HTML)", on_click=lambda _e=None: download("html")
-            ).props("flat dense no-caps color=primary").tooltip(
-                "The readable twin — open this before sending anything."
-            )
-            ui.button(
-                "Send (JSON)", on_click=lambda _e=None: download("json")
-            ).props("flat dense no-caps").tooltip("The signed file to send to your supplier.")
+            ui.button("Read (HTML)", on_click=lambda _e=None: download("html")).props(
+                "flat dense no-caps color=primary"
+            ).tooltip("The readable twin — open this before sending anything.")
+            ui.button("Send (JSON)", on_click=lambda _e=None: download("json")).props(
+                "flat dense no-caps"
+            ).tooltip("The signed file to send to your supplier.")
 
 
 def _date_only(value: object) -> str:

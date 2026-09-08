@@ -109,7 +109,7 @@ async def _render_inspector(client: ApiClient) -> None:
             .classes("w-full")
         )
 
-        async def _on_search_change(_e=None) -> None:
+        async def _on_search_change(_e: Any = None) -> None:
             filters["search"] = (search_input.value or "").strip() or None
             await refresh()
 
@@ -122,7 +122,7 @@ async def _render_inspector(client: ApiClient) -> None:
                 label="Owner",
             ).classes("min-w-64")
 
-            async def _on_owner_change(_e=None) -> None:
+            async def _on_owner_change(_e: Any = None) -> None:
                 filters["owner_id"] = owner_select.value or None
                 await refresh()
 
@@ -134,7 +134,7 @@ async def _render_inspector(client: ApiClient) -> None:
                 label="Contains tool",
             ).classes("min-w-64")
 
-            async def _on_tool_change(_e=None) -> None:
+            async def _on_tool_change(_e: Any = None) -> None:
                 filters["contains_tool_alias"] = tool_select.value or None
                 await refresh()
 
@@ -142,7 +142,7 @@ async def _render_inspector(client: ApiClient) -> None:
 
             archived_switch = ui.switch("Include archived", value=True)
 
-            async def _on_archived_change(_e=None) -> None:
+            async def _on_archived_change(_e: Any = None) -> None:
                 filters["include_archived"] = bool(archived_switch.value)
                 await refresh()
 
@@ -150,14 +150,14 @@ async def _render_inspector(client: ApiClient) -> None:
 
     list_container = ui.column().classes("w-full gap-3")
     await refresh()
-    return None  # list_container already rendered into the page body
+    return  # list_container already rendered into the page body
 
 
 def _render_result_list(
     client: ApiClient,
     rows: list[dict[str, Any]],
     *,
-    on_changed,  # noqa: ANN001
+    on_changed: Any,
 ) -> None:
     if not rows:
         ui.label("No custom workflows match the current filters.").style(
@@ -172,7 +172,7 @@ def _render_inspector_card(
     client: ApiClient,
     row: dict[str, Any],
     *,
-    on_changed,  # noqa: ANN001
+    on_changed: Any,
 ) -> None:
     archived = row.get("archived_at") is not None
     with ui.card().classes("w-full"):
@@ -199,8 +199,7 @@ def _render_inspector_card(
                         # job status. Archived is an inactive/parked state,
                         # so it reads as a caution rather than alarming.
                         ui.badge("Archived").props("color=amber text-color=black").style(
-                            "padding: 0.15rem 0.5rem; font-size: 0.75rem; "
-                            "border-radius: 0.4rem;"
+                            "padding: 0.15rem 0.5rem; font-size: 0.75rem; border-radius: 0.4rem;"
                         )
 
             with ui.row().classes("gap-2"):
@@ -237,8 +236,7 @@ def _render_inspector_card(
                             client, _id, on_changed
                         ),
                     ).props("flat color=primary").tooltip(
-                        "Release this workflow back to active on behalf of "
-                        "the owner. Audit-logged."
+                        "Release this workflow back to active on behalf of the owner. Audit-logged."
                     )
 
         member_count = int(row.get("member_count") or 0)
@@ -333,7 +331,7 @@ async def _open_details_drawer(client: ApiClient, workflow_id: int) -> None:
 async def _open_inspector_archive_dialog(
     client: ApiClient,
     workflow_id: int,
-    on_changed,  # noqa: ANN001
+    on_changed: Any,
 ) -> None:
     """Force-archive with a required reason."""
     with ui.dialog() as dialog, ui.card().style("min-width: 480px;"):
@@ -374,7 +372,7 @@ async def _open_inspector_archive_dialog(
 async def _do_inspector_release(
     client: ApiClient,
     workflow_id: int,
-    on_changed,  # noqa: ANN001
+    on_changed: Any,
 ) -> None:
     """Release (un-archive) the row back to active on the owner's behalf."""
     try:
@@ -389,7 +387,7 @@ async def _do_inspector_release(
 async def _do_inspector_copy(
     client: ApiClient,
     workflow_id: int,
-    on_changed,  # noqa: ANN001
+    on_changed: Any,
 ) -> None:
     """Fork the row into the inspector's own list."""
     try:

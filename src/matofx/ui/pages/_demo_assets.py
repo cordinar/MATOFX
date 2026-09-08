@@ -206,7 +206,7 @@ def mount_demo_static_route(fastapi_app: Any | None = None) -> None:
             exc,
         )
         return
-    fastapi_app.mount(  # type: ignore[attr-defined]
+    fastapi_app.mount(
         DEMO_STATIC_URL_PREFIX,
         StaticFiles(directory=str(root)),
         name="demo-assets",

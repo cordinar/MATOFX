@@ -45,14 +45,11 @@ async def collect_workflow_facts(
 
     labels = await _tool_labels(session, [c.tool_alias for c in children])
     members = [
-        {"label": labels.get(c.tool_alias, c.tool_alias), "state": c.state}
-        for c in children
+        {"label": labels.get(c.tool_alias, c.tool_alias), "state": c.state} for c in children
     ]
     completed = sum(1 for c in children if c.state == "complete")
     failed = sum(1 for c in children if c.state == "failed")
-    first_failed = next(
-        (m["label"] for m in members if m["state"] == "failed"), None
-    )
+    first_failed = next((m["label"] for m in members if m["state"] == "failed"), None)
     first_failed_position = next(
         (i + 1 for i, m in enumerate(members) if m["state"] == "failed"), None
     )
@@ -108,9 +105,7 @@ async def _tool_labels(session: AsyncSession, aliases: list[str]) -> dict[str, s
     distinct = sorted(set(aliases))
     if not distinct:
         return {}
-    rows = (
-        await session.execute(select(Tool).where(Tool.alias.in_(distinct)))
-    ).scalars()
+    rows = (await session.execute(select(Tool).where(Tool.alias.in_(distinct)))).scalars()
     return {row.alias: row.name for row in rows}
 
 

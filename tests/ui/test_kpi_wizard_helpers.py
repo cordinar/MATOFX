@@ -11,7 +11,6 @@ from matofx.ui.pages._kpi_wizard_helpers import (
     kpis_declared_badge_text,
 )
 
-
 # ---- kpi_eligible ----------------------------------------------------
 
 
@@ -82,15 +81,12 @@ def test_badge_text_zero_uses_plural() -> None:
 
 
 def test_badge_text_one_uses_singular() -> None:
-    assert (
-        kpis_declared_badge_text([{"kpi": True}]) == "1 KPI declared"
-    )
+    assert kpis_declared_badge_text([{"kpi": True}]) == "1 KPI declared"
 
 
 def test_badge_text_many_uses_plural() -> None:
     assert (
-        kpis_declared_badge_text([{"kpi": True}, {"kpi": True}, {"kpi": True}])
-        == "3 KPIs declared"
+        kpis_declared_badge_text([{"kpi": True}, {"kpi": True}, {"kpi": True}]) == "3 KPIs declared"
     )
 
 
@@ -98,9 +94,10 @@ def test_badge_text_many_uses_plural() -> None:
 
 
 def test_autocomplete_dedups_and_preserves_install_order() -> None:
-    assert category_autocomplete_options(
-        ["thermal", "structural", "thermal"]
-    ) == ["thermal", "structural"]
+    assert category_autocomplete_options(["thermal", "structural", "thermal"]) == [
+        "thermal",
+        "structural",
+    ]
 
 
 def test_autocomplete_surfaces_current_value_first() -> None:
@@ -112,9 +109,10 @@ def test_autocomplete_surfaces_current_value_first() -> None:
 
 def test_autocomplete_skips_current_value_if_already_in_pool() -> None:
     """No duplicates when the current value is already in the install list."""
-    assert category_autocomplete_options(
-        ["thermal", "structural"], current_value="thermal"
-    ) == ["thermal", "structural"]
+    assert category_autocomplete_options(["thermal", "structural"], current_value="thermal") == [
+        "thermal",
+        "structural",
+    ]
 
 
 def test_autocomplete_skips_garbage_categories() -> None:

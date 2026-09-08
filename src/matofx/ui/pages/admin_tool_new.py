@@ -99,9 +99,7 @@ async def admin_tool_new_page(draft: int | None = None) -> None:
             draft_id = int(loaded["id"])
             initial = dict(loaded.get("payload") or {})
         except ApiError:
-            ui.notify(
-                "That draft couldn't be loaded — starting a fresh tool.", type="warning"
-            )
+            ui.notify("That draft couldn't be loaded — starting a fresh tool.", type="warning")
 
     team_names = {str(t["name"]) for t in teams}
     # Always offer World as a virtual team — the visibility filter
@@ -182,7 +180,7 @@ async def _render_form(
     *,
     client: ApiClient,
     existing_tools: list[dict[str, Any]],
-    material_classes_with_props: dict[str, list[str]] | None = None,
+    material_classes_with_props: dict[str, list[dict[str, str]]] | None = None,
     initial: dict[str, Any] | None = None,
     draft_id: int | None = None,
 ) -> None:
@@ -212,9 +210,7 @@ async def _render_form(
     # descriptor-shaped blob (the exact round-trip the Edit page uses).
     wizard_seed = initial.get("wizard") if initial else None
     wizard_state: dict[str, Any] = (
-        state_from_descriptor(dict(wizard_seed))
-        if isinstance(wizard_seed, dict)
-        else empty_state()
+        state_from_descriptor(dict(wizard_seed)) if isinstance(wizard_seed, dict) else empty_state()
     )
     _initial_mode = str(initial.get("mode") or "wizard") if initial else "wizard"
     mode: dict[str, str] = {
@@ -550,7 +546,7 @@ async def _render_form(
         approvers_picker.value = list(initial.get("approvers") or [])
         email_notifications.value = bool(initial.get("email_notifications", False))
         _rc = initial.get("run_cap")
-        run_cap_in.value = int(_rc) if _rc not in (None, "") else None
+        run_cap_in.value = int(_rc) if _rc is not None and _rc != "" else None
 
     # Mutable holder so repeated "Save draft" clicks overwrite the same
     # row instead of stacking up new ones; seeded from the resumed draft.
@@ -831,9 +827,7 @@ async def _render_form(
             message.text = f"Couldn't save draft: {exc.detail}"
             return
         draft_ref["id"] = int(saved["id"])
-        ui.notify(
-            "Draft saved — resume it any time from the Tools page.", type="positive"
-        )
+        ui.notify("Draft saved — resume it any time from the Tools page.", type="positive")
 
     with ui.row().classes("w-full justify-end gap-2"):
         ui.button(

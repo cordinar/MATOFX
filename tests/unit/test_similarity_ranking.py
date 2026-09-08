@@ -35,9 +35,7 @@ def test_ranks_closest_first_uniform() -> None:
 
 def test_exact_match_is_full_closeness() -> None:
     jobs = [_job(1, {"t": 42.0}), _job(2, {"t": 0.0})]
-    ranked = rank_jobs_by_similarity(
-        jobs, reference_inputs={"t": 42.0}, numeric_fields={"t"}
-    )
+    ranked = rank_jobs_by_similarity(jobs, reference_inputs={"t": 42.0}, numeric_fields={"t"})
     top = next(r for r in ranked if r.job.id == 1)
     assert top.distance == 0.0
     assert top.closeness_pct == 100.0
@@ -152,9 +150,7 @@ def test_pure_categorical_match_is_full_closeness() -> None:
     # No numeric axis to discriminate on → every gated row reads as a
     # full (100%) match, ordered newest-id first.
     jobs = [_job(1, {"mat": "steel"}), _job(2, {"mat": "steel"})]
-    ranked = rank_jobs_by_similarity(
-        jobs, reference_inputs={"mat": "steel"}, numeric_fields=set()
-    )
+    ranked = rank_jobs_by_similarity(jobs, reference_inputs={"mat": "steel"}, numeric_fields=set())
     assert {r.job.id for r in ranked} == {1, 2}
     assert all(r.closeness_pct == 100.0 and r.distance == 0.0 for r in ranked)
     assert [r.job.id for r in ranked] == [2, 1]  # tie-break newest id first

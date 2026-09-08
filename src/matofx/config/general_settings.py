@@ -64,7 +64,7 @@ Super User is never the right call. Sites that need Super User
 accounts promote individual users after the fact.
 """
 
-DEFAULT_PASSWORD_ALLOWED_SYMBOLS: Final[str] = "!@#$%^&*()-_=+[]{};:,.<>?/\\|~`"
+DEFAULT_PASSWORD_ALLOWED_SYMBOLS: Final[str] = "!@#$%^&*()-_=+[]{};:,.<>?/\\|~`"  # noqa: S105 - a symbol allow-list, not a secret
 """Default set of symbol characters permitted in passwords.
 
 Combined with ``a-zA-Z0-9``, this defines the full alphabet a

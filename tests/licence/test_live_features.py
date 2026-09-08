@@ -92,9 +92,9 @@ def test_no_licence_configured_leaves_toml_features_alone(
     settings: Settings,
 ) -> None:
     """The dev/CI exemption: unlicensed installs keep [features]."""
-    unlicensed = settings.model_copy(update={"licence": settings.licence.model_copy(
-        update={"file": None}
-    )})
+    unlicensed = settings.model_copy(
+        update={"licence": settings.licence.model_copy(update={"file": None})}
+    )
     assert live_settings(unlicensed) is unlicensed
 
 
@@ -216,9 +216,7 @@ def test_a_healthy_licence_is_writable(settings: Settings) -> None:
     resolution = resolve_licence(settings)
 
     assert resolution.read_only is False
-    assert feature_enabled(
-        live_settings(settings).features, Feature.PARAMETRIC_STUDIES
-    )
+    assert feature_enabled(live_settings(settings).features, Feature.PARAMETRIC_STUDIES)
 
 
 def test_a_same_size_same_mtime_replacement_is_still_noticed(

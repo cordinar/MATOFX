@@ -64,9 +64,7 @@ async def test_add_when_disabled_raises(
     service = FavouritesService()
     async with session_scope(api_factory) as session:
         with pytest.raises(FavouritesDisabledError):
-            await service.add(
-                session, user_id=seeded["user_id"], kind="tool", alias="alpha"
-            )
+            await service.add(session, user_id=seeded["user_id"], kind="tool", alias="alpha")
 
 
 @pytest.mark.asyncio
@@ -76,34 +74,24 @@ async def test_add_then_remove_round_trip(
     await _set_favourites_enabled(api_factory, True)
     service = FavouritesService()
     async with session_scope(api_factory) as session:
-        snap = await service.add(
-            session, user_id=seeded["user_id"], kind="tool", alias="alpha"
-        )
+        snap = await service.add(session, user_id=seeded["user_id"], kind="tool", alias="alpha")
         assert snap.tools == ["alpha"]
-        snap = await service.remove(
-            session, user_id=seeded["user_id"], kind="tool", alias="alpha"
-        )
+        snap = await service.remove(session, user_id=seeded["user_id"], kind="tool", alias="alpha")
         assert snap.tools == []
 
 
 @pytest.mark.asyncio
-async def test_add_is_idempotent(
-    api_factory: SessionFactory, seeded: dict[str, Any]
-) -> None:
+async def test_add_is_idempotent(api_factory: SessionFactory, seeded: dict[str, Any]) -> None:
     await _set_favourites_enabled(api_factory, True)
     service = FavouritesService()
     async with session_scope(api_factory) as session:
         for _ in range(3):
-            snap = await service.add(
-                session, user_id=seeded["user_id"], kind="tool", alias="alpha"
-            )
+            snap = await service.add(session, user_id=seeded["user_id"], kind="tool", alias="alpha")
         assert snap.tools == ["alpha"]
 
 
 @pytest.mark.asyncio
-async def test_remove_missing_is_noop(
-    api_factory: SessionFactory, seeded: dict[str, Any]
-) -> None:
+async def test_remove_missing_is_noop(api_factory: SessionFactory, seeded: dict[str, Any]) -> None:
     await _set_favourites_enabled(api_factory, True)
     service = FavouritesService()
     async with session_scope(api_factory) as session:
@@ -114,16 +102,12 @@ async def test_remove_missing_is_noop(
 
 
 @pytest.mark.asyncio
-async def test_unknown_kind_rejected(
-    api_factory: SessionFactory, seeded: dict[str, Any]
-) -> None:
+async def test_unknown_kind_rejected(api_factory: SessionFactory, seeded: dict[str, Any]) -> None:
     await _set_favourites_enabled(api_factory, True)
     service = FavouritesService()
     async with session_scope(api_factory) as session:
         with pytest.raises(FavouritesUnknownKindError):
-            await service.add(
-                session, user_id=seeded["user_id"], kind="scenario", alias="x"
-            )
+            await service.add(session, user_id=seeded["user_id"], kind="scenario", alias="x")
 
 
 @pytest.mark.asyncio
@@ -139,9 +123,7 @@ async def test_snapshot_returns_alphabetical_lists(
             ("tool", "alpha"),
             ("workflow", "xray"),
         ):
-            await service.add(
-                session, user_id=seeded["user_id"], kind=kind, alias=alias
-            )
+            await service.add(session, user_id=seeded["user_id"], kind=kind, alias=alias)
         snap = await service.snapshot(session, user_id=seeded["user_id"])
     assert snap.tools == ["alpha", "zeta"]
     assert snap.workflows == ["xray", "yankee"]
@@ -155,9 +137,7 @@ async def test_snapshot_still_returns_rows_when_disabled(
     await _set_favourites_enabled(api_factory, True)
     service = FavouritesService()
     async with session_scope(api_factory) as session:
-        await service.add(
-            session, user_id=seeded["user_id"], kind="tool", alias="alpha"
-        )
+        await service.add(session, user_id=seeded["user_id"], kind="tool", alias="alpha")
     # Flip the toggle back off.
     await _set_favourites_enabled(api_factory, False)
     async with session_scope(api_factory) as session:

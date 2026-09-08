@@ -82,9 +82,11 @@ def _anchor_for(
             "hash": "3c" * 32,
             "timestamp": "2026-08-31T17:58:40.000000Z",
         },
-        "tree": {"algorithm": "rfc6962-sha256", "size": size, "root": _root(
-            size, rewrite_at=rewrite_at
-        )},
+        "tree": {
+            "algorithm": "rfc6962-sha256",
+            "size": size,
+            "root": _root(size, rewrite_at=rewrite_at),
+        },
         "consistency_proofs": proofs,
         "consistency_proofs_truncated": False,
     }
@@ -234,9 +236,7 @@ def test_a_report_that_cannot_prove_consistency_contradicts(
 ) -> None:
     """An explicit ``null`` proof is an admission, not a missing field."""
     anchor = _anchor_for(_HEAD_SIZE)
-    anchor["consistency_proofs"] = [
-        {"counter": 1, "tree_size": _PREV_SIZE, "proof": None}
-    ]
+    anchor["consistency_proofs"] = [{"counter": 1, "tree_size": _PREV_SIZE, "proof": None}]
     document = _sign(_document(anchor=anchor), report_key)
     verdict = verify_report(
         document, ledger=_ledger(report_public_key=issuer_public_hex(report_key))
@@ -353,9 +353,7 @@ def test_first_report_with_supplied_key_still_lacks_an_anchor(
     report_key: Ed25519PrivateKey,
 ) -> None:
     document = _sign(_document(counter=1, anchor=_first_report_anchor()), report_key)
-    verdict = verify_report(
-        document, ledger=[], public_key_hex=issuer_public_hex(report_key)
-    )
+    verdict = verify_report(document, ledger=[], public_key_hex=issuer_public_hex(report_key))
     assert verdict.verdict == INCONCLUSIVE
     assert _status(verdict, "signature") == "ok"
     assert _status(verdict, "anchoring") == "skip"
@@ -394,8 +392,13 @@ def test_csl_over_cap_is_a_breach_with_breakglass_explained(
     usage["licence_type"] = "csl"
     usage["authoritative"] = "csl"
     usage["csl"].update(
-        {"n_slots": 10, "peak_concurrent_sessions": 11, "over_cap": True,
-         "breakglass_admissions": 1, "slots_denied": 14}
+        {
+            "n_slots": 10,
+            "peak_concurrent_sessions": 11,
+            "over_cap": True,
+            "breakglass_admissions": 1,
+            "slots_denied": 14,
+        }
     )
     document = _sign(_document(usage=usage), report_key)
     verdict = verify_report(
@@ -415,8 +418,13 @@ def test_fal_over_cap_is_a_breach(report_key: Ed25519PrivateKey) -> None:
     usage["licence_type"] = "fal"
     usage["authoritative"] = "fal"
     usage["fal"].update(
-        {"n_slots": 25, "assignments_current": 26, "over_cap": True, "assignments_denied": 3,
-         "source": "fal_assignments"}
+        {
+            "n_slots": 25,
+            "assignments_current": 26,
+            "over_cap": True,
+            "assignments_denied": 3,
+            "source": "fal_assignments",
+        }
     )
     document = _sign(_document(usage=usage), report_key)
     verdict = verify_report(

@@ -134,7 +134,7 @@ class SettingSpec:
     delegatable_to: UserRole | None = None
     pending_restart: bool = False
 
-    def __post_init__(self) -> None:
+    def __post_init__(self) -> None:  # noqa: PLR0912 - one branch per case — the branches are the specification
         """Reject internally inconsistent specs at module-load time.
 
         Catalog typos (e.g. an enum entry whose default isn't in its
@@ -190,8 +190,7 @@ class SettingSpec:
 
             if self.delegatable_to not in _ROLE_RANK:
                 raise ValueError(
-                    f"{self.key}: delegatable_to={self.delegatable_to!r} "
-                    f"isn't a known role."
+                    f"{self.key}: delegatable_to={self.delegatable_to!r} isn't a known role."
                 )
             if _ROLE_RANK[self.delegatable_to] <= _ROLE_RANK[self.requires_role]:
                 raise ValueError(
@@ -421,13 +420,13 @@ def _int_default(key: str) -> int:
     and enforces that for the static type checker.
     """
     default = RUNTIME_SETTINGS_CATALOG[key].default
-    assert isinstance(default, int | float) and not isinstance(default, bool)
+    assert isinstance(default, int | float) and not isinstance(default, bool)  # noqa: S101,PT018 - narrowing a catalog default for mypy
     return int(default)
 
 
 def _float_default(key: str) -> float:
     default = RUNTIME_SETTINGS_CATALOG[key].default
-    assert isinstance(default, int | float) and not isinstance(default, bool)
+    assert isinstance(default, int | float) and not isinstance(default, bool)  # noqa: S101,PT018 - narrowing a catalog default for mypy
     return float(default)
 
 

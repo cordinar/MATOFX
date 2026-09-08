@@ -93,8 +93,7 @@ def test_accent_contrasts_with_its_own_surface() -> None:
     for palette in (LIGHT_PALETTE, DARK_PALETTE):
         ratio = _contrast_ratio(palette.accent, palette.card_bg)
         assert ratio >= 3.0, (
-            f"{palette.name} accent {palette.accent} on {palette.card_bg} "
-            f"is only {ratio:.2f}:1"
+            f"{palette.name} accent {palette.accent} on {palette.card_bg} is only {ratio:.2f}:1"
         )
 
 

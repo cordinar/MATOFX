@@ -98,9 +98,7 @@ async def test_create_request_duplicate_pending(
 
 
 @pytest.mark.asyncio
-async def test_get_not_found(
-    seeded_job: SeededJob, approval_service: ApprovalService
-) -> None:
+async def test_get_not_found(seeded_job: SeededJob, approval_service: ApprovalService) -> None:
     async with session_scope(seeded_job.factory) as session:
         with pytest.raises(ApprovalRequestNotFoundError):
             await approval_service.get(session, request_id=999_999)
@@ -263,18 +261,12 @@ async def test_list_and_count_pending_filter_by_username(
     await _open(seeded_job, approval_service, kind="post", eligible=["carol"])
 
     async with session_scope(seeded_job.factory) as session:
-        bob_list = await approval_service.list_pending_for_user(
-            session, username="Bob"
-        )
-        carol_list = await approval_service.list_pending_for_user(
-            session, username="carol"
-        )
+        bob_list = await approval_service.list_pending_for_user(session, username="Bob")
+        carol_list = await approval_service.list_pending_for_user(session, username="carol")
         everything = await approval_service.list_pending_for_user(
             session, username="nobody", include_all=True
         )
-        bob_count = await approval_service.count_pending_for_user(
-            session, username="bob"
-        )
+        bob_count = await approval_service.count_pending_for_user(session, username="bob")
 
     assert [r.kind for r in bob_list] == ["pre"]
     assert [r.kind for r in carol_list] == ["post"]

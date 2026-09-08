@@ -29,8 +29,13 @@ def test_file_output_specs_keeps_only_file_outputs_with_filenames() -> None:
         [
             {"type": "number", "name": "t_max"},  # scalar — skipped
             {"type": "file", "name": "no_file"},  # no filename — skipped
-            {"type": "file", "name": "temp", "label": "Temperature field",
-             "filename": "temperature_final.vtu", "file_type": "field"},
+            {
+                "type": "file",
+                "name": "temp",
+                "label": "Temperature field",
+                "filename": "temperature_final.vtu",
+                "file_type": "field",
+            },
         ]
     )
     specs = _job_file_output_specs(descriptor, accepted_exts=set())
@@ -47,8 +52,13 @@ def test_file_output_specs_keeps_only_file_outputs_with_filenames() -> None:
 def test_file_output_specs_captures_field_array_name() -> None:
     descriptor = _descriptor(
         [
-            {"type": "file", "name": "temp", "filename": "t.vtu", "file_type": "field",
-             "field_node_array_name": "temperature"},
+            {
+                "type": "file",
+                "name": "temp",
+                "filename": "t.vtu",
+                "file_type": "field",
+                "field_node_array_name": "temperature",
+            },
         ]
     )
     specs = _job_file_output_specs(descriptor, accepted_exts=set())
@@ -60,10 +70,20 @@ def test_file_output_specs_filters_by_expected_field_array() -> None:
     nodal array — a temperature input never lists a failure-index field."""
     descriptor = _descriptor(
         [
-            {"type": "file", "name": "temp", "filename": "t.vtu", "file_type": "field",
-             "field_node_array_name": "temperature"},
-            {"type": "file", "name": "fail", "filename": "f.vtu", "file_type": "field",
-             "field_node_array_name": "failure_index"},
+            {
+                "type": "file",
+                "name": "temp",
+                "filename": "t.vtu",
+                "file_type": "field",
+                "field_node_array_name": "temperature",
+            },
+            {
+                "type": "file",
+                "name": "fail",
+                "filename": "f.vtu",
+                "file_type": "field",
+                "field_node_array_name": "failure_index",
+            },
             {"type": "file", "name": "mesh", "filename": "m.vtu"},  # no array → excluded
         ]
     )
@@ -93,9 +113,7 @@ def test_file_output_specs_filters_by_accepted_extension() -> None:
 
 
 def test_file_output_specs_label_falls_back_to_name() -> None:
-    descriptor = _descriptor(
-        [{"type": "file", "name": "temp", "filename": "t.vtu"}]
-    )
+    descriptor = _descriptor([{"type": "file", "name": "temp", "filename": "t.vtu"}])
     specs = _job_file_output_specs(descriptor, accepted_exts=set())
     assert specs[0]["label"] == "temp"
 
@@ -133,17 +151,24 @@ def test_collect_work_skips_jobs_missing_pins() -> None:
     descriptors = {1: _descriptor([{"type": "file", "name": "t", "filename": "t.vtu"}])}
     mounts = {10: "/mnt"}
     jobs = [
-        SimpleNamespace(id=1, tool_version_id=1, storage_location_id=10,
-                        working_dir_relative="job_0000001"),  # good
-        SimpleNamespace(id=2, tool_version_id=None, storage_location_id=10,
-                        working_dir_relative="job_0000002"),  # no version
-        SimpleNamespace(id=3, tool_version_id=1, storage_location_id=None,
-                        working_dir_relative="job_0000003"),  # no location
-        SimpleNamespace(id=4, tool_version_id=1, storage_location_id=10,
-                        working_dir_relative=""),  # no working dir
+        SimpleNamespace(
+            id=1, tool_version_id=1, storage_location_id=10, working_dir_relative="job_0000001"
+        ),  # good
+        SimpleNamespace(
+            id=2, tool_version_id=None, storage_location_id=10, working_dir_relative="job_0000002"
+        ),  # no version
+        SimpleNamespace(
+            id=3, tool_version_id=1, storage_location_id=None, working_dir_relative="job_0000003"
+        ),  # no location
+        SimpleNamespace(
+            id=4, tool_version_id=1, storage_location_id=10, working_dir_relative=""
+        ),  # no working dir
     ]
     work, specs_by_job = _collect_output_resolution_work(
-        jobs, descriptors, mounts, accepted_exts=set()  # type: ignore[arg-type]
+        jobs,
+        descriptors,
+        mounts,
+        accepted_exts=set(),  # type: ignore[arg-type]
     )
     assert [w[0] for w in work] == [1]
     assert set(specs_by_job) == {1}
@@ -153,25 +178,44 @@ def test_collect_work_drops_jobs_without_matching_outputs() -> None:
     descriptors = {1: _descriptor([{"type": "file", "name": "t", "filename": "t.csv"}])}
     mounts = {10: "/mnt"}
     jobs = [
-        SimpleNamespace(id=1, tool_version_id=1, storage_location_id=10,
-                        working_dir_relative="job_0000001"),
+        SimpleNamespace(
+            id=1, tool_version_id=1, storage_location_id=10, working_dir_relative="job_0000001"
+        ),
     ]
     work, specs_by_job = _collect_output_resolution_work(
-        jobs, descriptors, mounts, accepted_exts={"vtu"}  # type: ignore[arg-type]
+        jobs,
+        descriptors,
+        mounts,
+        accepted_exts={"vtu"},  # type: ignore[arg-type]
     )
     assert work == []
     assert specs_by_job == {}
 
 
 def test_assemble_rows_shapes_tool_job_output() -> None:
-    descriptors = {1: _descriptor(
-        [{"type": "file", "name": "temp", "label": "Temperature field",
-          "filename": "temperature_final.vtu", "file_type": "field"}],
-        name="Thermal Soak",
-    )}
+    descriptors = {
+        1: _descriptor(
+            [
+                {
+                    "type": "file",
+                    "name": "temp",
+                    "label": "Temperature field",
+                    "filename": "temperature_final.vtu",
+                    "file_type": "field",
+                }
+            ],
+            name="Thermal Soak",
+        )
+    }
     specs_by_job = {
-        5: [{"name": "temp", "label": "Temperature field",
-             "filename": "temperature_final.vtu", "file_type": "field"}],
+        5: [
+            {
+                "name": "temp",
+                "label": "Temperature field",
+                "filename": "temperature_final.vtu",
+                "file_type": "field",
+            }
+        ],
     }
     resolved = {5: {"temp": "/mnt/job_0000005/outputs/temperature_final.vtu"}}
     scenarios = {3: SimpleNamespace(id=3, project_id=2, name="Soak case")}

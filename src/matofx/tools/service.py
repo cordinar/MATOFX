@@ -152,6 +152,7 @@ def _resolve_guide_edits(
         kept.add(filename)
     return new_guides, kept
 
+
 # Tool state graph: forward promotions must follow this rank order.
 # Rollbacks (downgrades) are always allowed.
 _STATE_RANK: dict[str, int] = {"new": 0, "test": 1, "released": 2}
@@ -724,9 +725,7 @@ class ToolService:
         old_descriptor = dict(tool.descriptor) if isinstance(tool.descriptor, dict) else {}
         current = old_descriptor.get("input_guides") or []
         current_files = {
-            str(g.get("filename"))
-            for g in current
-            if isinstance(g, dict) and g.get("filename")
+            str(g.get("filename")) for g in current if isinstance(g, dict) and g.get("filename")
         }
 
         new_guides, kept = _resolve_guide_edits(bundle, edits, current_files)
@@ -1637,7 +1636,7 @@ async def _visibility_context(
     the workflow member-cascade) keep the per-tool decision pure and
     in-memory via :func:`_tool_visible_given`.
     """
-    visible_states = {
+    visible_states: set[str] = {
         state for state in TOOL_STATES if await user_can_see_state(session, user_id, state)
     }
     privileged = await user_has_permission(session, user_id, Permission.TOOLS_SEE_NEW_STATE)

@@ -138,7 +138,7 @@ async def test_numeric_factors_lists_numeric_inputs_by_label(
         from matofx.tools.orm import Tool  # noqa: PLC0415
 
         author_id = int(
-            (await session.execute(sa.text("SELECT id FROM \"user\" LIMIT 1"))).scalar_one()
+            (await session.execute(sa.text('SELECT id FROM "user" LIMIT 1'))).scalar_one()
         )
         # tool_version.alias FKs the tool table — seed the parent tool first.
         session.add(
@@ -159,11 +159,21 @@ async def test_numeric_factors_lists_numeric_inputs_by_label(
             descriptor_snapshot={
                 "alias": "ranged_tool",
                 "inputs": [
-                    {"name": "temperature", "label": "Soak temperature", "type": "float",
-                     "unit": "K", "minimum": 250.0, "maximum": 800.0},
+                    {
+                        "name": "temperature",
+                        "label": "Soak temperature",
+                        "type": "float",
+                        "unit": "K",
+                        "minimum": 250.0,
+                        "maximum": 800.0,
+                    },
                     {"name": "cycles", "label": "Load cycles", "type": "integer"},
-                    {"name": "material", "label": "Material", "type": "select",
-                     "options": ["steel", "alu"]},
+                    {
+                        "name": "material",
+                        "label": "Material",
+                        "type": "select",
+                        "options": ["steel", "alu"],
+                    },
                 ],
             },
             bundle_path="bundle/ranged_tool/1.0.0",

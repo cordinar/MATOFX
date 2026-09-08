@@ -41,9 +41,7 @@ class KpiExtractionFailedError(KpiError):
 
     def __init__(self, job_id: int, kpi_name: str, reason: str) -> None:
         """Construct with the (job, kpi) pair and the failure reason."""
-        super().__init__(
-            f"Couldn't extract KPI {kpi_name!r} for job {job_id}: {reason}."
-        )
+        super().__init__(f"Couldn't extract KPI {kpi_name!r} for job {job_id}: {reason}.")
         self.job_id = job_id
         self.kpi_name = kpi_name
         self.reason = reason
@@ -65,8 +63,7 @@ class KpiNotDeclaredError(KpiError):
     def __init__(self, tool_alias: str, kpi_name: str) -> None:
         """Construct with the tool and the unknown KPI name."""
         super().__init__(
-            f"No released version of {tool_alias!r} declares a KPI called "
-            f"{kpi_name!r}."
+            f"No released version of {tool_alias!r} declares a KPI called {kpi_name!r}."
         )
         self.tool_alias = tool_alias
         self.kpi_name = kpi_name

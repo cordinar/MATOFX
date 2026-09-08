@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import or_, select, update
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 
 from matofx.audit.schema import RecordInput
@@ -45,7 +45,6 @@ from matofx.tools.versioning import (
 )
 from matofx.users.orm import User
 from matofx.users.permissions import Permission, user_has_permission
-from matofx.users.team_orm import Team
 from matofx.workflows._custom_helpers import (
     load_tool_descriptors,
     synthesise_custom_alias,
@@ -59,8 +58,8 @@ from matofx.workflows.errors import (
     InvalidShareRecipientError,
     NotCustomWorkflowError,
     NotOwnerError,
-    ToolNotVisibleToRecipientError,
     TooFewMembersError,
+    ToolNotVisibleToRecipientError,
     TooManyMembersError,
     UnknownToolMemberError,
     UpstreamOrderingError,
@@ -1499,9 +1498,7 @@ async def can_user_see_workflow(
     return await _can_see_admin_workflow(session, actor_user_id, wf)
 
 
-async def _can_see_custom_workflow(
-    session: AsyncSession, actor_user_id: int, wf: Workflow
-) -> bool:
+async def _can_see_custom_workflow(session: AsyncSession, actor_user_id: int, wf: Workflow) -> bool:
     """Custom-workflow scope: owner, share recipient, or admin inspector."""
     if wf.owner_id == actor_user_id:
         return True
@@ -1515,14 +1512,10 @@ async def _can_see_custom_workflow(
     ).scalar_one_or_none()
     if share is not None:
         return True
-    return await user_has_permission(
-        session, actor_user_id, Permission.CUSTOM_WORKFLOWS_INSPECT
-    )
+    return await user_has_permission(session, actor_user_id, Permission.CUSTOM_WORKFLOWS_INSPECT)
 
 
-async def _can_see_admin_workflow(
-    session: AsyncSession, actor_user_id: int, wf: Workflow
-) -> bool:
+async def _can_see_admin_workflow(session: AsyncSession, actor_user_id: int, wf: Workflow) -> bool:
     """Admin-workflow gates: own state + own team + the member cascade."""
     if not await user_can_see_state(session, actor_user_id, wf.state):
         return False

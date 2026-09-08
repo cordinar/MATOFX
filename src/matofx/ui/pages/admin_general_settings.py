@@ -15,7 +15,7 @@ onto the per-row audit and role-gate semantics enforced by the API.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from nicegui import ui
 
@@ -24,7 +24,7 @@ from matofx.ui.api_client import ApiClient, ApiError
 from matofx.ui.pages._chrome import render_shell, require_logged_in
 from matofx.ui.state import current_token
 from matofx.ui.static_assets import logo_url
-from matofx.users.roles import has_role_at_least
+from matofx.users.roles import UserRole, has_role_at_least
 
 # ---- display-label maps -------------------------------------------------
 # Every user-facing surface shows human labels, never raw role/enum
@@ -281,16 +281,16 @@ def _is_locked_for_set(spec: dict[str, Any], delegated_to: str | None, role: str
     ``_require_role_for_set`` gate so the UI lock matches the
     server's accept/reject decision.
     """
-    requires = str(spec.get("requires_role", "administrator"))
+    requires = cast("UserRole", str(spec.get("requires_role", "administrator")))
     if has_role_at_least(role, requires):
         return False
     delegatable_to = spec.get("delegatable_to")
-    if (
+    if (  # noqa: SIM103 - the branches below are not a single negation
         delegatable_to is not None
         and delegated_to is not None
         and delegated_to == delegatable_to
-        and has_role_at_least(role, str(delegatable_to))
-    ):
+        and has_role_at_least(role, cast("UserRole", str(delegatable_to)))
+    ):  # noqa: SIM103 - the branches below are not a single negation
         return False
     return True
 
@@ -720,9 +720,7 @@ def _render_image_row(
                     )
                     ui.label("Bundled default").style("color: #888; font-size: 0.8rem;")
                 else:
-                    ui.label("(using bundled default)").style(
-                        "color: #888; font-size: 0.85rem;"
-                    )
+                    ui.label("(using bundled default)").style("color: #888; font-size: 0.85rem;")
 
         async def _handle_upload(event: Any) -> None:
             # NiceGUI's ``ui.upload`` event carries a ``file`` attribute

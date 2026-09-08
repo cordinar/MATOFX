@@ -100,9 +100,7 @@ def render_workflow_graph_preview_button(
         except ApiError as exc:
             container.clear()
             with container:
-                ui.label("Couldn't build preview").style(
-                    "font-size: 1rem; font-weight: 600;"
-                )
+                ui.label("Couldn't build preview").style("font-size: 1rem; font-weight: 600;")
                 ui.label(exc.detail).style("color: var(--matofx-muted-text);")
                 ui.label(f"(HTTP {exc.status_code})").style(
                     "color: var(--matofx-muted-text); font-size: 0.85rem;"
@@ -261,9 +259,7 @@ def _render_error(
     """Friendly inline error rendering — keep the surface alive on 4xx."""
     container.clear()
     with container, ui.column().classes("w-full gap-2"):
-        ui.label("Couldn't load workflow graph").style(
-            "font-size: 1.1rem; font-weight: 600;"
-        )
+        ui.label("Couldn't load workflow graph").style("font-size: 1.1rem; font-weight: 600;")
         ui.label(exc.detail).style("color: var(--matofx-muted-text);")
         ui.label(f"(workflow #{workflow_id} — HTTP {exc.status_code})").style(
             "color: var(--matofx-muted-text); font-size: 0.85rem;"
@@ -329,14 +325,10 @@ def _render_header(graph: dict[str, Any]) -> None:
     run_id = graph.get("run_id")
     run_state = graph.get("run_state")
     with ui.row().classes("items-baseline gap-3"):
-        ui.label("Workflow —").style(
-            "color: var(--matofx-muted-text); font-size: 0.95rem;"
-        )
+        ui.label("Workflow —").style("color: var(--matofx-muted-text); font-size: 0.95rem;")
         ui.label(name).style("font-size: 1.2rem; font-weight: 600;")
         if version:
-            ui.label(f"v{version}").style(
-                "color: var(--matofx-muted-text); font-size: 0.85rem;"
-            )
+            ui.label(f"v{version}").style("color: var(--matofx-muted-text); font-size: 0.85rem;")
         if state:
             ui.badge(state).props("color=primary outline").style("font-size: 0.7rem;")
         if run_id is not None and run_state:
@@ -359,8 +351,10 @@ def _render_footer(graph: dict[str, Any]) -> None:
     """Per-graph node / edge count summary."""
     node_count = len(graph.get("nodes", []) or [])
     edge_count = len(graph.get("edges", []) or [])
-    with ui.row().classes("items-center gap-2 w-full").style(
-        "border-top: 1px solid var(--matofx-border); padding-top: 0.5rem;"
+    with (
+        ui.row()
+        .classes("items-center gap-2 w-full")
+        .style("border-top: 1px solid var(--matofx-border); padding-top: 0.5rem;")
     ):
         ui.label(f"{node_count} tool(s), {edge_count} wired dependency(ies).").style(
             "color: var(--matofx-muted-text); font-size: 0.85rem;"

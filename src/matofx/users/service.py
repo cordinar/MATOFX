@@ -1219,9 +1219,7 @@ _UI_PREF_SIDEBAR_MAX_WIDTH = 460
 _UI_PREF_QUICK_ACCESS_FILTERS = frozenset({"tool", "workflow", "all"})
 
 
-def _normalise_ui_preferences(
-    current: dict[str, Any], changes: dict[str, Any]
-) -> dict[str, Any]:
+def _normalise_ui_preferences(current: dict[str, Any], changes: dict[str, Any]) -> dict[str, Any]:
     """Merge ``changes`` onto ``current`` and return a clean blob.
 
     Only the four known shell-preference keys survive — any unknown

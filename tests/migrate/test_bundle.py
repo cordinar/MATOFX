@@ -18,6 +18,7 @@ expose, because the UI quotes those messages verbatim and
 
 from __future__ import annotations
 
+import datetime
 import io
 import json
 import tarfile
@@ -46,7 +47,6 @@ from matofx.migrate.signing import (
     sign_manifest,
     verify_manifest,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -124,9 +124,7 @@ def _sample_workflows() -> list[WorkflowPayload]:
 def _pack_default(kp: KeyPair, **overrides) -> bytes:
     return pack_bundle(
         source_install_id=overrides.get("source_install_id", "staging-install-uuid"),
-        source_fingerprint=overrides.get(
-            "source_fingerprint", compute_fingerprint(kp.public_key)
-        ),
+        source_fingerprint=overrides.get("source_fingerprint", compute_fingerprint(kp.public_key)),
         source_public_key_hex=overrides.get(
             "source_public_key_hex", public_key_to_hex(kp.public_key)
         ),
@@ -227,9 +225,9 @@ def test_bundle_is_byte_stable_for_same_input() -> None:
     """Same logical input → same bytes. Lets idempotent re-export be
     detectable by hashing the bundle."""
     kp = KeyPair.generate()
-    fixed = lambda: __import__("datetime").datetime(2026, 5, 15, 14, 22, 8, tzinfo=__import__("datetime").timezone.utc)
 
-    from matofx.migrate import bundle as bundle_mod
+    def fixed() -> datetime.datetime:
+        return datetime.datetime(2026, 5, 15, 14, 22, 8, tzinfo=datetime.UTC)
 
     monkey_clock = fixed
     b1 = pack_bundle(
@@ -343,7 +341,9 @@ def test_unpack_rejects_extra_tarball_file_not_in_manifest() -> None:
     bad_bundle = out.getvalue()
     with pytest.raises(BundleError) as exc_info:
         unpack_bundle(bad_bundle, verifier=_make_verifier())
-    assert "unexpected files" in str(exc_info.value).lower() or "extra" in str(exc_info.value).lower()
+    assert (
+        "unexpected files" in str(exc_info.value).lower() or "extra" in str(exc_info.value).lower()
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -413,7 +413,9 @@ def test_unpack_rejects_backslash_in_path() -> None:
     )
     with pytest.raises(BundleError) as exc_info:
         unpack_bundle(bundle, verifier=_make_verifier())
-    assert "backslash" in str(exc_info.value).lower() or "forward slash" in str(exc_info.value).lower()
+    assert (
+        "backslash" in str(exc_info.value).lower() or "forward slash" in str(exc_info.value).lower()
+    )
 
 
 def test_unpack_rejects_malformed_manifest_json() -> None:
@@ -531,6 +533,4 @@ def test_tool_entry_rejects_unsafe_version() -> None:
 
 def test_tool_entry_rejects_bad_file_hash() -> None:
     with pytest.raises(Exception):
-        ToolManifestEntry(
-            alias="ok", version="1.0", files={"descriptor.toml": "nothex"}
-        )
+        ToolManifestEntry(alias="ok", version="1.0", files={"descriptor.toml": "nothex"})

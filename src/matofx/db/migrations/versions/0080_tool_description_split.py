@@ -94,9 +94,7 @@ def _rewrite(
     for row in conn.execute(sa.select(id_col, json_col)).fetchall():
         rewritten = transform(row[1])
         if rewritten is not None:
-            conn.execute(
-                table.update().where(id_col == row[0]).values({json_col.name: rewritten})
-            )
+            conn.execute(table.update().where(id_col == row[0]).values({json_col.name: rewritten}))
 
 
 def upgrade() -> None:

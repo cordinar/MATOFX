@@ -131,9 +131,7 @@ async def test_register_state_kind_and_search_filters(
     assert miss.json()["total"] == 0
 
     # Type filter: no job records exist.
-    jobs = await client.get(
-        "/api/vv/records", headers=auth_headers, params={"record_kind": "job"}
-    )
+    jobs = await client.get("/api/vv/records", headers=auth_headers, params={"record_kind": "job"})
     assert jobs.json()["total"] == 0
 
 

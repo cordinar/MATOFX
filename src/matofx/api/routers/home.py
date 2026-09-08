@@ -128,9 +128,7 @@ async def home_summary(
 
     # Running parametric studies.
     study_stmt = (
-        select(func.count())
-        .select_from(ParametricStudy)
-        .where(ParametricStudy.state == "running")
+        select(func.count()).select_from(ParametricStudy).where(ParametricStudy.state == "running")
     )
     study_stmt = await _restrict_to_visible_projects(
         db,
@@ -201,9 +199,9 @@ async def search(
     projects = await project_service.list_for_user(db, actor_user_id=current_user.id)
 
     if want("project"):
-        matched = [
-            p for p in projects if _matches(text, p.name, p.description)
-        ][:_SEARCH_PER_TYPE_CAP]
+        matched = [p for p in projects if _matches(text, p.name, p.description)][
+            :_SEARCH_PER_TYPE_CAP
+        ]
         hits.extend(
             SearchHit(
                 type="project",
@@ -219,30 +217,22 @@ async def search(
         hits.extend(await _search_jobs(db, job_service, current_user, text))
 
     if want("study") and feature_enabled(settings.features, Feature.PARAMETRIC_STUDIES):
-        hits.extend(
-            await _search_studies(db, study_service, current_user, projects, text)
-        )
+        hits.extend(await _search_studies(db, study_service, current_user, projects, text))
 
-    if want("optimisation") and feature_enabled(
-        settings.features, Feature.OPTIMISATION_FRAMEWORK
-    ):
+    if want("optimisation") and feature_enabled(settings.features, Feature.OPTIMISATION_FRAMEWORK):
         hits.extend(
             await _search_optimisations(db, optimisation_service, current_user, projects, text)
         )
 
     if want("tool"):
         tools = await tool_service.list_visible(db, actor_user_id=current_user.id)
-        matched_tools = [t for t in tools if _matches(text, t.name, t.alias)][
-            :_SEARCH_PER_TYPE_CAP
-        ]
+        matched_tools = [t for t in tools if _matches(text, t.name, t.alias)][:_SEARCH_PER_TYPE_CAP]
         # Where a tool hit points depends on what the user can do with it:
         # someone who can manage tools jumps to the New/edit Tool editor;
         # everyone else lands on the tool-filtered Job Search (tools have no
         # standalone end-user page). Deep-link with the alias either way so
         # the destination opens on this tool, not an empty picker.
-        can_edit_tools = await user_has_permission(
-            db, current_user.id, Permission.TOOLS_INSTALL
-        )
+        can_edit_tools = await user_has_permission(db, current_user.id, Permission.TOOLS_INSTALL)
         hits.extend(
             SearchHit(
                 type="tool",

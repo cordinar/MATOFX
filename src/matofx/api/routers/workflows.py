@@ -11,12 +11,13 @@ Two surfaces ride this router under different prefixes:
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import select
+from sqlalchemy import Executable, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from matofx.api.deps import (
@@ -106,7 +107,7 @@ async def _require_manage(session: AsyncSession, actor_user_id: int) -> None:
         )
 
 
-def _map_domain_error(exc: Exception) -> HTTPException:
+def _map_domain_error(exc: Exception) -> HTTPException:  # noqa: PLR0911 - a flat dispatch; splitting it would hide the mapping
     if isinstance(exc, WorkflowNotFoundError):
         return HTTPException(status_code=404, detail=exc.detail)
     if isinstance(exc, DuplicateWorkflowError):
@@ -163,8 +164,8 @@ async def _resolve_member_entries(
 
     entries: list[AdminWorkflowMemberEntry] = []
     for m in members:
-        tool = tools.get(m.tool_alias)
-        if tool is None:
+        member_tool = tools.get(m.tool_alias)
+        if member_tool is None:
             entries.append(
                 AdminWorkflowMemberEntry(
                     position=m.position,
@@ -175,13 +176,13 @@ async def _resolve_member_entries(
                 )
             )
             continue
-        state = "archived" if tool.archived_at is not None else tool.state
+        state = "archived" if member_tool.archived_at is not None else member_tool.state
         entries.append(
             AdminWorkflowMemberEntry(
                 position=m.position,
                 tool_alias=m.tool_alias,
-                tool_name=tool.name,
-                tool_version=tool.version,
+                tool_name=member_tool.name,
+                tool_version=member_tool.version,
                 tool_state=state,
             )
         )
@@ -541,10 +542,11 @@ async def admin_list_workflow_versions(
     )
 
 
-async def session_exec(db: AsyncSession, stmt):  # noqa: ANN001, ANN201
-    """Tiny shim — execute + return the scalars list. Keeps the version
-    handler readable while exposing one place to add tracing later if
-    needed.
+async def session_exec(db: AsyncSession, stmt: Executable) -> list[Any]:
+    """Execute ``stmt`` and return its scalars as a list.
+
+    A shim: it keeps the version handler readable and gives tracing one
+    place to hook in later.
     """
     return list((await db.execute(stmt)).scalars())
 
@@ -554,7 +556,7 @@ async def session_exec(db: AsyncSession, stmt):  # noqa: ANN001, ANN201
 
 def _build_run_response(
     run: WorkflowRun,
-    children,  # noqa: ANN001
+    children: Sequence[Job],
     *,
     wf: Workflow | None,
     scenario: Scenario | None,
@@ -611,7 +613,7 @@ def _build_run_response(
 async def _workflow_run_to_response(
     db: AsyncSession,
     run: WorkflowRun,
-    children,  # noqa: ANN001
+    children: Sequence[Job],
 ) -> WorkflowRunResponse:
     """Render one run + its children as the wire shape (per-run lookups).
 
@@ -779,11 +781,10 @@ async def list_my_visible_workflow_runs(
     # *per run* — slow once a user has many runs.)
     run_ids = [r.id for r in runs]
     children_by_run: dict[int, list[Job]] = defaultdict(list)
-    child_stmt = (
-        select(Job).where(Job.workflow_run_id.in_(run_ids)).order_by(Job.workflow_position)
-    )
+    child_stmt = select(Job).where(Job.workflow_run_id.in_(run_ids)).order_by(Job.workflow_position)
     for job in (await db.execute(child_stmt)).scalars():
-        children_by_run[int(job.workflow_run_id)].append(job)
+        if job.workflow_run_id is not None:
+            children_by_run[int(job.workflow_run_id)].append(job)
 
     workflows_by_id = {
         w.id: w
@@ -1130,8 +1131,8 @@ async def _to_custom_response(
 
     member_entries: list[CustomWorkflowMemberEntry] = []
     for m in sorted(members, key=lambda m: m.position):
-        tool = tool_rows.get(m.tool_alias)
-        if tool is None:
+        member_tool = tool_rows.get(m.tool_alias)
+        if member_tool is None:
             member_entries.append(
                 CustomWorkflowMemberEntry(
                     position=m.position,
@@ -1141,12 +1142,12 @@ async def _to_custom_response(
                 )
             )
             continue
-        state = "archived" if tool.archived_at is not None else tool.state
+        state = "archived" if member_tool.archived_at is not None else member_tool.state
         member_entries.append(
             CustomWorkflowMemberEntry(
                 position=m.position,
                 tool_alias=m.tool_alias,
-                tool_name=tool.name,
+                tool_name=member_tool.name,
                 tool_state=state,
             )
         )

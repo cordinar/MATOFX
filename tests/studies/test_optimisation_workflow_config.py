@@ -215,8 +215,22 @@ def _sum_workflow_config() -> dict[str, Any]:
     return {
         "target": {"kind": "workflow", "workflow_alias": "mh", "workflow_version_id": 1},
         "factors": [
-            {"name": "mat.p1", "member": "mat", "input": "p1", "type": "float", "min": 0, "max": 100},  # noqa: E501
-            {"name": "mat.p2", "member": "mat", "input": "p2", "type": "float", "min": 0, "max": 100},  # noqa: E501
+            {
+                "name": "mat.p1",
+                "member": "mat",
+                "input": "p1",
+                "type": "float",
+                "min": 0,
+                "max": 100,
+            },  # noqa: E501
+            {
+                "name": "mat.p2",
+                "member": "mat",
+                "input": "p2",
+                "type": "float",
+                "min": 0,
+                "max": 100,
+            },  # noqa: E501
             {
                 "name": "heat.mesh",
                 "member": "heat",

@@ -33,11 +33,7 @@ def kpi_eligible(field_type: str | None) -> bool:
 
 def count_declared_kpis(outputs: list[dict[str, Any]]) -> int:
     """Count outputs in the wizard state that are flagged ``kpi = true``."""
-    return sum(
-        1
-        for f in outputs
-        if isinstance(f, dict) and bool(f.get("kpi"))
-    )
+    return sum(1 for f in outputs if isinstance(f, dict) and bool(f.get("kpi")))
 
 
 def clear_kpi_overrides(field: dict[str, Any]) -> None:

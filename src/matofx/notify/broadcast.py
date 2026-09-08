@@ -184,9 +184,7 @@ class BroadcastService:
         effective = resolve_effective_email_settings(self.settings, overrides)
         snapshot = await load_general_settings(session)
 
-        recipients = await self._resolve_recipients(
-            session, audience, group_kind, selection or []
-        )
+        recipients = await self._resolve_recipients(session, audience, group_kind, selection or [])
         text_body, html_body, inline_images = self._render(body=body, snapshot=snapshot)
         file_attachments = [_to_attachment(a) for a in attachments]
 

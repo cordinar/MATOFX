@@ -1538,9 +1538,7 @@ async def test_pickup_enforces_strict_gpu_concurrency_cap(
     factory = make_session_factory(runner_engine)
     user_id = await _seed_super_user(factory)
     storage_id = await _seed_storage_location(factory, tmp_path)
-    gpu_tvid = await _seed_tool(
-        factory, alias="gpu", user_id=user_id, requires_gpu=True
-    )
+    gpu_tvid = await _seed_tool(factory, alias="gpu", user_id=user_id, requires_gpu=True)
     ids = [
         await _seed_one_job(
             factory,
@@ -1553,9 +1551,7 @@ async def test_pickup_enforces_strict_gpu_concurrency_cap(
         for i in range(2)
     ]
     # Plenty of local slots — the GPU lane, not the count cap, must bind.
-    sup = _supervisor_with(
-        factory, runner_audit, local_concurrency=4, gpu_concurrency=1
-    )
+    sup = _supervisor_with(factory, runner_audit, local_concurrency=4, gpu_concurrency=1)
 
     await sup._pickup_once()
 
@@ -1597,9 +1593,7 @@ async def test_pickup_gpu_job_also_consumes_a_local_slot(
         )
         for i in range(2)
     ]
-    sup = _supervisor_with(
-        factory, runner_audit, local_concurrency=2, gpu_concurrency=1
-    )
+    sup = _supervisor_with(factory, runner_audit, local_concurrency=2, gpu_concurrency=1)
 
     await sup._pickup_once()
 

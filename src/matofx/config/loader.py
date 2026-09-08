@@ -43,7 +43,7 @@ class ConfigError(Exception):
 
 
 def load_settings(path: Path | None = None) -> Settings:
-    """Load and validate the MATOFX configuration.
+    r"""Load and validate the MATOFX configuration.
 
     Args:
         path: Explicit path to the TOML file. When ``None``, the loader
@@ -87,10 +87,10 @@ def load_settings(path: Path | None = None) -> Settings:
 
 
 def _load_file(explicit: Path | None) -> tuple[dict[str, Any], Path | None]:
-    """Return ``(file_data, source_path)`` — ``source_path`` is the file the
-    data was loaded from, or ``None`` when no config file was found.
+    """Return ``(file_data, source_path)`` for the config file, if there is one.
 
-    The source path is later used as the anchor for resolving any
+    ``source_path`` is the file the data was loaded from, or ``None`` when no
+    config file was found. The source path is later used as the anchor for resolving any
     relative path fields in the merged configuration.
     """
     if explicit is not None:
