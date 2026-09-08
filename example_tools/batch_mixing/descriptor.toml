@@ -1,0 +1,426 @@
+schema_version = 1
+
+alias = "batch_mixing"
+name = "Stirred-Tank Batch Mixing"
+version = "1.0.0"
+description = """
+Turbulent CFD of a batch-blend stirred tank. FreeCAD builds the tank, baffles \
+and pitched-blade impeller from the inputs; OpenFOAM (a frozen-rotor MRF solve \
+with the two miscible fluids, the heavier additive charged as a layer on top) \
+blends them. Reports the time to 95% homogeneity (t95) from the coefficient of \
+variation of the additive fraction, the impeller power, and the full blending \
+trajectory as an animated field. Every geometric and operational parameter is a \
+free variable, so the tool is a target for parametric studies, multi-objective \
+optimisation (minimise t95 and power) and scalar + field surrogates.
+"""
+main_script = "batch_mixing.py"
+
+duration_class = "long"
+
+retain_files = ["outputs/mixing_history.csv", "outputs/geometry_preview.png"]
+delete_io_files = []
+
+
+[execution_backend]
+kind = "subprocess"
+
+[resources]
+cpu_cores = 8
+ram_mb = 8192
+gpu_memory_mb = 0
+
+[[input_groups]]
+name = "tank"
+label = "Tank"
+column = 1
+row = 1
+
+[[input_groups]]
+name = "impeller"
+label = "Impeller (pitched-blade)"
+column = 1
+row = 2
+
+[[input_groups]]
+name = "baffles"
+label = "Baffles"
+column = 1
+row = 3
+
+[[input_groups]]
+name = "fluids"
+label = "Fluids"
+column = 2
+row = 1
+
+[[input_groups]]
+name = "run"
+label = "Run & numerics"
+column = 2
+row = 2
+
+[input_column_layout]
+column_1 = 0.5
+column_2 = 0.5
+
+# --- Tank ---
+[[inputs]]
+name = "tank_diameter"
+label = "Tank diameter"
+group = "tank"
+type = "float"
+unit = "m"
+default = 0.30
+minimum = 0.1
+maximum = 1.0
+precision = 0.001
+required = true
+
+[[inputs]]
+name = "liquid_height"
+label = "Liquid height"
+group = "tank"
+type = "float"
+unit = "m"
+default = 0.30
+minimum = 0.1
+maximum = 2.0
+precision = 0.001
+required = true
+
+# --- Impeller ---
+[[inputs]]
+name = "impeller_diameter_ratio"
+label = "Impeller diameter ratio D/T"
+group = "impeller"
+type = "float"
+default = 0.33
+minimum = 0.2
+maximum = 0.6
+precision = 0.01
+required = true
+
+[[inputs]]
+name = "impeller_clearance_ratio"
+label = "Off-bottom clearance C/T"
+group = "impeller"
+type = "float"
+default = 0.30
+minimum = 0.15
+maximum = 0.5
+precision = 0.01
+required = true
+
+[[inputs]]
+name = "blade_count"
+label = "Number of blades"
+group = "impeller"
+type = "integer"
+default = 4
+minimum = 2
+maximum = 8
+required = true
+
+[[inputs]]
+name = "blade_angle_deg"
+label = "Blade angle"
+group = "impeller"
+type = "float"
+unit = "deg"
+default = 45.0
+minimum = 20.0
+maximum = 90.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "shaft_diameter"
+label = "Shaft diameter"
+group = "impeller"
+type = "float"
+unit = "m"
+default = 0.018
+minimum = 0.005
+maximum = 0.05
+precision = 0.001
+required = true
+
+[[inputs]]
+name = "impeller_rpm"
+label = "Rotational speed"
+group = "impeller"
+type = "float"
+unit = "rpm"
+default = 120.0
+minimum = 10.0
+maximum = 600.0
+precision = 1
+widget = "slider"
+required = true
+
+# --- Baffles ---
+[[inputs]]
+name = "baffle_count"
+label = "Number of baffles"
+group = "baffles"
+type = "integer"
+default = 4
+minimum = 2
+maximum = 8
+required = true
+
+[[inputs]]
+name = "baffle_width"
+label = "Baffle width"
+group = "baffles"
+type = "float"
+unit = "m"
+default = 0.03
+minimum = 0.005
+maximum = 0.1
+precision = 0.001
+required = true
+
+# --- Fluids ---
+[[inputs]]
+name = "additive_volume_fraction"
+label = "Additive volume fraction"
+group = "fluids"
+type = "float"
+default = 0.10
+minimum = 0.02
+maximum = 0.5
+precision = 0.01
+required = true
+help_text = "Fraction of the liquid that is additive; charged as a layer on top."
+
+[[inputs]]
+name = "rho_additive"
+label = "Additive density"
+group = "fluids"
+type = "float"
+unit = "kg/m3"
+default = 1050.0
+minimum = 800.0
+maximum = 1500.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "nu_additive"
+label = "Additive kinematic viscosity"
+group = "fluids"
+type = "float"
+unit = "m2/s"
+default = 5e-06
+minimum = 1e-07
+maximum = 1e-03
+precision = 1e-07
+required = true
+
+[[inputs]]
+name = "rho_bulk"
+label = "Bulk density"
+group = "fluids"
+type = "float"
+unit = "kg/m3"
+default = 1000.0
+minimum = 800.0
+maximum = 1500.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "nu_bulk"
+label = "Bulk kinematic viscosity"
+group = "fluids"
+type = "float"
+unit = "m2/s"
+default = 1e-06
+minimum = 1e-07
+maximum = 1e-03
+precision = 1e-07
+required = true
+
+# --- Run & numerics ---
+[[inputs]]
+name = "turbulence_model"
+label = "Turbulence model"
+group = "run"
+type = "select"
+options = ["realizableKE", "kOmegaSST"]
+default = "realizableKE"
+required = true
+
+[[inputs]]
+name = "end_time"
+label = "Max simulated blend time"
+group = "run"
+type = "float"
+unit = "s"
+default = 30.0
+minimum = 1.0
+maximum = 120.0
+precision = 1
+required = true
+help_text = "Censoring horizon: if homogeneity isn't reached by this time the run is infeasible."
+
+[[inputs]]
+name = "write_interval"
+label = "Snapshot interval"
+group = "run"
+type = "float"
+unit = "s"
+default = 0.5
+minimum = 0.05
+maximum = 5.0
+precision = 0.05
+required = true
+
+[[inputs]]
+name = "homogeneity_threshold"
+label = "Homogeneity threshold (CoV)"
+group = "run"
+type = "float"
+default = 0.05
+minimum = 0.01
+maximum = 0.2
+precision = 0.01
+required = true
+
+[[inputs]]
+name = "mesh_base_cell"
+label = "Mesh base cell size"
+group = "run"
+type = "float"
+unit = "m"
+default = 0.0125
+minimum = 0.004
+maximum = 0.03
+precision = 0.001
+required = true
+
+# --- Outputs ---
+[[output_groups]]
+name = "results"
+label = "Results"
+column = 1
+row = 1
+
+[[output_groups]]
+name = "plots"
+label = "Mixing history"
+column = 1
+row = 2
+
+[[output_groups]]
+name = "fields"
+label = "Fields"
+column = 1
+row = 3
+
+[output_column_layout]
+column_1 = 1.0
+
+[[outputs]]
+name = "t95"
+label = "Time to 95% homogeneity"
+group = "results"
+type = "number"
+unit = "s"
+precision = 0.1
+kpi = true
+kpi_label = "t95"
+kpi_unit = "s"
+min = 0.0
+max = 1000.0
+
+[[outputs]]
+name = "impeller_power"
+label = "Impeller power"
+group = "results"
+type = "number"
+unit = "W"
+precision = 0.001
+kpi = true
+kpi_label = "Power"
+kpi_unit = "W"
+min = 0.0
+max = 1000000.0
+
+[[outputs]]
+name = "blend_energy"
+label = "Blend energy"
+group = "results"
+type = "number"
+unit = "J"
+precision = 0.001
+min = 0.0
+
+[[outputs]]
+name = "richardson"
+label = "Richardson number"
+group = "results"
+type = "number"
+precision = 0.001
+min = 0.0
+
+[[outputs]]
+name = "cov_final"
+label = "Final CoV"
+group = "results"
+type = "number"
+precision = 0.0001
+min = 0.0
+max = 1000.0
+
+[[outputs]]
+name = "blended_within_horizon"
+label = "Blended within horizon"
+group = "results"
+type = "number"
+min = 0.0
+max = 1.0
+
+# Two csv_plot outputs over ONE tidy CSV (homogeneity, and power).
+[[outputs]]
+name = "mixing_homogeneity"
+label = "Homogeneity vs time"
+group = "plots"
+type = "file"
+file_type = "csv_plot"
+filename = "outputs/mixing_history.csv"
+xaxis_column = 0
+yaxis_column = 1
+plot_title = "Mixing progress"
+xaxis_title = "Time (s)"
+yaxis_title = "Homogeneity (%)"
+
+[[outputs]]
+name = "mixing_power"
+label = "Impeller power vs time"
+group = "plots"
+type = "file"
+file_type = "csv_plot"
+filename = "outputs/mixing_history.csv"
+xaxis_column = 0
+yaxis_column = 3
+plot_title = "Impeller power"
+xaxis_title = "Time (s)"
+yaxis_title = "Impeller power (W)"
+
+[[outputs]]
+name = "blend_animation"
+label = "Blend animation"
+group = "fields"
+type = "file"
+file_type = "video"
+filename = "outputs/blend.mp4"
+
+[[outputs]]
+name = "geometry_preview"
+label = "Tank geometry"
+group = "fields"
+type = "file"
+file_type = "image"
+filename = "outputs/geometry_preview.png"

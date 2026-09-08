@@ -1,0 +1,31 @@
+# Normalise to LF in the repository. Without this, a Windows checkout
+# writes CRLF into the shell scripts and a Linux target then fails with
+# "bad interpreter: /bin/bash^M" — the install and start scripts are the
+# first thing a fresh Linux box runs.
+* text=auto eol=lf
+
+# Scripts that MUST keep LF regardless of platform.
+*.sh    text eol=lf
+*.bash  text eol=lf
+
+# Windows-native scripts keep CRLF.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Binary — never touched.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.whl   binary
+*.wasm  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.vtu   binary
+*.stl   binary
+*.glb   binary

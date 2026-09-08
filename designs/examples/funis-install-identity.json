@@ -1,0 +1,15 @@
+{
+  "identity": {
+    "install_id": "inst_7Q2M4KJ9",
+    "customer": "Northwind Aerospace Ltd",
+    "environment": "production",
+    "issued_at": "2026-01-14T00:00:00Z",
+    "report_key_seed": "2222222222222222222222222222222222222222222222222222222222222222",
+    "report_key_id": "1325b850c2871916"
+  },
+  "issuer": {
+    "key_id": "funis-2026-01",
+    "alg": "ed25519",
+    "signature": "27913f98702717d2f799fd1f3f30bad6fa3b9c9a2c3d6d705615c88e552e18155594ff23e5d62b5790d7ef823bb7bb9950e698862d0a380ad9f3dceeace7450a"
+  }
+}

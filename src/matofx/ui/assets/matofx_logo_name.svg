@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 72" role="img" aria-label="MATOFX SPDM">
+  <defs>
+    <linearGradient id="matofxMark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6DCDC4"/>
+      <stop offset="1" stop-color="#2D7682"/>
+    </linearGradient>
+  </defs>
+  <!-- brand mark: teal gradient rounded square + initial -->
+  <rect x="4" y="10" width="52" height="52" rx="14" fill="url(#matofxMark)"/>
+  <text x="30" y="46" text-anchor="middle"
+        font-family="'Segoe UI', -apple-system, system-ui, sans-serif"
+        font-size="30" font-weight="800" fill="#ffffff">M</text>
+  <!-- wordmark: MAT (navy) + OFX (teal) -->
+  <text x="72" y="42"
+        font-family="'Segoe UI', -apple-system, system-ui, sans-serif"
+        font-size="27" font-weight="800" letter-spacing="0.4"
+        fill="#07203F">MAT<tspan fill="#2D7682">OFX</tspan></text>
+  <!-- product line + trademark -->
+  <text x="73" y="60"
+        font-family="'Segoe UI', -apple-system, system-ui, sans-serif"
+        font-size="12.5" font-weight="600" letter-spacing="3.4"
+        fill="#1A4B61">SPDM</text>
+  <text x="139" y="35"
+        font-family="'Segoe UI', -apple-system, system-ui, sans-serif"
+        font-size="11" font-weight="600" fill="#1A4B61">&#8482;</text>
+</svg>

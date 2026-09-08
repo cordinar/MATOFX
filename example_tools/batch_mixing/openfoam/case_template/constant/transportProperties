@@ -1,0 +1,33 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  Batch Mixing — two miscible fluids for twoLiquidMixingFoam/matofxMixingFoam.
+  phase-1 (alpha.additive) is the ADDITIVE charged on top; phase-2 is the BULK.
+  rho = alpha*rho_additive + (1-alpha)*rho_bulk;  nu blends likewise.
+  Dab       = molecular diffusivity of the mixture fraction.
+  alphatab  = 1/Sc_t (reciprocal turbulent Schmidt no.) -> turbulent scalar
+              diffusivity = alphatab*nut (this is why NO custom diffusivity mod
+              is needed; see designs/cstr-mixing-demo.md §3.2).
+  render_case.py fills rho/nu per fluid + alphatab from inputs; baseline below.
+\*---------------------------------------------------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object transportProperties; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+phases (additive bulk);
+
+Dab         @DAB@;      // molecular diffusivity [m^2/s]
+alphatab    @ALPHATAB@; // 1/Sc_t
+
+additive
+{
+    transportModel  Newtonian;
+    nu              @NU_ADDITIVE@;
+    rho             @RHO_ADDITIVE@;   // charged on top
+}
+
+bulk
+{
+    transportModel  Newtonian;
+    nu              @NU_BULK@;
+    rho             @RHO_BULK@;
+}
+
+// ************************************************************************* //

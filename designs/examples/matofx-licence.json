@@ -1,0 +1,28 @@
+{
+  "licence": {
+    "schema_version": 1,
+    "licence_id": "LIC-2026-0043",
+    "customer": "Northwind Aerospace Ltd",
+    "environment": "production",
+    "install_id": "inst_7Q2M4KJ9",
+    "licence_type": "csl",
+    "n_slots": 10,
+    "issued_at": "2026-01-14T00:00:00Z",
+    "expires_at": "2027-01-14T00:00:00Z",
+    "grace_period_days": 30,
+    "features": {
+      "parametric_studies": true,
+      "optimisation_framework": true,
+      "vv_tracking": true
+    },
+    "machine_binding": null,
+    "banner_text": null,
+    "report_key_seed": "2222222222222222222222222222222222222222222222222222222222222222",
+    "report_key_id": "1325b850c2871916"
+  },
+  "issuer": {
+    "key_id": "funis-2026-01",
+    "alg": "ed25519",
+    "signature": "3c1d29f17df9f55efa1635ab19301950352ae1c29bc71355d33a1b3a718cb59b60fa3ed8a5704f1822023ce6c66596f926230f22627edeec6ee25d752a115701"
+  }
+}

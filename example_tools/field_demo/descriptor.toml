@@ -1,0 +1,115 @@
+schema_version = 1
+
+alias = "field_demo"
+name = "Thermal Plate (field)"
+version = "1.0.0"
+description = """
+A fast analytic thermal-plate model that emits a whole nodal **temperature \
+field** on a rectangular plate mesh, not just scalars. A heated left edge \
+diffuses across the plate; the heat load sets the amplitude, the conductivity \
+sets how far the heat spreads, and the ambient sets the baseline. It runs in \
+milliseconds, so a small parametric study produces a clean field ensemble you \
+can fit into a POD field surrogate and explore in the predicted-field viewer \
+(coloured 3-D mesh). The field output is a `.vtp` mesh carrying a per-node \
+`temperature` array; a `t_max` scalar comes alongside.\
+"""
+main_script = "field_demo.py"
+
+duration_class = "snappy"
+
+# The field snapshot is kept automatically by the ADR-0008 retention floor;
+# nothing here needs deleting.
+retain_files = []
+delete_io_files = []
+
+downstream_tools = []
+
+[execution_backend]
+kind = "subprocess"
+
+[resources]
+cpu_cores = 1
+ram_mb = 512
+gpu_memory_mb = 0
+
+[[input_groups]]
+name = "loading"
+label = "Loading"
+column = 1
+row = 1
+
+[[input_groups]]
+name = "material"
+label = "Material"
+column = 2
+row = 1
+
+[input_column_layout]
+column_1 = 0.5
+column_2 = 0.5
+
+[[inputs]]
+name = "heat_load"
+label = "Heat load"
+group = "loading"
+type = "float"
+unit = "W"
+default = 100
+minimum = 20
+maximum = 200
+precision = 1
+required = true
+
+[[inputs]]
+name = "ambient"
+label = "Ambient temperature"
+group = "loading"
+type = "float"
+unit = "degC"
+default = 25
+minimum = 0
+maximum = 60
+precision = 1
+required = true
+
+[[inputs]]
+name = "conductivity"
+label = "Thermal conductivity"
+group = "material"
+type = "float"
+unit = "W/m/K"
+default = 200
+minimum = 50
+maximum = 400
+precision = 1
+required = true
+
+[[output_groups]]
+name = "results"
+label = "Results"
+column = 1
+row = 1
+
+[output_column_layout]
+column_1 = 1.0
+
+[[outputs]]
+name = "t_max"
+label = "Peak temperature"
+group = "results"
+unit = "degC"
+precision = 0.01
+type = "number"
+kpi = true
+kpi_label = "Peak temperature"
+kpi_unit = "degC"
+
+[[outputs]]
+name = "temperature_field"
+label = "Temperature field"
+group = "results"
+type = "file"
+file_type = "field"
+filename = "outputs/temperature.vtp"
+field_format = "vtp"
+field_node_array_name = "temperature"

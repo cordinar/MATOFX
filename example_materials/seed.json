@@ -1,0 +1,82 @@
+{
+  "_comment": "Example material classes + materials for a fresh install (ADR-0007 slice 9). Loaded by matofx.materials.seed.import_example_materials — operator runs it once after install so the catalog + the form picker have something useful out of the box. Values are reference data (NIST, EN, MMPDS, Engineering Toolbox); replace / extend in production.",
+  "classes": [
+    {
+      "name": "Fluid",
+      "description": "Liquids and gases.",
+      "properties": [
+        {"prop_name": "thermal_conductivity", "unit": "W/m/K", "required": true},
+        {"prop_name": "density", "unit": "kg/m3", "required": true},
+        {"prop_name": "specific_heat", "unit": "J/kg/K", "required": false},
+        {"prop_name": "viscosity_dynamic", "unit": "Pa.s", "required": false}
+      ]
+    },
+    {
+      "name": "Metal",
+      "description": "Metallic solids.",
+      "properties": [
+        {"prop_name": "density", "unit": "kg/m3", "required": true},
+        {"prop_name": "youngs_modulus", "unit": "GPa", "required": true},
+        {"prop_name": "thermal_conductivity", "unit": "W/m/K", "required": false},
+        {"prop_name": "yield_strength", "unit": "MPa", "required": false}
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "Water",
+      "class": "Fluid",
+      "description": "Pure water at 20 degC, 1 atm.",
+      "tags": ["coolant", "reference"],
+      "provenance": "NIST WebBook",
+      "reference": "https://webbook.nist.gov",
+      "properties": [
+        {"prop_name": "thermal_conductivity", "value": 0.598, "unit": "W/m/K"},
+        {"prop_name": "density", "value": 998.2, "unit": "kg/m3"},
+        {"prop_name": "specific_heat", "value": 4181.0, "unit": "J/kg/K"},
+        {"prop_name": "viscosity_dynamic", "value": 0.001002, "unit": "Pa.s"}
+      ]
+    },
+    {
+      "name": "Air",
+      "class": "Fluid",
+      "description": "Dry air at 20 degC, 1 atm.",
+      "tags": ["gas", "reference"],
+      "provenance": "Engineering Toolbox",
+      "properties": [
+        {"prop_name": "thermal_conductivity", "value": 0.0257, "unit": "W/m/K"},
+        {"prop_name": "density", "value": 1.204, "unit": "kg/m3"},
+        {"prop_name": "specific_heat", "value": 1006.0, "unit": "J/kg/K"}
+      ]
+    },
+    {
+      "name": "Steel S355",
+      "class": "Metal",
+      "aliases": ["S355", "Structural steel"],
+      "description": "Structural carbon steel (EN 10025-2).",
+      "tags": ["structural"],
+      "provenance": "EN 10025-2",
+      "reference": "EN 10025-2:2019",
+      "properties": [
+        {"prop_name": "density", "value": 7850.0, "unit": "kg/m3"},
+        {"prop_name": "youngs_modulus", "value": 210.0, "unit": "GPa"},
+        {"prop_name": "thermal_conductivity", "value": 50.0, "unit": "W/m/K"},
+        {"prop_name": "yield_strength", "value": 355.0, "unit": "MPa"}
+      ]
+    },
+    {
+      "name": "Aluminium 6061-T6",
+      "class": "Metal",
+      "aliases": ["Al 6061-T6", "6061-T6"],
+      "description": "Common aerospace / structural aluminium alloy.",
+      "tags": ["structural", "lightweight"],
+      "provenance": "MMPDS / Aluminum Association",
+      "properties": [
+        {"prop_name": "density", "value": 2700.0, "unit": "kg/m3"},
+        {"prop_name": "youngs_modulus", "value": 68.9, "unit": "GPa"},
+        {"prop_name": "thermal_conductivity", "value": 167.0, "unit": "W/m/K"},
+        {"prop_name": "yield_strength", "value": 276.0, "unit": "MPa"}
+      ]
+    }
+  ]
+}

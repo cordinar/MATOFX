@@ -1,0 +1,29 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  Batch Mixing — charge the additive as a top layer (alpha.additive = 1 in the
+  top slab, 0 elsewhere). The cylinder is the tank radius; its lower face is at
+  z = H - additive_thickness. render_case.py rewrites p1/p2/radius from
+  geometry_meta's additive_region; baseline = top 10% of a 0.30 m tank.
+\*---------------------------------------------------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object setFieldsDict; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+defaultFieldValues
+(
+    volScalarFieldValue alpha.additive 0
+);
+
+regions
+(
+    cylinderToCell
+    {
+        p1      (0 0 @ADD_Z1@);
+        p2      (0 0 @ADD_Z2@);
+        radius  @ADD_R@;
+        fieldValues
+        (
+            volScalarFieldValue alpha.additive 1
+        );
+    }
+);
+
+// ************************************************************************* //

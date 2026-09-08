@@ -1,0 +1,38 @@
+$ matofx compliance verify compliance-report-1.json --ledger funis-heads.jsonl --public-key a09aa5f47a675980…
+
+signature  OK    ed25519, key 1325b850c2871916
+counter    OK    1 — first report on record for this install
+anchoring  SKIP  nothing previously recorded — this report establishes the baseline
+genesis    SKIP  no genesis hash previously recorded
+chain      OK    install self-verified 120 records, 0 failures
+issuer     OK    identity issued under funis-2026-01
+
+signal  no licence installed (not_installed) - usage reported as observation only
+
+verdict: INCONCLUSIVE
+
+
+$ matofx compliance verify compliance-report-2.json --ledger funis-heads.jsonl
+
+signature  OK    ed25519, key 1325b850c2871916
+counter    OK    2 follows 1 — no gap
+anchoring  OK    proved append-only from the 120-record tree recorded at counter 1 (root d0380fc1fa9a…); extended by 343 record(s)
+genesis    OK    record 1 unchanged since the first report
+chain      OK    install self-verified 463 records, 0 failures
+issuer     OK    identity issued under funis-2026-01
+
+BREACH  peak 11 concurrent sessions against 10 slots - 1 break-glass admission(s) account for the excess
+
+verdict: CONSISTENT
+
+
+$ matofx compliance verify compliance-report-3-tampered.json --ledger funis-heads.jsonl
+
+signature  OK    ed25519, key 1325b850c2871916
+counter    OK    3 follows 2 — no gap
+anchoring  FAIL  the consistency proof from the 463-record tree recorded at counter 2 does not verify — the log has been rewritten, not merely extended. Records attested previously are no longer present unchanged.
+genesis    FAIL  record 1 hashes 919191919191…, first seen 2bf358441dbc… — the database has been replaced wholesale
+chain      FAIL  install self-verification FAILED (6 failures) — first: record 1, hash mismatch: stored 9191919191919191919191919191919191919191919191919191919191919191, computed 2bf358441dbcc28f5b2258abaf7d823668c70f6ba5b5b4c592c6a489e1d5d85d
+issuer     OK    identity issued under funis-2026-01
+
+verdict: CONTRADICTED

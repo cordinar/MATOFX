@@ -1,0 +1,257 @@
+schema_version = 1
+
+alias = "heat_sink"
+name = "Finned Heat Sink"
+version = "1.0.2"
+description = """
+A fast closed-form model of a forced-convection plate-fin heat sink. Given the fin \
+geometry, the baseplate width, the material conductivity and the operating conditions, \
+it returns the heat dissipated, thermal resistance, fin efficiency, mass, air-side \
+pressure drop, pumping power and dissipation-per-gram, plus fin temperature / heat-flux \
+profiles. It runs in a fraction of a second, so it is ideal for sweeping hundreds of \
+designs in a parametric study: packing more fins onto a fixed base helps until the \
+channels choke the airflow, giving a genuine interior optimum to find.\
+"""
+main_script = "heat_sink.py"
+icon_filename = "heat_sink.png"
+
+duration_class = "snappy"
+
+retain_files = []
+delete_io_files = []
+
+downstream_tools = []
+
+[execution_backend]
+kind = "subprocess"
+
+[resources]
+cpu_cores = 1
+ram_mb = 512
+gpu_memory_mb = 0
+
+[[input_groups]]
+name = "fin_geometry"
+label = "Fin Geometry"
+column = 1
+row = 1
+
+[[input_groups]]
+name = "material"
+label = "Material"
+column = 1
+row = 2
+
+[[input_groups]]
+name = "operating_conditions"
+label = "Operating Conditions"
+column = 2
+row = 1
+
+[input_column_layout]
+column_1 = 0.5
+column_2 = 0.5
+
+[[inputs]]
+name = "fin_height"
+label = "Fin height"
+group = "fin_geometry"
+type = "float"
+unit = "mm"
+default = 30
+minimum = 5
+maximum = 60
+precision = 0.5
+required = true
+
+[[inputs]]
+name = "fin_thickness"
+label = "Fin thickness"
+group = "fin_geometry"
+type = "float"
+unit = "mm"
+default = 1.5
+minimum = 0.5
+maximum = 4.0
+precision = 0.1
+required = true
+
+[[inputs]]
+name = "fin_count"
+label = "Number of fins"
+group = "fin_geometry"
+type = "float"
+unit = ""
+default = 18
+minimum = 4
+maximum = 40
+precision = 1
+required = true
+
+[[inputs]]
+name = "base_width"
+label = "Base width"
+group = "fin_geometry"
+type = "float"
+unit = "mm"
+default = 90
+minimum = 40
+maximum = 150
+precision = 1
+required = true
+
+[[inputs]]
+name = "thermal_conductivity"
+label = "Material conductivity"
+group = "material"
+type = "float"
+unit = "W/m/K"
+default = 200
+minimum = 50
+maximum = 400
+precision = 1
+required = true
+
+[[inputs]]
+name = "air_velocity"
+label = "Air velocity"
+group = "operating_conditions"
+type = "float"
+unit = "m/s"
+default = 5
+minimum = 0.5
+maximum = 15
+precision = 0.1
+required = true
+
+[[inputs]]
+name = "base_temperature_rise"
+label = "Base temperature rise"
+group = "operating_conditions"
+type = "float"
+unit = "degC"
+default = 60
+minimum = 10
+maximum = 120
+precision = 1
+required = true
+
+[[output_groups]]
+name = "performance"
+label = "Thermal Performance"
+column = 1
+row = 1
+
+[[output_groups]]
+name = "flow_and_mass"
+label = "Flow & Mass"
+column = 1
+row = 2
+
+[[output_groups]]
+name = "plots"
+label = "Plots"
+column = 2
+row = 1
+
+[output_column_layout]
+column_1 = 0.4
+column_2 = 0.6
+
+[[outputs]]
+name = "heat_dissipation"
+label = "Heat dissipation"
+group = "performance"
+unit = "W"
+precision = 0.01
+type = "number"
+
+[[outputs]]
+name = "thermal_resistance"
+label = "Thermal resistance"
+group = "performance"
+unit = "K/W"
+precision = 0.0001
+type = "number"
+
+[[outputs]]
+name = "fin_efficiency"
+label = "Fin efficiency"
+group = "performance"
+unit = "%"
+precision = 0.01
+type = "number"
+
+[[outputs]]
+name = "specific_dissipation"
+label = "Dissipation per mass"
+group = "performance"
+unit = "W/g"
+precision = 0.0001
+type = "number"
+
+[[outputs]]
+name = "mass"
+label = "Heat-sink mass"
+group = "flow_and_mass"
+unit = "g"
+precision = 0.01
+type = "number"
+
+[[outputs]]
+name = "pressure_drop"
+label = "Air-side pressure drop"
+group = "flow_and_mass"
+unit = "Pa"
+precision = 0.01
+type = "number"
+
+[[outputs]]
+name = "pumping_power"
+label = "Pumping power"
+group = "flow_and_mass"
+unit = "W"
+precision = 0.0001
+type = "number"
+
+[[outputs]]
+name = "design_schematic"
+label = "Design schematic"
+group = "plots"
+type = "file"
+file_type = "image"
+filename = "heat_sink_schematic.png"
+
+[[outputs]]
+name = "temperature_profile_plot"
+label = "Fin temperature profile"
+group = "plots"
+type = "file"
+file_type = "html_plot"
+filename = "fin_temperature_profile.html"
+
+[[outputs]]
+name = "temperature_profile_csv"
+label = "Fin temperature profile (data)"
+group = "plots"
+type = "file"
+file_type = "csv_plot"
+filename = "fin_temperature_profile.csv"
+xaxis_column = 0
+yaxis_column = 1
+plot_title = "Fin Temperature vs Position"
+xaxis_title = "Distance from base (mm)"
+yaxis_title = "Temperature (degC)"
+
+[[outputs]]
+name = "heat_flux_csv"
+label = "Fin heat-flux profile (data)"
+group = "plots"
+type = "file"
+file_type = "csv_plot"
+filename = "fin_heat_flux_profile.csv"
+xaxis_column = 0
+yaxis_column = 1
+plot_title = "Fin Heat Flux vs Position"
+xaxis_title = "Distance from base (mm)"
+yaxis_title = "Heat flux (W/m2)"

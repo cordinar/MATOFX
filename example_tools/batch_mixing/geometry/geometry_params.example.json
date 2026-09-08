@@ -1,0 +1,25 @@
+{
+  "_comment": "Baseline stirred-tank geometry (SI metres). This is the geometry-stage contract the central orchestrator writes from inputs.json. null on any optional key = use the script's derived default. Standalone test:  FreeCADCmd.exe build_geometry.py geometry_params.example.json",
+  "output_dir": ".",
+
+  "tank_diameter": 0.30,
+  "liquid_height": 0.30,
+
+  "impeller_diameter_ratio": 0.33,
+  "impeller_clearance_ratio": 0.30,
+  "blade_count": 4,
+  "blade_angle_deg": 45.0,
+  "shaft_diameter": 0.018,
+  "hub_diameter": null,
+  "blade_width": null,
+  "blade_thickness": null,
+
+  "baffle_count": 4,
+  "baffle_width": null,
+  "baffle_wall_gap": null,
+  "baffle_thickness": null,
+  "baffle_bottom": null,
+  "baffle_top": null,
+
+  "additive_volume_fraction": 0.10
+}

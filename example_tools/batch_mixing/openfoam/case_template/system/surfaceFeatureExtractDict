@@ -1,0 +1,14 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  Batch Mixing — extract feature edges from each patch STL so snappyHexMesh can
+  snap the baffle/blade/shaft edges crisply. Writes constant/extendedFeature-
+  EdgeMesh/<name>.eMesh, referenced by snappyHexMeshDict:features.
+\*---------------------------------------------------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object surfaceFeatureExtractDict; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+tankWall.stl { extractionMethod extractFromSurface; includedAngle 150; writeObj no; }
+baffles.stl  { extractionMethod extractFromSurface; includedAngle 150; writeObj no; }
+impeller.stl { extractionMethod extractFromSurface; includedAngle 150; writeObj no; }
+shaft.stl    { extractionMethod extractFromSurface; includedAngle 150; writeObj no; }
+
+// ************************************************************************* //

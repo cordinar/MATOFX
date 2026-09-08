@@ -1,0 +1,50 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  Batch Mixing — controlDict. Transient run with Courant-adaptive dt. The
+  `forces` functionObject integrates pressure+viscous moment on the impeller
+  (+ shaft) about the shaft axis -> torque; power = torque*omega is derived in
+  post. alpha snapshots are written each writeInterval for the CoV(t)/t95 and
+  field-surrogate feed. render_case.py rewrites endTime / writeInterval /
+  omega-derived values; below are the SHORT-RUN baseline used for validation.
+\*---------------------------------------------------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     matofxMixingFoam;
+
+startFrom       startTime;
+startTime       0;
+stopAt          endTime;
+endTime         @END_TIME@;
+deltaT          @DELTA_T@;    // initial; adjusted by Courant below
+
+writeControl    adjustableRunTime;
+writeInterval   @WRITE_INTERVAL@;
+purgeWrite      0;
+writeFormat     ascii;
+writePrecision  7;
+writeCompression off;
+timeFormat      general;
+timePrecision   6;
+runTimeModifiable yes;
+
+adjustTimeStep  yes;
+maxCo           2;
+maxAlphaCo      2;
+maxDeltaT       @MAX_DELTAT@;
+
+functions
+{
+    impellerForces
+    {
+        type            forces;
+        libs            ("libforces.so");
+        writeControl    timeStep;
+        writeInterval   20;
+        patches         (impeller shaft);
+        rho             rho;          // variable-density mixture field
+        CofR            (0 0 0);       // on the shaft axis -> moment_z = torque
+        log             false;
+    }
+}
+
+// ************************************************************************* //

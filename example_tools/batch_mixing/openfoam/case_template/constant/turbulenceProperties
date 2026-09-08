@@ -1,0 +1,16 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  Batch Mixing — RANS turbulence (realizable k-epsilon, wall functions).
+\*---------------------------------------------------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+simulationType  RAS;
+
+RAS
+{
+    RASModel        @RAS_MODEL@;
+    turbulence      on;
+    printCoeffs     on;
+}
+
+// ************************************************************************* //

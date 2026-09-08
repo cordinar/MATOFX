@@ -1,0 +1,118 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  Batch Mixing — snappyHexMesh. Carves the tank wall + baffles + pitched-blade
+  impeller + shaft out of the background block, keeping the fluid region that
+  contains locationInMesh. render_case.py rewrites the searchableCylinder
+  (mrfZone) and locationInMesh from geometry_meta.json; values are the baseline.
+\*---------------------------------------------------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object snappyHexMeshDict; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+castellatedMesh true;
+snap            true;
+addLayers       false;
+
+geometry
+{
+    tankWall.stl { type triSurfaceMesh; name tankWall; }
+    baffles.stl  { type triSurfaceMesh; name baffles; }
+    impeller.stl { type triSurfaceMesh; name impeller; }
+    shaft.stl    { type triSurfaceMesh; name shaft; }
+
+    mrfZone                      // impeller rotating-zone envelope (refine + later cellZone)
+    {
+        type searchableCylinder;
+        point1 (0 0 @MRF_Z1@);
+        point2 (0 0 @MRF_Z2@);
+        radius @MRF_R@;
+    }
+}
+
+castellatedMeshControls
+{
+    maxLocalCells       2000000;
+    maxGlobalCells      6000000;
+    minRefinementCells  10;
+    nCellsBetweenLevels 2;
+    maxLoadUnbalance    0.10;
+    resolveFeatureAngle 30;
+    allowFreeStandingZoneFaces true;
+
+    features
+    (
+        { file "tankWall.eMesh"; level 1; }
+        { file "baffles.eMesh";  level 2; }
+        { file "impeller.eMesh"; level 3; }
+        { file "shaft.eMesh";    level 2; }
+    );
+
+    refinementSurfaces
+    {
+        tankWall { level (1 1); patchInfo { type wall; } }
+        baffles  { level (2 2); patchInfo { type wall; } }
+        impeller { level (2 3); patchInfo { type wall; } }
+        shaft    { level (1 2); patchInfo { type wall; } }
+    }
+
+    refinementRegions
+    {
+        mrfZone { mode inside; levels ((1e15 2)); }
+    }
+
+    locationInMesh (@LOC_X@ @LOC_Y@ @LOC_Z@);
+    allowFreeStandingZoneFaces true;
+}
+
+snapControls
+{
+    nSmoothPatch        3;
+    tolerance           2.0;
+    nSolveIter          30;
+    nRelaxIter          5;
+    nFeatureSnapIter    10;
+    implicitFeatureSnap false;
+    explicitFeatureSnap true;
+    multiRegionFeatureSnap false;
+}
+
+addLayersControls
+{
+    relativeSizes       true;
+    layers {}
+    expansionRatio      1.2;
+    finalLayerThickness 0.4;
+    minThickness        0.1;
+    nGrow               0;
+    featureAngle        130;
+    nRelaxIter          5;
+    nSmoothSurfaceNormals 1;
+    nSmoothNormals      3;
+    nSmoothThickness    10;
+    maxFaceThicknessRatio 0.5;
+    maxThicknessToMedialRatio 0.3;
+    minMedialAxisAngle  90;
+    nBufferCellsNoExtrude 0;
+    nLayerIter          50;
+}
+
+meshQualityControls
+{
+    maxNonOrtho             65;
+    maxBoundarySkewness     20;
+    maxInternalSkewness     4;
+    maxConcave              80;
+    minVol                  1e-13;
+    minTetQuality           1e-15;
+    minArea                 -1;
+    minTwist                0.02;
+    minDeterminant          0.001;
+    minFaceWeight           0.02;
+    minVolRatio             0.01;
+    minTriangleTwist        -1;
+    nSmoothScale            4;
+    errorReduction          0.75;
+}
+
+writeFlags ( scalarLevels );
+mergeTolerance 1e-6;
+
+// ************************************************************************* //

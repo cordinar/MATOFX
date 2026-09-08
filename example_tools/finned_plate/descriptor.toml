@@ -1,0 +1,241 @@
+schema_version = 1
+
+alias = "finned_plate"
+name = "Finned Cold Plate"
+version = "1.0.0"
+description = """
+Steady finite-element conduction analysis of a fan-cooled finned cold plate. A \
+component dissipating 60 W is mounted on the underside of a 100 x 100 mm metal \
+plate; the finned upper surface sheds that heat into air driven by an axial fan. \
+The fin array is reduced to an effective surface conductance (fin efficiency, \
+channel Nusselt correlation and the fan's own operating point, found by \
+intersecting the fan curve with the channel system curve), and a real scikit-fem \
+solve then computes the temperature field through the plate itself — which is \
+what captures the spreading resistance from the small hot footprint out to the \
+full finned area. Reports the peak component temperature, the plate mass, the \
+thermal resistance, the air velocity the fan actually delivers and its power \
+draw, plus a nodal .vtu temperature field and a to-scale schematic of the design \
+that was run. Four design variables and one material choice, so the design space \
+stays small enough to visualise: ideal for parametric studies, design-space \
+coverage analysis, scalar + field surrogates and constrained optimisation.\
+"""
+main_script = "finned_plate.py"
+icon_filename = "finned_plate.png"
+
+duration_class = "medium"
+
+# The .vtu field and the schematic are both declared outputs, so the ADR-0008
+# retention floor keeps them automatically; nothing extra to retain or delete.
+retain_files = []
+delete_io_files = []
+
+downstream_tools = []
+
+
+[execution_backend]
+kind = "subprocess"
+
+[resources]
+cpu_cores = 1
+ram_mb = 2048
+gpu_memory_mb = 0
+
+# --- Input layout ----------------------------------------------------------
+
+[[input_groups]]
+name = "geometry"
+label = "Fin geometry"
+column = 1
+row = 1
+
+[[input_groups]]
+name = "operating"
+label = "Operating conditions"
+column = 2
+row = 1
+
+[input_column_layout]
+column_1 = 0.5
+column_2 = 0.5
+
+[[inputs]]
+name = "fin_count"
+label = "Number of fins"
+group = "geometry"
+type = "integer"
+default = 16
+minimum = 6
+maximum = 28
+required = true
+help_text = "Fins are 1 mm thick and span the 100 mm plate, so the count sets the channel spacing. More fins add surface area but narrow the channels, which raises the pressure drop and reduces the flow the fan can deliver."
+
+[[inputs]]
+name = "fin_height"
+label = "Fin height"
+group = "geometry"
+type = "float"
+unit = "mm"
+default = 20.0
+minimum = 5.0
+maximum = 45.0
+precision = 0.1
+widget = "slider"
+required = true
+help_text = "Taller fins add area, but fin efficiency falls as the tip gets further from the base — so the benefit saturates, and it saturates sooner in a less conductive metal."
+
+[[inputs]]
+name = "base_thickness"
+label = "Base thickness"
+group = "geometry"
+type = "float"
+unit = "mm"
+default = 6.0
+minimum = 2.0
+maximum = 15.0
+precision = 0.1
+required = true
+help_text = "Thicker plate spreads the component's heat out to the fins more effectively, but is the largest single contributor to mass."
+
+[[inputs]]
+name = "fan_duty"
+label = "Fan speed"
+group = "operating"
+type = "float"
+unit = "%"
+default = 70.0
+minimum = 20.0
+maximum = 100.0
+precision = 1
+widget = "slider"
+required = true
+help_text = "Fan speed as a percentage of rated. The air velocity is not set directly: it is found by intersecting the fan curve with the channel system curve, so the flow you actually get depends on the fin geometry too."
+
+[[inputs]]
+name = "material"
+label = "Plate material"
+group = "operating"
+type = "select"
+options = ["Aluminium", "Magnesium"]
+default = "Aluminium"
+choice_widget = "radio"
+required = true
+help_text = "Aluminium (k = 170 W/m/K, 2700 kg/m3) or magnesium AZ31 (k = 96 W/m/K, 1740 kg/m3). Magnesium is lighter but conducts worse, so it loses more to spreading resistance in a thin plate and to fin inefficiency in a tall fin."
+
+# --- Output layout ---------------------------------------------------------
+
+[[output_groups]]
+name = "thermal"
+label = "Thermal performance"
+column = 1
+row = 1
+
+[[output_groups]]
+name = "airflow"
+label = "Mass & airflow"
+column = 2
+row = 1
+
+[[output_groups]]
+name = "fields"
+label = "Temperature field"
+column = 1
+row = 2
+
+[output_column_layout]
+column_1 = 0.5
+column_2 = 0.5
+
+[[outputs]]
+name = "t_source"
+label = "Peak component temperature"
+group = "thermal"
+type = "number"
+unit = "degC"
+precision = 0.01
+kpi = true
+kpi_label = "Peak component temperature"
+kpi_unit = "degC"
+# Output-validity bounds (ADR-0017). The plate starts at the 25 degC air inlet and
+# can only heat, so a physical result stays above 0; several hundred degrees means a
+# degenerate solve. t_source is also the field's peak, so bounding it flags a blown-up
+# temperature field at record time.
+min = 0.0
+max = 500.0
+
+[[outputs]]
+name = "mass"
+label = "Plate + fin mass"
+group = "airflow"
+type = "number"
+unit = "g"
+precision = 0.01
+kpi = true
+kpi_label = "Plate mass"
+kpi_unit = "g"
+min = 0.0
+max = 5000.0
+
+[[outputs]]
+name = "thermal_resistance"
+label = "Thermal resistance"
+group = "thermal"
+type = "number"
+unit = "K/W"
+precision = 0.0001
+kpi = true
+kpi_label = "Thermal resistance"
+kpi_unit = "K/W"
+min = 0.0
+max = 20.0
+
+[[outputs]]
+name = "t_mean"
+label = "Mean plate temperature"
+group = "thermal"
+type = "number"
+unit = "degC"
+precision = 0.01
+min = 0.0
+max = 500.0
+
+[[outputs]]
+name = "air_velocity"
+label = "Channel air velocity"
+group = "airflow"
+type = "number"
+unit = "m/s"
+precision = 0.001
+min = 0.0
+max = 50.0
+
+[[outputs]]
+name = "fan_power"
+label = "Fan power draw"
+group = "airflow"
+type = "number"
+unit = "W"
+precision = 0.0001
+min = 0.0
+max = 50.0
+
+[[outputs]]
+name = "temperature_field"
+label = "Plate temperature field"
+group = "fields"
+type = "file"
+file_type = "field"
+filename = "outputs/temperature_field.vtu"
+field_format = "vtu"
+field_node_array_name = "temperature"
+# Per-node validity (ADR-0017): every node at or above 0 degC and below a numerical
+# ceiling; a field with a NaN or blown-up node is dropped at surrogate ingest.
+value_min = 0.0
+value_max = 500.0
+
+[[outputs]]
+name = "design_schematic"
+label = "Design schematic"
+group = "fields"
+type = "file"
+file_type = "image"
+filename = "outputs/design_schematic.png"

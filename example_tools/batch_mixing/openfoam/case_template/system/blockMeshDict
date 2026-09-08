@@ -1,0 +1,58 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  Batch Mixing — background block. A cubic hex block spanning the tank envelope
+  (a hair wider than the tank in x,y; from just below the floor up to the free
+  surface z=H). snappyHexMesh then carves the cylindrical wall + internals out
+  of it. The top face (z=H) is the free-slip lid; the other outer faces get
+  removed by the snap. render_case.py rewrites the vertices + cell counts from
+  geometry_meta.json (background_box); values below are the T=H=0.30 baseline.
+\*---------------------------------------------------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object blockMeshDict; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+scale   1;   // geometry is already in metres
+
+xmin @XMIN@;  xmax @XMAX@;
+ymin @YMIN@;  ymax @YMAX@;
+zmin @ZMIN@;  zmax @ZMAX@;   // zmax = H (the lid)
+
+vertices
+(
+    ($xmin $ymin $zmin)   // 0
+    ($xmax $ymin $zmin)   // 1
+    ($xmax $ymax $zmin)   // 2
+    ($xmin $ymax $zmin)   // 3
+    ($xmin $ymin $zmax)   // 4
+    ($xmax $ymin $zmax)   // 5
+    ($xmax $ymax $zmax)   // 6
+    ($xmin $ymax $zmax)   // 7
+);
+
+blocks
+(
+    hex (0 1 2 3 4 5 6 7) (@NX@ @NY@ @NZ@) simpleGrading (1 1 1)
+);
+
+edges ();
+
+boundary
+(
+    lid
+    {
+        type wall;                 // free-slip BC applied in 0/ (approx. flat free surface)
+        faces ( (4 5 6 7) );       // z = zmax
+    }
+    outer
+    {
+        type patch;                // carved away by snappy (kept only if it leaks)
+        faces
+        (
+            (0 3 2 1)              // z = zmin (floor region)
+            (0 4 7 3)              // x = xmin
+            (1 2 6 5)              // x = xmax
+            (0 1 5 4)              // y = ymin
+            (3 7 6 2)              // y = ymax
+        );
+    }
+);
+
+// ************************************************************************* //

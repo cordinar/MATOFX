@@ -1,0 +1,103 @@
+name: Release
+
+# Tag-driven release pipeline. Fires only when a ``v<major>.<minor>.<patch>``
+# tag is pushed; per ``RELEASING.md`` the maintainer bumps the version in
+# ``pyproject.toml``, tags it, and pushes — this workflow takes over from
+# there.
+#
+# Outputs (all uploaded to the GitHub Release for the tag):
+#
+#   1. Wheel + sdist (``python -m build``).
+#   2. CycloneDX SBOM JSON of the build environment.
+#   3. SLSA build-provenance attestation tied to the workflow run id.
+#
+# The provenance attestation gives procurement-grade reviewers an SLSA L3
+# statement that the artefacts came from this exact workflow run on this
+# exact commit, signed by Sigstore's keyless ID-token flow. No long-lived
+# signing key to rotate.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (must already exist on the repo)"
+        required: true
+        type: string
+
+defaults:
+  run:
+    working-directory: the repository root
+
+permissions:
+  contents: read
+
+# Actions tagged ``@v<n>`` here will be auto-rotated to a commit SHA by
+# the weekly Dependabot run. Verify the SHA in the resulting PR before
+# merging — the OpenSSF Scorecard guideline is SHA pins only.
+
+jobs:
+  release:
+    name: Build, attest, and publish
+    runs-on: ubuntu-latest
+    permissions:
+      # Required by the GH-CLI release-create step below.
+      contents: write
+      # Required by ``actions/attest-build-provenance`` to mint the
+      # Sigstore identity token + write the attestation.
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout (full history for provenance)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build + SBOM tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[supply-chain]"
+
+      - name: Build wheel + sdist
+        run: |
+          rm -rf dist
+          python -m build --wheel --sdist
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          cyclonedx-py environment \
+            --output-format json \
+            --schema-version 1.5 \
+            --outfile dist/sbom.cdx.json
+
+      - name: Attest build provenance for wheel + sdist
+        uses: actions/attest-build-provenance@v2
+        with:
+          # Glob covers the wheel, the sdist, and the SBOM — every
+          # artefact we ship gets its own attestation in the bundle.
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/sbom.cdx.json
+
+      - name: Create GitHub Release with artefacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          # ``--generate-notes`` builds a default body from merged PRs;
+          # the maintainer's CHANGELOG.md entry is the source of truth
+          # and they edit the release after creation if needed.
+          gh release create "${RELEASE_TAG}" \
+            --title "MATOFX ${RELEASE_TAG}" \
+            --generate-notes \
+            dist/*.whl dist/*.tar.gz dist/sbom.cdx.json

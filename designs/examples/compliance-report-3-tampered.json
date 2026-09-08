@@ -1,0 +1,182 @@
+{
+  "anchor": {
+    "consistency_proofs": [
+      {
+        "counter": 1,
+        "proof": [
+          "4892e6ed30d697e7da45854316ed3fda7f1f4cd5fbd1f29759118c20b7c42c60",
+          "44dcaab530c81b4d2164b12a67f492144fc532034b5e736af68cf40bd5f7670e",
+          "6d9d8f3e02ce86ef41259fc0d81c5a1db02c690b63f27246a82b1cdef8e58e1b",
+          "43e6dd75be28ce861f91069715b98a3a5c401d2869568327e45d3e493813203d",
+          "38e77248521add450470c7e9315b7351e2ccfff0dccc209365c8ade1ef846169",
+          "6dd156e1b43564d5aa8636f68a7297324b1319df110195bfcd774f4d04f28922",
+          "9797e8bc3bff9d8377cc47d4ae21946222fbe41d3f3229b564f83f03fa5c62de"
+        ],
+        "tree_size": 120
+      },
+      {
+        "counter": 2,
+        "proof": [
+          "4271be0fe2efe93dc7dff55f52076be175c359daa4c79fec3f65e07879e2e5cc",
+          "1995d9f3822313d9bd81bb8d1ea95bc63d2d838966bb297959a247734fe7aba0",
+          "fdd55c73263e32e6081df35dcb1391a63785147e596dedc9b8a80153d91b0013",
+          "86cc45008bb90d5fa7a87c0ef926f2e7bb3c3afe2ddcd5829ffc0eb424d95cb9",
+          "1009cc9c2d87f7c6d01d3174e61907e3d796988e220f73fd08512b420a8bd46c",
+          "a35e8ec7f970e09f031be9e8e488a762d775fa0b794c77b5908e09045288b5e9",
+          "d8a54368fb868479b4a31ce7f4345e7b48374241e141e409f82168249718b7f7",
+          "e796a25b1f00094586dd531a68d651cb6184c5981b1871ccdc67d187819ab085",
+          "03934d6253a9d7b520ed639f022ac340c91f142ce9dfe34be37b0ac5cf76987f",
+          "03f8424f605f7db288037a0c4fe02903ac7e4ee348c3372d9ad850f3c4818901"
+        ],
+        "tree_size": 463
+      }
+    ],
+    "consistency_proofs_truncated": false,
+    "genesis_record": {
+      "hash": "9191919191919191919191919191919191919191919191919191919191919191",
+      "id": 1,
+      "timestamp": "2026-08-12T07:44:26.446389Z"
+    },
+    "head": {
+      "hash": "e519f1d62fb862decd318c6b9b33fe2c6746c98a4c591598f7692aea391d4ef1",
+      "id": 494,
+      "timestamp": "2026-08-12T07:44:28.424120Z"
+    },
+    "previous_head_rehashed_now": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+    "previous_report": {
+      "counter": 2,
+      "generated_at": "2026-08-12T07:44:28.190051Z",
+      "head_hash": "d68eaeca26de13fe28f6af4d10724d3dc78ea16ec860eb5d8d640d03e24b8995",
+      "head_id": 463
+    },
+    "tree": {
+      "algorithm": "rfc6962-sha256",
+      "root": "75eb37556842158c76bc896cdf687eed94e99fddf708b68a804bad5299107673",
+      "size": 494
+    }
+  },
+  "chain_verification": {
+    "failures": [
+      {
+        "reason": "hash mismatch: stored 9191919191919191919191919191919191919191919191919191919191919191, computed 2bf358441dbcc28f5b2258abaf7d823668c70f6ba5b5b4c592c6a489e1d5d85d",
+        "record_id": 1
+      },
+      {
+        "reason": "invalid signature",
+        "record_id": 1
+      },
+      {
+        "reason": "prior_hash 2bf358441dbcc28f5b2258abaf7d823668c70f6ba5b5b4c592c6a489e1d5d85d does not match expected 9191919191919191919191919191919191919191919191919191919191919191",
+        "record_id": 2
+      },
+      {
+        "reason": "hash mismatch: stored 6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b, computed d68eaeca26de13fe28f6af4d10724d3dc78ea16ec860eb5d8d640d03e24b8995",
+        "record_id": 463
+      },
+      {
+        "reason": "invalid signature",
+        "record_id": 463
+      },
+      {
+        "reason": "prior_hash d68eaeca26de13fe28f6af4d10724d3dc78ea16ec860eb5d8d640d03e24b8995 does not match expected 6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+        "record_id": 464
+      }
+    ],
+    "failures_truncated": false,
+    "last_verified_age_hours": null,
+    "last_verified_at": null,
+    "ok": false,
+    "range": {
+      "end_id": 494,
+      "start_id": 1
+    },
+    "records_checked": 494,
+    "signing_keys_configured": [
+      "a94e9ca5282cf75a"
+    ],
+    "verification_is_current": true
+  },
+  "counter": 3,
+  "generated_at": "2026-08-12T07:44:28.429955Z",
+  "install": {
+    "app_version": "0.0.3",
+    "customer": "Northwind Aerospace Ltd",
+    "db_dialect": "sqlite",
+    "environment": "production",
+    "identity_sha256": "defb794878a8a32ee973f08b4cd20d60ebc109a5ac4e9b4bfb5b9fb8fbde17e6",
+    "install_id": "inst_7Q2M4KJ9",
+    "issuer_key_id": "funis-2026-01",
+    "issuer_verified": true
+  },
+  "licence": {
+    "expires_at": "2027-01-14T00:00:00.000000Z",
+    "features_enabled": [
+      "optimisation_framework",
+      "parametric_studies",
+      "vv_tracking"
+    ],
+    "issued_at": "2026-01-14T00:00:00.000000Z",
+    "licence_id": "LIC-2026-0043",
+    "licence_type": "csl",
+    "manifest_sha256": "defb794878a8a32ee973f08b4cd20d60ebc109a5ac4e9b4bfb5b9fb8fbde17e6",
+    "n_slots": 10,
+    "state": "active"
+  },
+  "licence_events": {
+    "audit.verify.acknowledged": 0,
+    "audit.verify.failed": 0,
+    "compliance.report.generated": 1,
+    "licence.assignment.denied": 0,
+    "licence.assignment.granted": 0,
+    "licence.assignment.revoked": 0,
+    "licence.expiry.transition": 0,
+    "licence.installed": 0,
+    "licence.readonly.entered": 0,
+    "licence.readonly.left": 0,
+    "licence.slot.breakglass": 0,
+    "licence.slot.denied": 0,
+    "licence.slot.granted": 0,
+    "licence.slot.released": 0,
+    "licence.validated.failed": 0,
+    "licence.validated.ok": 0
+  },
+  "notable_events": [],
+  "notable_events_truncated": false,
+  "period": {
+    "from": "2026-08-12T07:44:28.190051Z",
+    "to": "2026-08-12T07:44:28.429955Z"
+  },
+  "report_schema_version": 2,
+  "signature": {
+    "alg": "ed25519",
+    "covers": "every field except 'signature', canonicalised per matofx.compliance.canonical",
+    "key_id": "1325b850c2871916",
+    "value": "ee319072b34653749cab0db8c424c8042409df36e3891d527e4e08b6e43d9e5a560bef3e20caad0582da0a84421a3bfa9d01384efd001912bbb4b65b5005790a"
+  },
+  "usage": {
+    "authoritative": "csl",
+    "csl": {
+      "breakglass_admissions": 0,
+      "n_slots": 10,
+      "over_cap": false,
+      "peak_by_day": {
+        "2026-08-12": 0
+      },
+      "peak_concurrent_sessions": 0,
+      "sessions_started": 0,
+      "slots_denied": 0,
+      "slots_granted": 0
+    },
+    "fal": {
+      "assignments_current": 11,
+      "assignments_denied": 0,
+      "assignments_granted": 0,
+      "assignments_revoked": 0,
+      "n_slots": null,
+      "over_cap": null,
+      "registered_users": 11,
+      "source": "enabled_accounts"
+    },
+    "licence_type": "csl"
+  }
+}

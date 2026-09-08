@@ -1,0 +1,426 @@
+schema_version = 1
+
+alias = "composite_laminate"
+name = "Composite Laminate"
+version = "1.0.0"
+description = """
+Defines a symmetric balanced composite layup [±θ1/±θ2]s of a measured \
+unidirectional lamina (carbon/epoxy T300/5208 or E-glass/epoxy, from the \
+Daniel & Ishai reference data) and homogenises it with Classical Lamination \
+Theory. It returns the per-ply material card — stiffness, strengths, CTE, \
+conductivity, density and specific heat — together with the laminate-level \
+effective constants, the total thickness and mass, an exploded ply-stack \
+diagram and the directional-modulus polar plot. It runs instantly (no \
+solver), so it is ideal for sweeping ply angles and thickness in a \
+parametric study or optimisation. The fixed 8-ply stack scales to the \
+chosen thickness, so thickness is the lightweighting lever — mass scales \
+with it.\
+"""
+main_script = "composite_laminate.py"
+
+duration_class = "snappy"
+
+# Keep the two interactive plots after a successful run so the results page
+# and report can render them once intermediate files are cleaned up.
+retain_files = ["outputs/ply_stack.html", "outputs/polar_modulus.html"]
+delete_io_files = []
+
+[execution_backend]
+kind = "subprocess"
+
+[resources]
+cpu_cores = 1
+ram_mb = 512
+gpu_memory_mb = 0
+
+# --- Input layout ----------------------------------------------------------
+
+[[input_groups]]
+name = "material"
+label = "Material"
+column = 1
+row = 1
+
+[[input_groups]]
+name = "layup"
+label = "Layup"
+column = 1
+row = 2
+
+[input_column_layout]
+column_1 = 1.0
+
+[[inputs]]
+name = "material"
+label = "Lamina material"
+group = "material"
+type = "select"
+options = ["CFRP", "GFRP"]
+default = "CFRP"
+choice_widget = "radio"
+required = true
+help_text = "CFRP = carbon/epoxy T300/5208 (Vf 0.70); GFRP = E-glass/epoxy (Vf 0.55). Measured lamina data."
+
+[[inputs]]
+name = "theta1"
+label = "Ply angle θ₁"
+group = "layup"
+type = "float"
+unit = "deg"
+default = 45
+minimum = 0
+maximum = 90
+precision = 1
+widget = "slider"
+required = true
+
+[[inputs]]
+name = "theta2"
+label = "Ply angle θ₂"
+group = "layup"
+type = "float"
+unit = "deg"
+default = 0
+minimum = 0
+maximum = 90
+precision = 1
+widget = "slider"
+required = true
+
+[[inputs]]
+name = "thickness"
+label = "Laminate thickness"
+group = "layup"
+type = "float"
+unit = "mm"
+default = 4.0
+minimum = 1.0
+maximum = 8.0
+precision = 0.1
+widget = "slider"
+required = true
+help_text = "Total laminate thickness — the lightweighting lever. The fixed [±θ₁/±θ₂]s 8-ply stack scales to this thickness; mass scales with it."
+
+# --- Output layout ---------------------------------------------------------
+
+[[output_groups]]
+name = "lamina"
+label = "Ply (lamina) card"
+column = 1
+row = 1
+
+[[output_groups]]
+name = "laminate"
+label = "Laminate (effective)"
+column = 2
+row = 1
+
+[[output_groups]]
+name = "geometry"
+label = "Geometry & mass"
+column = 2
+row = 2
+
+[[output_groups]]
+name = "plots"
+label = "Plots"
+column = 1
+row = 2
+
+[output_column_layout]
+column_1 = 0.5
+column_2 = 0.5
+
+[[outputs]]
+name = "e1"
+min = 0.0
+label = "Lamina E₁ (fibre)"
+group = "lamina"
+type = "number"
+unit = "GPa"
+precision = 0.1
+
+[[outputs]]
+name = "e2"
+min = 0.0
+label = "Lamina E₂ (transverse)"
+group = "lamina"
+type = "number"
+unit = "GPa"
+precision = 0.1
+
+[[outputs]]
+name = "g12"
+min = 0.0
+label = "Lamina G₁₂"
+group = "lamina"
+type = "number"
+unit = "GPa"
+precision = 0.01
+
+[[outputs]]
+name = "nu12"
+min = -1.0
+max = 1.0
+label = "Lamina ν₁₂"
+group = "lamina"
+type = "number"
+precision = 0.001
+
+[[outputs]]
+name = "alpha1"
+min = -5.0
+max = 100.0
+label = "Lamina α₁"
+group = "lamina"
+type = "number"
+unit = "1e-6/degC"
+precision = 0.01
+
+[[outputs]]
+name = "alpha2"
+min = -5.0
+max = 100.0
+label = "Lamina α₂"
+group = "lamina"
+type = "number"
+unit = "1e-6/degC"
+precision = 0.1
+
+[[outputs]]
+name = "xt"
+min = 0.0
+label = "Strength Xt (fibre tension)"
+group = "lamina"
+type = "number"
+unit = "MPa"
+precision = 1
+
+[[outputs]]
+name = "xc"
+min = 0.0
+label = "Strength Xc (fibre comp.)"
+group = "lamina"
+type = "number"
+unit = "MPa"
+precision = 1
+
+[[outputs]]
+name = "yt"
+min = 0.0
+label = "Strength Yt (transverse tension)"
+group = "lamina"
+type = "number"
+unit = "MPa"
+precision = 1
+
+[[outputs]]
+name = "yc"
+min = 0.0
+label = "Strength Yc (transverse comp.)"
+group = "lamina"
+type = "number"
+unit = "MPa"
+precision = 1
+
+[[outputs]]
+name = "s_shear"
+min = 0.0
+label = "Strength S (in-plane shear)"
+group = "lamina"
+type = "number"
+unit = "MPa"
+precision = 1
+
+[[outputs]]
+name = "k1"
+min = 0.0
+label = "Lamina k₁ (fibre)"
+group = "lamina"
+type = "number"
+unit = "W/m/K"
+precision = 0.1
+
+[[outputs]]
+name = "k2"
+min = 0.0
+label = "Lamina k₂ (transverse)"
+group = "lamina"
+type = "number"
+unit = "W/m/K"
+precision = 0.1
+
+[[outputs]]
+name = "rho"
+min = 0.0
+label = "Density"
+group = "lamina"
+type = "number"
+unit = "kg/m3"
+precision = 1
+
+[[outputs]]
+name = "cp"
+min = 0.0
+label = "Specific heat"
+group = "lamina"
+type = "number"
+unit = "J/kg/K"
+precision = 1
+
+[[outputs]]
+name = "theta1"
+min = 0.0
+max = 90.0
+label = "Ply angle θ₁"
+group = "laminate"
+type = "number"
+unit = "deg"
+precision = 1
+
+[[outputs]]
+name = "theta2"
+min = 0.0
+max = 90.0
+label = "Ply angle θ₂"
+group = "laminate"
+type = "number"
+unit = "deg"
+precision = 1
+
+[[outputs]]
+name = "n_plies"
+min = 0.0
+label = "Total plies"
+group = "laminate"
+type = "number"
+precision = 1
+
+[[outputs]]
+name = "thickness"
+min = 0.0
+label = "Laminate thickness"
+group = "laminate"
+type = "number"
+unit = "mm"
+precision = 0.001
+
+[[outputs]]
+name = "ex"
+min = 0.0
+label = "Effective Ex"
+group = "laminate"
+type = "number"
+unit = "GPa"
+precision = 0.1
+
+[[outputs]]
+name = "ey"
+min = 0.0
+label = "Effective Ey"
+group = "laminate"
+type = "number"
+unit = "GPa"
+precision = 0.1
+
+[[outputs]]
+name = "gxy"
+min = 0.0
+label = "Effective Gxy"
+group = "laminate"
+type = "number"
+unit = "GPa"
+precision = 0.01
+
+[[outputs]]
+name = "nuxy"
+min = -1.0
+max = 1.0
+label = "Effective νxy"
+group = "laminate"
+type = "number"
+precision = 0.001
+
+[[outputs]]
+name = "alphax"
+min = -5.0
+max = 100.0
+label = "Effective αx"
+group = "laminate"
+type = "number"
+unit = "1e-6/degC"
+precision = 0.01
+
+[[outputs]]
+name = "alphay"
+min = -5.0
+max = 100.0
+label = "Effective αy"
+group = "laminate"
+type = "number"
+unit = "1e-6/degC"
+precision = 0.01
+
+[[outputs]]
+name = "kx"
+min = 0.0
+label = "Effective kx (in-plane)"
+group = "laminate"
+type = "number"
+unit = "W/m/K"
+precision = 0.01
+
+[[outputs]]
+name = "ky"
+min = 0.0
+label = "Effective ky (in-plane)"
+group = "laminate"
+type = "number"
+unit = "W/m/K"
+precision = 0.01
+
+[[outputs]]
+name = "kz"
+min = 0.0
+label = "Effective kz (through-thickness)"
+group = "laminate"
+type = "number"
+unit = "W/m/K"
+precision = 0.01
+
+[[outputs]]
+name = "mass"
+min = 0.0
+label = "Laminate mass"
+group = "geometry"
+type = "number"
+unit = "g"
+precision = 0.01
+kpi = true
+kpi_label = "Laminate mass"
+kpi_unit = "g"
+
+[[outputs]]
+name = "areal_density"
+min = 0.0
+label = "Areal density"
+group = "geometry"
+type = "number"
+unit = "kg/m2"
+precision = 0.001
+
+[[outputs]]
+name = "ply_stack"
+label = "Ply stack"
+group = "plots"
+type = "file"
+file_type = "html_plot"
+filename = "outputs/ply_stack.html"
+
+[[outputs]]
+name = "polar_modulus"
+label = "Directional modulus (polar)"
+group = "plots"
+type = "file"
+file_type = "html_plot"
+filename = "outputs/polar_modulus.html"

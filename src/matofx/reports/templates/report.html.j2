@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="generator" content="MATOFX job report">
+<title>{{ app_display_title }} &mdash; Report for Job {{ job_id }}</title>
+<style>
+{{ stylesheet | safe }}
+</style>
+{% if plotly_js %}
+<script>
+{{ plotly_js | safe }}
+</script>
+{% endif %}
+</head>
+<body>
+<header class="report-header">
+  {% if logo_data_uri %}
+  <img class="report-logo" src="{{ logo_data_uri }}" alt="">
+  {% endif %}
+  <div class="report-title">
+    <h1>{{ app_display_title }}</h1>
+    <p class="report-subtitle">Report for Job {{ job_id }}</p>
+  </div>
+</header>
+
+<section class="card metadata">
+  <h2 class="card-heading">Run details</h2>
+  <dl>
+    <dt>Job ID</dt><dd>{{ job_id }}</dd>
+    <dt>Tool</dt><dd>{{ tool_name }} <span class="muted">({{ tool_alias }} &middot; v{{ tool_version }})</span></dd>
+    <dt>Submitted by</dt><dd>{{ submitted_by_username }}</dd>
+    <dt>Submitted</dt><dd>{{ submitted_at_label }}</dd>
+    <dt>Completed</dt><dd>{{ completed_at_label }}</dd>
+    <dt>Report generated</dt><dd>{{ report_generated_at_label }}</dd>
+  </dl>
+</section>
+
+{% if summary_paragraphs %}
+<section class="card result-summary">
+  <h2 class="card-heading">Summary</h2>
+  {% for para in summary_paragraphs %}
+  <p class="summary-paragraph">{{ para }}</p>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if kpi_cards %}
+<section class="card kpi-summary">
+  <h2 class="card-heading">Headline KPIs</h2>
+  <div class="kpi-card-grid">
+  {% for c in kpi_cards %}
+    <div class="kpi-card">
+      <div class="kpi-card-label">{{ c.kpi_label or c.kpi_name }}</div>
+      <div class="kpi-card-value">{% if c.value is none %}&mdash;{% else %}{{ c.value }}{% endif %}</div>
+      {% if c.kpi_unit %}<div class="kpi-card-unit">{{ c.kpi_unit }}</div>{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% macro render_field(field) %}
+  <dt>{{ field.label }}</dt>
+  <dd>
+    {% if field.kind == "file" %}
+      <span class="filename">{{ field.value }}</span>
+      {% if field.image_preview %}
+      <div class="image-preview"><img src="{{ field.image_preview }}" alt=""></div>
+      {% else %}
+      <span class="not-previewable">(not previewable in report)</span>
+      {% endif %}
+    {% elif field.kind == "image_file" %}
+      <span class="filename">{{ field.value }}</span>
+      <div class="image-preview"><img src="{{ field.image_preview }}" alt=""></div>
+    {% elif field.kind == "csv_plot" %}
+      <span class="filename">{{ field.value }}</span>
+      <div id="{{ field.div_id }}" class="plotly-chart"></div>
+      <script>
+      (function () {
+        var fig = {{ field.figure_json | safe }};
+        Plotly.newPlot({{ field.div_id | tojson }}, fig.data, fig.layout, {responsive: true, displaylogo: false});
+      })();
+      </script>
+    {% elif field.kind == "csv_table" %}
+      <span class="filename">{{ field.value }}</span>
+      {% if field.rows %}
+      <table class="value-table">
+        <thead>
+          <tr>
+          {% for column in field.table_columns %}
+            <th>{{ column }}</th>
+          {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in field.rows %}
+          <tr>
+          {% for column in field.table_columns %}
+            <td>{{ row.get(column, "") }}</td>
+          {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if field.truncated %}
+      <p class="truncation-note">First {{ field.rows | length }} of {{ field.total_rows }} rows shown. Remaining rows available in MATOFX.</p>
+      {% endif %}
+      {% else %}
+      <span class="muted">(no rows)</span>
+      {% endif %}
+    {% elif field.kind == "table" %}
+      {% if field.rows %}
+      <table class="value-table">
+        <thead>
+          <tr>
+          {% for column in field.table_columns %}
+            <th>{{ column }}</th>
+          {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in field.rows %}
+          <tr>
+          {% for column in field.table_columns %}
+            <td>{{ row.get(column, "") }}</td>
+          {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <span class="muted">(no rows)</span>
+      {% endif %}
+    {% elif field.kind == "video" %}
+      <span class="filename">{{ field.value }}</span>
+      <div class="video-embed">
+        <video controls preload="metadata">
+          <source src="{{ field.media_data_uri }}" type="{{ field.media_mime }}">
+        </video>
+      </div>
+    {% elif field.kind == "pdf" %}
+      <span class="filename">{{ field.value }}</span>
+      <embed class="pdf-embed" type="application/pdf" src="{{ field.media_data_uri }}">
+    {% elif field.kind == "html_embed" %}
+      <span class="filename">{{ field.value }}</span>
+      <iframe class="html-embed" sandbox src="{{ field.media_data_uri }}" title="{{ field.value }}"></iframe>
+    {% elif field.kind == "file_other" %}
+      <span class="filename">{{ field.value }}</span>
+      <span class="available-note">{{ field.note }}</span>
+    {% else %}
+      {{ field.value }}{% if field.unit %}<span class="unit">{{ field.unit }}</span>{% endif %}
+    {% endif %}
+  </dd>
+{% endmacro %}
+
+{% if workflow_context %}
+<section class="card workflow-context">
+  <h2 class="card-heading">Workflow run</h2>
+  <p class="workflow-line">
+    <strong>{{ workflow_context.workflow_name }}</strong>
+    {% if workflow_context.run_name and workflow_context.run_name != workflow_context.workflow_name %}
+      &middot; <span class="muted">{{ workflow_context.run_name }}</span>
+    {% endif %}
+  </p>
+  {% for sibling in workflow_siblings %}
+  <details{% if sibling.is_self %} open{% endif %}>
+    <summary>
+      {{ sibling.tool_name }}
+      <span class="muted-tool-id">{{ sibling.tool_alias }} &middot; Job {{ sibling.job_id }}</span>
+      {% if sibling.is_self %}<span class="self-badge">this job</span>{% endif %}
+    </summary>
+    {% if sibling.input_groups %}
+    <div class="groups-grid">
+      {% for group in sibling.input_groups %}
+      <section class="group{% if group.wide %} wide{% endif %}">
+        <h3 class="group-heading">{{ group.label }}</h3>
+        <dl class="fields">
+          {% for field in group.fields %}
+            {{ render_field(field) }}
+          {% endfor %}
+        </dl>
+      </section>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="sibling-empty">No inputs recorded for this step.</p>
+    {% endif %}
+  </details>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if input_groups %}
+<section class="section-heading">Inputs</section>
+<div class="groups-grid">
+  {% for group in input_groups %}
+  <section class="group{% if group.wide %} wide{% endif %}">
+    <h3 class="group-heading">{{ group.label }}</h3>
+    <dl class="fields">
+      {% for field in group.fields %}
+        {{ render_field(field) }}
+      {% endfor %}
+    </dl>
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if output_groups %}
+<section class="section-heading">Outputs</section>
+<div class="groups-grid">
+  {% for group in output_groups %}
+  <section class="group{% if group.wide %} wide{% endif %}">
+    <h3 class="group-heading">{{ group.label }}</h3>
+    <dl class="fields">
+      {% for field in group.fields %}
+        {{ render_field(field) }}
+      {% endfor %}
+    </dl>
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if provenance_svg %}
+<section class="section-heading">Provenance</section>
+<div class="groups-grid">
+  <section class="group wide">
+    <h3 class="group-heading">Lineage graph</h3>
+    <p class="muted" style="margin: 0 0 0.5rem 0; font-size: 0.85em;">
+      Read-only snapshot of every input + submitter + tool version this
+      job depended on. Inlined SVG — no external assets.
+    </p>
+    <div class="provenance-svg">{{ provenance_svg|safe }}</div>
+  </section>
+</div>
+{% endif %}
+</body>
+</html>

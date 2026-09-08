@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.Python
+build/
+dist/
+wheels/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local config / secrets — never commit
+.env
+.env.*
+!.env.example
+secrets/
+# …but src/matofx/secrets is the SecretsStore *package* (code, not
+# credentials) — re-include it or hatchling drops it from the wheel
+# (hatchling applies .gitignore patterns to wheel file selection;
+# "no module named matofx.secrets" on a deployed install was this).
+!src/matofx/secrets/
+!src/matofx/secrets/**
+*.key
+*.pem
+!tests/**/*.pem
+!tests/**/*.key
+
+# Local databases / runtime artefacts
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+job_logs/
+usage_logs/
+data/
+.matofx/
+
+# Build / packaging
+*.whl
+*.tar.gz
+
+# Backups
+*.bak
+*.orig
+
+# Agent / editor session state (machine-local, never shared)
+.claude/
+.nicegui/
+
+# Per-install demo assets — whatever sample CAD / images / video a site
+# wants to showcase. Pointed at by MATOFX_DEMO_ASSETS_DIR; never shipped.
+demo_assets/

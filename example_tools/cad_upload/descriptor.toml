@@ -1,0 +1,123 @@
+schema_version = 1
+
+alias = "cad_upload"
+name = "CAD Upload"
+version = "1.0.0"
+description = """
+Smoke-test tool for the CAD preview pipeline. Takes a CAD geometry file \
+(STL / STP / STEP / IGES / OBJ), echoes it back as an output, and reports \
+its size and extension. Exercises the rich file-input widget, the inline \
+3-D preview pane, the post-run output viewer, and the Compare Jobs grid — \
+all five supported CAD formats round-trip through the same surfaces.
+"""
+main_script = "cad_upload.py"
+
+duration_class = "snappy"
+
+# Keep the user-uploaded file around in the working dir after cleanup so
+# the post-run output viewer can fetch it for the CAD preview endpoint.
+retain_files = ["outputs/*"]
+delete_io_files = []
+
+downstream_tools = []
+
+[execution_backend]
+kind = "subprocess"
+
+[resources]
+cpu_cores = 1
+ram_mb = 256
+gpu_memory_mb = 0
+
+[[input_groups]]
+name = "geometry"
+label = "Geometry"
+column = 1
+row = 1
+
+[[input_groups]]
+name = "metadata"
+label = "Run Metadata"
+column = 2
+row = 1
+
+[input_column_layout]
+column_1 = 0.6
+column_2 = 0.4
+
+[[inputs]]
+name = "geometry_file"
+label = "CAD geometry"
+group = "geometry"
+type = "file"
+required = true
+help_text = "Drop a .stl / .stp / .step / .iges / .igs / .obj file here, or pick one from a previous run."
+accepted_file_types = ["stl", "stp", "step", "iges", "igs", "obj"]
+max_file_size_mb = 50.0
+
+[[inputs]]
+name = "run_label"
+label = "Run label"
+group = "metadata"
+type = "string"
+required = false
+default = "Smoke test"
+help_text = "Free-text label saved alongside the run — useful when comparing two uploads of the same file later."
+
+[[inputs]]
+name = "notes"
+label = "Notes"
+group = "metadata"
+type = "string"
+required = false
+default = ""
+
+[[output_groups]]
+name = "geometry"
+label = "Geometry"
+column = 1
+row = 1
+
+[[output_groups]]
+name = "stats"
+label = "File statistics"
+column = 2
+row = 1
+
+[output_column_layout]
+column_1 = 0.6
+column_2 = 0.4
+
+[[outputs]]
+name = "uploaded_geometry"
+label = "Uploaded geometry"
+group = "geometry"
+type = "file"
+file_type = "cad_file"
+filename = "uploaded_geometry.stl"
+
+[[outputs]]
+name = "file_size_kb"
+label = "File size"
+group = "stats"
+type = "number"
+unit = "kB"
+precision = 0.1
+
+[[outputs]]
+name = "source_extension"
+label = "Source extension"
+group = "stats"
+type = "string"
+
+[[outputs]]
+name = "stats_csv"
+label = "Run details"
+group = "stats"
+type = "file"
+file_type = "csv_table"
+filename = "stats.csv"
+columns = [
+    { name = "field", label = "Field", type = "string" },
+    { name = "value", label = "Value", type = "string" },
+]

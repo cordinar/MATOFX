@@ -1,0 +1,410 @@
+# ============================================================
+# MATOFX SPDM — example configuration
+# ============================================================
+#
+# Copy this file to one of:
+#
+#   Linux/macOS : /etc/matofx/matofx.toml
+#   Windows     : %PROGRAMDATA%\matofx\matofx.toml
+#
+# ...and edit the values below for your install. The file is parsed
+# once at process startup; restart the MATOFX services after changes.
+#
+# Any value can also be overridden at runtime by setting an
+# environment variable named MATOFX__<SECTION>__<KEY>, e.g.:
+#
+#   MATOFX__ENVIRONMENT=prod
+#   MATOFX__DB__URL=postgres://matofx:secret@db:5432/matofx
+#   MATOFX__LOG__LEVEL=WARNING
+#
+# Env vars override the file. Use them for secrets that shouldn't
+# live on disk, and for per-host tweaks in container deployments.
+#
+# Lines starting with `#` are comments. The whole file is TOML
+# (https://toml.io). Indentation is cosmetic; tables are scoped by
+# the most recent `[section]` header.
+
+# ------------------------------------------------------------
+# Required: which environment is this install?
+# ------------------------------------------------------------
+# One of: "dev", "test", "staging", "prod".
+#
+# This is required — there is no default. A wrong value is safer
+# than a silent default of "dev" leaking into production, so MATOFX
+# refuses to start until you set it.
+
+environment = "prod"
+
+
+# ------------------------------------------------------------
+# [log] — structured logging
+# ------------------------------------------------------------
+# Logs are JSON-Lines (one JSON object per line) on stderr.
+# Container runtimes capture stderr automatically; on a bare-metal
+# install, point your log shipper (vector / fluent-bit / journald)
+# at the MATOFX service unit.
+
+[log]
+# One of: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL".
+# "INFO" is right for steady-state production. "DEBUG" is verbose
+# and should only be used for short investigations.
+level = "INFO"
+
+# When true, non-ASCII characters are escaped as \uXXXX in logs.
+# Default false — friendlier for humans grepping logs and for any
+# log shipper that handles UTF-8 (all modern ones do).
+ensure_ascii = false
+
+# Per-line size cap in bytes. Records that would serialise larger
+# than this are replaced with a small truncation marker so a runaway
+# log line can't exhaust your log pipeline. Default 16384 (16 KB).
+max_line_bytes = 16384
+
+# When true, every record carries a `hostname` field. Useful when
+# multiple MATOFX instances feed the same log pipeline.
+include_hostname = true
+
+# Customer-specific field-name substrings to redact (case-insensitive).
+# The built-in deny list (`password`, `token`, `secret`, `cookie`,
+# `authorization`, etc.) always applies; this extends it with terms
+# specific to your install.
+redact_fields = [
+    # "clearance_level",
+    # "customer_id",
+]
+
+
+# ------------------------------------------------------------
+# [db] — primary database
+# ------------------------------------------------------------
+# MATOFX uses the same data layer for SQLite (tiny / dev installs)
+# and Postgres (medium installs, ≥ ~50 concurrent users). The
+# dialect is selected here; the same code paths run on both.
+
+[db]
+# One of: "sqlite", "postgres".
+#
+# SQLite is fine for evaluation, demos, and small single-team
+# installs. Switch to Postgres before going to a real production
+# deployment; migration is documented in the admin guide.
+dialect = "postgres"
+
+# Connection URL.
+#
+# IMPORTANT — TOML treats backslash as an escape, so on Windows ALWAYS
+# use forward slashes in file paths. The application reads them fine on
+# both OSes.
+#
+# SQLite examples:
+#   Linux/macOS:  url = "sqlite:////var/lib/matofx/matofx.db"
+#   Windows:      url = "sqlite:///C:/ProgramData/matofx/db/matofx.db"
+#
+# Postgres example:
+#   url = "postgres://matofx:CHANGE_ME@localhost:5432/matofx"
+#
+# In production, set this via the MATOFX__DB__URL env var instead
+# of writing the password to disk.
+url = "postgres://matofx:CHANGE_ME@localhost:5432/matofx"
+
+# Maximum number of concurrent DB connections held by one MATOFX
+# process. Range 1–200. Tune up for higher concurrent-user counts.
+# Ignored by SQLite.
+pool_size = 20
+
+# Per-statement timeout in milliseconds. 0 disables.
+# 30_000 (30 s) is a sane default; raise for ad-hoc reporting,
+# lower for tight latency budgets.
+statement_timeout_ms = 30000
+
+
+# ------------------------------------------------------------
+# [audit] — hash-chained audit log
+# ------------------------------------------------------------
+# The audit log is the compliance backbone of MATOFX. Every login,
+# permission grant, job submission, approval, file access, licence
+# event, and config change is recorded here, hash-chained, and
+# signed with an Ed25519 key.
+
+[audit]
+# Path to the Ed25519 signing key.
+#
+# IMPORTANT — TOML treats backslash as an escape; use forward slashes
+# on Windows. The application reads them on both OSes.
+#
+# Linux/macOS example:   signing_key_path = "/etc/matofx/audit-signing.key"
+# Windows example:       signing_key_path = "C:/ProgramData/matofx/audit-signing.key"
+#
+# Leave unset on dev installs; the audit log is still hash-chained
+# but unsigned. Customers operating under regulatory requirements
+# MUST set this and turn on `require_signing` below.
+#
+# Generate the key file, after setting the path below:
+#   matofx rotate signing-key --init
+#
+# It refuses if a key already exists, so it can't quietly replace one.
+# To replace a key later, run the same command without --init: that
+# rotates it, retiring the old public key alongside the new one so
+# records signed before the rotation stay verifiable. Back up the
+# retired-key directory along with the key itself.
+signing_key_path = "/etc/matofx/audit-signing.key"
+
+# When true, MATOFX refuses to start if `signing_key_path` is unset
+# or unreadable. Strongly recommended for production — and **required**
+# when `environment = "prod"` (the cross-field safety check refuses to
+# load a prod config with require_signing = false).
+require_signing = true
+
+
+# ------------------------------------------------------------
+# [licence] — the signed licence file
+# ------------------------------------------------------------
+# MATOFX runs on a signed licence file checked entirely on this
+# machine: no licence server, no activation, no outbound connection.
+# The file is the authority and is re-verified on every check, so a
+# renewal is just "replace the file and reload".
+
+[licence]
+# Where the licence lives. `matofx licence install <path>` copies a
+# licence here and activates it; `matofx licence reload` re-reads it
+# after you have replaced it by hand.
+#
+# Forward slashes on Windows (TOML treats backslash as an escape).
+#
+# REQUIRED when environment = "prod" — the config refuses to load
+# without it, so a customer site can't quietly run unlicensed. A
+# developer checkout that never sets it is exempt and stays writable.
+file = "/etc/matofx/matofx-licence.json"
+#
+# Behaviour when this is set but the file is absent: the site runs
+# READ-ONLY (users can sign in and view; nothing can be submitted or
+# changed). A licence that has been *edited*, is signed by an untrusted
+# key, or is bound to a different machine is treated differently — the
+# app refuses to start. See the admin guide, "Your licence".
+
+
+# ------------------------------------------------------------
+# [compliance] — licence-compliance attestation (ADR-0019)
+# ------------------------------------------------------------
+# Lets this install produce the signed, anchored compliance report a
+# software supplier can ask for. Nothing here causes any outbound
+# connection: a report exists only when an administrator runs
+# `matofx compliance report`.
+
+[compliance]
+# The install-identity file issued for this install (JSON, signed by
+# the supplier). It carries the report signing key, so protect it like
+# a private key: owner-only permissions, and keep it out of backups
+# that travel less carefully than the database does.
+#
+# Adopt it once, on first install:
+#   matofx compliance adopt /etc/matofx/funis-install-identity.json
+#
+# Forward slashes on Windows (TOML treats backslash as an escape).
+# identity_file = "/etc/matofx/funis-install-identity.json"
+
+# Extra trusted issuer keys, as key-id → hex Ed25519 public key. The
+# release build already trusts the supplier's production keys; this is
+# for dev, test, and self-hosted verification only. With `environment
+# = "prod"`, an identity file that can't be verified against a trusted
+# key is refused outright.
+# [compliance.issuer_public_keys]
+# "funis-2026-01" = "<64 hex characters>"
+
+
+# ------------------------------------------------------------
+# [auth] — authentication, sessions, and login hardening
+# ------------------------------------------------------------
+# Local username/password auth. Everything here has a safe default;
+# the three settings flagged PRODUCTION below should be reviewed before
+# a real deployment.
+
+[auth]
+# Session timeouts (minutes / hours) and password floor.
+# session_idle_timeout_minutes = 30
+# session_hard_timeout_hours = 12
+# password_min_length = 12
+
+# Per-account lockout: lock an account for N minutes after this many
+# consecutive failed logins.
+# failed_login_lockout_threshold = 5
+# failed_login_lockout_minutes = 15
+
+# Per-IP login throttle — defence in depth over per-account lockout.
+# Stops an attacker spreading guesses across many usernames from one
+# source IP. Counts FAILED logins per IP within the window, then blocks
+# that IP for the cooldown. (In-process state — single-worker daemon.)
+# If you run MATOFX behind a reverse proxy, configure uvicorn's
+# --forwarded-allow-ips so the real client IP is seen, not the proxy's.
+# login_ip_rate_limit_max_failures = 30
+# login_ip_rate_limit_window_minutes = 15
+# login_ip_rate_limit_block_minutes = 15
+
+# PRODUCTION — UI session cookie signing secret.
+# The browser shell keeps the bearer token in a cookie signed with this
+# value. Leave it unset and MATOFX generates a *random* secret each time
+# the process starts — which logs everyone out on every restart and
+# breaks signature validation across workers. Set a stable, secret,
+# high-entropy value in production (prefer the env var so it stays out
+# of the file): MATOFX__AUTH__UI_SESSION_SECRET=...
+# ui_session_secret = "change-me-to-a-long-random-string"
+
+# PRODUCTION — cookie flags. Turn Secure on for any TLS deployment so
+# the session cookie is never sent over plain HTTP. SameSite "lax" suits
+# the single-origin shell; use "strict" to tighten, "none" (requires
+# secure) only for cross-site embeds. HttpOnly is always on.
+# ui_session_cookie_secure = true
+# ui_session_cookie_same_site = "lax"
+
+# Argon2id work factors (tune down only on constrained hardware).
+# argon2_time_cost = 3
+# argon2_memory_cost_kib = 65536
+# argon2_parallelism = 4
+
+
+# ------------------------------------------------------------
+# [tools] — uploaded tool-bundle storage
+# ------------------------------------------------------------
+# The API stages every uploaded tool bundle into a per-tool
+# subdirectory under `bundles_dir`. The directory is created on
+# demand the first time a tool is installed — operators don't need
+# to mkdir it ahead of time.
+#
+# IMPORTANT — set this to an ABSOLUTE path. The built-in default
+# (`./tools`) resolves against the service's working directory,
+# which on Windows under NSSM is `C:\Windows\System32` — uploads
+# would land there (or fail with Access Denied). Pick a writable
+# location under your application home.
+#
+# Linux/macOS example:   bundles_dir = "/var/lib/matofx/tools"
+# Windows example:       bundles_dir = "C:/ProgramData/matofx/tools"
+#
+# Forward slashes on Windows — TOML treats backslash as an escape.
+
+[tools]
+bundles_dir = "C:/ProgramData/matofx/tools"
+
+# Per-bundle upload cap in bytes (default 256 MiB). Stops a runaway
+# upload from filling the API host's disk.
+# max_upload_bytes = 268435456
+
+
+# ------------------------------------------------------------
+# [tutorials] — uploaded tutorial-file storage
+# ------------------------------------------------------------
+# Same shape as [tools] — tutorials (PDFs, videos) uploaded via the
+# Admin → Tutorials page land under `tutorials_dir`. Set an
+# absolute path for the same reason as [tools] above.
+#
+# Linux/macOS example:   tutorials_dir = "/var/lib/matofx/tutorials"
+# Windows example:       tutorials_dir = "C:/ProgramData/matofx/tutorials"
+
+[tutorials]
+tutorials_dir = "C:/ProgramData/matofx/tutorials"
+
+# Per-tutorial upload cap in bytes (default 512 MiB) — generous so
+# short training videos (50–300 MiB) fit comfortably.
+# max_upload_bytes = 536870912
+
+
+# ------------------------------------------------------------
+# [email] — outbound SMTP notifications
+# ------------------------------------------------------------
+# Drives automated job-state notifications (Running / Complete /
+# Failed) and admin broadcast emails. When `enabled = false` the
+# whole subsystem is a no-op — the safe default for dev / test /
+# air-gapped installs.
+#
+# Every value here is only the BASELINE. An administrator can
+# override host / port / username / password / STARTTLS / from-
+# address / public-url live from Admin -> General Settings with no
+# restart. The two exceptions are `enabled` and `use_tls`: those are
+# TOML-only and changing them needs a service restart.
+#
+# IMPORTANT — `smtp_password` is stored on disk in this file. Keep
+# the file readable only by the service account:
+#   Linux   : chmod 640 /etc/matofx/matofx.toml   (owner root:matofx)
+#   Windows : restrict the %PROGRAMDATA%\matofx ACL if the box is shared
+# Alternatively leave smtp_password unset here and supply it via the
+# MATOFX__EMAIL__SMTP_PASSWORD environment variable instead.
+
+[email]
+enabled = true
+
+# --- Relay connection ---------------------------------------------
+# The shipped defaults below are Gmail. Gmail requires 2-Step
+# Verification on the account, and an *App Password* (NOT the normal
+# account password) generated at
+#   myaccount.google.com -> Security -> App passwords
+#
+# Other providers use the same three knobs, different values:
+#   * STARTTLS submission (most common):  port 587
+#       use_starttls = true,  use_tls = false
+#       — AWS SES, SendGrid, Postmark, Microsoft 365 / Exchange, etc.
+#   * Implicit TLS (SMTPS):               port 465
+#       use_starttls = false, use_tls = true
+#   * Plain internal relay (no auth):     port 25
+#       use_starttls = false, use_tls = false, username/password empty
+smtp_host = "smtp.gmail.com"
+smtp_port = 587
+use_starttls = true
+use_tls = false
+
+# Verify the SMTP server's TLS certificate. LEAVE THIS TRUE (the
+# default) in any real install. Set it to false ONLY as a last
+# resort on a dev/demo box whose outbound TLS is intercepted by an
+# antivirus or proxy that injects a CA certificate OpenSSL 3.x
+# rejects — symptom: "SSLCertVerificationError: ... Basic
+# Constraints of CA cert not marked critical". false disables peer-
+# certificate and hostname checks for the SMTP TLS layer only, so a
+# man-in-the-middle could read the credentials below. TOML-only by
+# design — there is deliberately no Admin -> General Settings toggle.
+# tls_verify = true
+
+# --- Authentication -----------------------------------------------
+# Leave both empty for an unauthenticated internal relay.
+smtp_username = "info@funisconsulting.com"
+# Gmail App Password. Spaces are optional — Google displays it as
+# four 4-character groups; "abcd efgh ijkl mnop" and the spaceless
+# form both work. REPLACE this placeholder before going live, or
+# delete this line and set MATOFX__EMAIL__SMTP_PASSWORD instead.
+smtp_password = "REPLACE_WITH_GMAIL_APP_PASSWORD"
+
+# --- Message envelope ---------------------------------------------
+# Many relays (Gmail included) require `from_address` to match an
+# address the supplied credentials are authorised to send as.
+from_address = "info@funisconsulting.com"
+
+# Externally-visible base URL embedded in the deep links inside every
+# email. Set to the host users actually browse to in production,
+# e.g. "https://matofx.your-company.com". Trailing slashes stripped.
+public_url = "http://localhost:8000"
+
+# Per-message SMTP timeout in seconds (1–300). Default 30.
+# timeout_seconds = 30
+
+
+# ------------------------------------------------------------
+# [features] — per-customer feature toggles
+# ------------------------------------------------------------
+# MATOFX ships the same artefact to every customer; non-essential
+# features are toggled at install time. In production the signed
+# licence manifest is the authoritative source; this section is the
+# dev / test override.
+#
+# `enabled` is a list of feature slugs from the closed application
+# catalog (see matofx.features.Feature). Unknown slugs are rejected
+# at validation time — the application can only enforce features the
+# code knows about. To request a new toggle, ask Funis for a release
+# that introduces it.
+#
+# Default: empty list — no non-essential features are turned on.
+
+[features]
+enabled = [
+    # "ui.multiple_landing_dashboards",
+    # "parametric_studies",
+    # "materials_database",
+    # "file_library",
+    # "vv_tracking",
+    # "kpi_extraction",
+]

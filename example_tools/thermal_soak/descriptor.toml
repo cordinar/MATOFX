@@ -1,0 +1,247 @@
+schema_version = 1
+
+alias = "thermal_soak"
+name = "Thermal Soak"
+version = "1.0.0"
+description = """
+Transient heat-conduction analysis of the composite L-bracket. A mounted \
+component dissipates a steady heat load into a patch on the upright flange; \
+the heat conducts through the laminate (using its orthotropic conductivity, \
+rotated to follow the flanges) and is shed by convective cooling on the \
+exposed surfaces. A real finite-element solve (scikit-fem) steps the bracket \
+from ambient through its heat-up, writing the nodal temperature field at \
+every step so the job page animates the soak and a field surrogate can learn \
+it with time as an extra factor. The final soaked temperature field is also \
+written on its own (a .vtu nodal field, suitable as a thermal load for a \
+structural analysis). Reports the peak and mean temperature.\
+"""
+main_script = "thermal_soak.py"
+
+duration_class = "medium"
+
+# Field outputs (single + the timestep series) are kept by the ADR-0008
+# retention floor automatically; nothing extra to retain or delete.
+retain_files = []
+delete_io_files = []
+
+
+[execution_backend]
+kind = "subprocess"
+
+[resources]
+cpu_cores = 1
+ram_mb = 1024
+gpu_memory_mb = 0
+
+# --- Input layout ----------------------------------------------------------
+
+[[input_groups]]
+name = "material"
+label = "Laminate properties"
+column = 1
+row = 1
+
+[[input_groups]]
+name = "loading"
+label = "Thermal loading"
+column = 2
+row = 1
+
+[input_column_layout]
+column_1 = 0.5
+column_2 = 0.5
+
+# The laminate's effective conductivity + thermal mass + thickness. Defaults
+# are the CFRP baseline (e.g. from the Composite Laminate tool's outputs).
+[[inputs]]
+name = "kx"
+label = "Conductivity kx (in-plane)"
+group = "material"
+type = "float"
+unit = "W/m/K"
+default = 4.0
+minimum = 0.1
+maximum = 50.0
+precision = 0.01
+required = true
+
+[[inputs]]
+name = "ky"
+label = "Conductivity ky (in-plane)"
+group = "material"
+type = "float"
+unit = "W/m/K"
+default = 4.0
+minimum = 0.1
+maximum = 50.0
+precision = 0.01
+required = true
+
+[[inputs]]
+name = "kz"
+label = "Conductivity kz (through-thickness)"
+group = "material"
+type = "float"
+unit = "W/m/K"
+default = 0.6
+minimum = 0.1
+maximum = 10.0
+precision = 0.01
+required = true
+
+[[inputs]]
+name = "rho"
+label = "Density"
+group = "material"
+type = "float"
+unit = "kg/m3"
+default = 1600.0
+minimum = 100.0
+maximum = 5000.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "cp"
+label = "Specific heat"
+group = "material"
+type = "float"
+unit = "J/kg/K"
+default = 800.0
+minimum = 100.0
+maximum = 3000.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "thickness"
+label = "Laminate thickness"
+group = "material"
+type = "float"
+unit = "mm"
+default = 4.0
+minimum = 0.5
+maximum = 20.0
+precision = 0.001
+required = true
+
+[[inputs]]
+name = "heat_load"
+label = "Component heat load"
+group = "loading"
+type = "float"
+unit = "W"
+default = 6.0
+minimum = 2.0
+maximum = 12.0
+precision = 0.1
+widget = "slider"
+required = true
+
+[[inputs]]
+name = "h_conv"
+label = "Convection coefficient"
+group = "loading"
+type = "float"
+unit = "W/m2/K"
+default = 30.0
+minimum = 10.0
+maximum = 50.0
+precision = 1
+widget = "slider"
+required = true
+
+[[inputs]]
+name = "ambient"
+label = "Ambient temperature"
+group = "loading"
+type = "float"
+unit = "degC"
+default = 25.0
+minimum = 15.0
+maximum = 40.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "duration"
+label = "Soak duration"
+group = "loading"
+type = "float"
+unit = "s"
+default = 600.0
+minimum = 60.0
+maximum = 3600.0
+precision = 1
+required = true
+
+# --- Output layout ---------------------------------------------------------
+
+[[output_groups]]
+name = "scalars"
+label = "Temperatures"
+column = 1
+row = 1
+
+[[output_groups]]
+name = "fields"
+label = "Temperature fields"
+column = 1
+row = 2
+
+[output_column_layout]
+column_1 = 1.0
+
+[[outputs]]
+name = "t_max"
+label = "Peak temperature"
+group = "scalars"
+type = "number"
+unit = "degC"
+precision = 0.01
+kpi = true
+kpi_label = "Peak temperature"
+kpi_unit = "degC"
+# Output-validity bounds (ADR-0017). The soak starts at ambient (>=15 degC) and
+# only heats, so a physical result stays >= 0; thousands of degrees is a
+# degenerate solve. t_max is also the final field's peak, so bounding it flags a
+# blown-up temperature field at record time. Generous ceiling, tune per tool.
+min = 0.0
+max = 1000.0
+
+[[outputs]]
+name = "t_avg"
+label = "Mean temperature"
+group = "scalars"
+type = "number"
+unit = "degC"
+precision = 0.01
+min = 0.0
+max = 1000.0
+
+[[outputs]]
+name = "temperature_series"
+label = "Temperature field (transient)"
+group = "fields"
+type = "file"
+file_type = "field"
+filename = "outputs/temperature_step_0000.vtu"
+field_format = "vtu"
+field_node_array_name = "temperature"
+field_timesteps = "outputs/temperature_step_*.vtu"
+# Per-node validity (ADR-0017): every node >= 0 degC and below a numerical
+# ceiling; a snapshot with a NaN/blown-up node is dropped at surrogate ingest.
+value_min = 0.0
+value_max = 1000.0
+
+[[outputs]]
+name = "temperature_final"
+label = "Temperature field (final soak)"
+group = "fields"
+type = "file"
+file_type = "field"
+filename = "outputs/temperature_final.vtu"
+field_format = "vtu"
+field_node_array_name = "temperature"
+value_min = 0.0
+value_max = 1000.0

@@ -1,0 +1,264 @@
+schema_version = 1
+
+alias = "heat_transfer"
+name = "2D Heat Transfer"
+version = "1.0.0"
+description = """
+Solves the 2D transient heat-conduction equation on a uniform rectangular grid with \
+convective boundaries on all four sides. Density varies linearly between the left and \
+right edges to model a graded composite. Outputs the corner and core temperatures plus \
+average / top-edge temperature profiles over time, and a Plotly heatmap of the final \
+temperature field.\
+"""
+main_script = "heat_transfer.py"
+
+duration_class = "medium"
+
+retain_files = []
+delete_io_files = []
+
+downstream_tools = []
+
+[execution_backend]
+kind = "subprocess"
+
+[resources]
+cpu_cores = 1
+ram_mb = 1024
+gpu_memory_mb = 0
+
+[[input_groups]]
+name = "object_description"
+label = "Object Description"
+column = 1
+row = 1
+
+[[input_groups]]
+name = "ambient_conditions"
+label = "Ambient Conditions"
+column = 2
+row = 1
+
+[[input_groups]]
+name = "simulation_settings"
+label = "Simulation Settings"
+column = 2
+row = 2
+
+[input_column_layout]
+column_1 = 0.5
+column_2 = 0.5
+
+[[inputs]]
+name = "object_temperature"
+label = "Starting temperature"
+group = "object_description"
+type = "float"
+unit = "degC"
+default = 25
+minimum = 0
+maximum = 300
+precision = 0.1
+required = true
+
+[[inputs]]
+name = "width"
+label = "Width"
+group = "object_description"
+type = "float"
+unit = "m"
+default = 0.2
+minimum = 0.01
+maximum = 1.0
+precision = 0.01
+required = true
+
+[[inputs]]
+name = "height"
+label = "Height"
+group = "object_description"
+type = "float"
+unit = "m"
+default = 0.1
+minimum = 0.01
+maximum = 1.0
+precision = 0.01
+required = true
+
+[[inputs]]
+name = "density_left"
+label = "Density - left"
+group = "object_description"
+type = "float"
+unit = "kg/m3"
+default = 1000
+minimum = 500
+maximum = 3000
+precision = 1
+required = true
+
+[[inputs]]
+name = "density_right"
+label = "Density - right"
+group = "object_description"
+type = "float"
+unit = "kg/m3"
+default = 1000
+minimum = 500
+maximum = 3000
+precision = 1
+required = true
+
+[[inputs]]
+name = "thermal_conductivity"
+label = "Thermal conductivity"
+group = "object_description"
+type = "float"
+unit = "W/m/K"
+default = 0.5
+minimum = 0.01
+maximum = 1.50
+precision = 0.01
+downstream_input = true
+upstream_tool = "material_properties"
+required = true
+
+[[inputs]]
+name = "heat_capacity"
+label = "Heat capacity"
+group = "object_description"
+type = "float"
+unit = "J/kg/K"
+default = 1500
+minimum = 100
+maximum = 3000
+precision = 1
+downstream_input = true
+upstream_tool = "material_properties"
+required = true
+
+[[inputs]]
+name = "air_temperature"
+label = "Air temperature"
+group = "ambient_conditions"
+type = "float"
+unit = "degC"
+default = 120
+minimum = 10
+maximum = 300
+precision = 0.1
+required = true
+
+[[inputs]]
+name = "air_speed"
+label = "Air speed"
+group = "ambient_conditions"
+type = "float"
+unit = "m/s"
+default = 2
+minimum = 0.1
+maximum = 20
+precision = 0.1
+required = true
+
+[[inputs]]
+name = "simulation_time"
+label = "Simulation time"
+group = "simulation_settings"
+type = "float"
+unit = "s"
+default = 240
+minimum = 10
+maximum = 2400
+precision = 1
+required = true
+
+[[output_groups]]
+name = "temperatures"
+label = "Temperatures"
+column = 1
+row = 1
+
+[[output_groups]]
+name = "plots"
+label = "Plots"
+column = 2
+row = 1
+
+[output_column_layout]
+column_1 = 0.2
+column_2 = 0.8
+
+[[outputs]]
+name = "T_core"
+label = "Core temperature"
+group = "temperatures"
+unit = "degC"
+precision = 0.01
+type = "number"
+
+[[outputs]]
+name = "T_0_0"
+label = "Bottom left"
+group = "temperatures"
+unit = "degC"
+precision = 0.01
+type = "number"
+
+[[outputs]]
+name = "T_0_1"
+label = "Top left"
+group = "temperatures"
+unit = "degC"
+precision = 0.01
+type = "number"
+
+[[outputs]]
+name = "T_1_0"
+label = "Bottom right"
+group = "temperatures"
+unit = "degC"
+precision = 0.01
+type = "number"
+
+[[outputs]]
+name = "T_1_1"
+label = "Top right"
+group = "temperatures"
+unit = "degC"
+precision = 0.01
+type = "number"
+
+[[outputs]]
+name = "temp_gradient_profile"
+label = "Temperature gradient plot"
+group = "plots"
+type = "file"
+file_type = "html_plot"
+filename = "temperature_field.html"
+
+[[outputs]]
+name = "avg_temp_profile"
+label = "Average temperature profile"
+group = "plots"
+type = "file"
+file_type = "csv_plot"
+filename = "average_temperature_profile.csv"
+xaxis_column = 0
+yaxis_column = 1
+plot_title = "Average Temperature vs Time"
+xaxis_title = "Time (s)"
+yaxis_title = "Average Temperature (degC)"
+
+[[outputs]]
+name = "top_temp_profile"
+label = "Top temperature profile"
+group = "plots"
+type = "file"
+file_type = "csv_plot"
+filename = "top_temperature_profile.csv"
+xaxis_column = 0
+yaxis_column = 1
+plot_title = "Top Temperature vs Time"
+xaxis_title = "Time (s)"
+yaxis_title = "Top Temperature (degC)"

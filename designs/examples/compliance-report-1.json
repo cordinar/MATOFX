@@ -1,0 +1,118 @@
+{
+  "anchor": {
+    "consistency_proofs": [],
+    "consistency_proofs_truncated": false,
+    "genesis_record": {
+      "hash": "2bf358441dbcc28f5b2258abaf7d823668c70f6ba5b5b4c592c6a489e1d5d85d",
+      "id": 1,
+      "timestamp": "2026-08-12T07:44:26.446389Z"
+    },
+    "head": {
+      "hash": "36fa3d16a53ac55a57a5a1248a6c819f3ceb31a79e2acc69fa7ae8f80570db0b",
+      "id": 120,
+      "timestamp": "2026-08-12T07:44:26.892668Z"
+    },
+    "previous_head_rehashed_now": null,
+    "previous_report": null,
+    "tree": {
+      "algorithm": "rfc6962-sha256",
+      "root": "d0380fc1fa9a1d2cdc9102686f2da0c87f60992665f734d2e45464d8fa56e37f",
+      "size": 120
+    }
+  },
+  "chain_verification": {
+    "failures": [],
+    "failures_truncated": false,
+    "last_verified_age_hours": null,
+    "last_verified_at": null,
+    "ok": true,
+    "range": {
+      "end_id": 120,
+      "start_id": 1
+    },
+    "records_checked": 120,
+    "signing_keys_configured": [
+      "a94e9ca5282cf75a"
+    ],
+    "verification_is_current": true
+  },
+  "counter": 1,
+  "generated_at": "2026-08-12T07:44:26.940797Z",
+  "install": {
+    "app_version": "0.0.3",
+    "customer": "Northwind Aerospace Ltd",
+    "db_dialect": "sqlite",
+    "environment": "production",
+    "identity_sha256": "d850787a5288118cc13e01eabc134a0cd426546ee4844ad62e750891f3efb289",
+    "install_id": "inst_7Q2M4KJ9",
+    "issuer_key_id": "funis-2026-01",
+    "issuer_verified": true
+  },
+  "licence": {
+    "expires_at": null,
+    "features_enabled": null,
+    "issued_at": null,
+    "licence_id": null,
+    "licence_type": null,
+    "manifest_sha256": null,
+    "n_slots": null,
+    "state": "not_installed"
+  },
+  "licence_events": {
+    "audit.verify.acknowledged": 0,
+    "audit.verify.failed": 0,
+    "compliance.report.generated": 0,
+    "licence.assignment.denied": 0,
+    "licence.assignment.granted": 0,
+    "licence.assignment.revoked": 0,
+    "licence.expiry.transition": 0,
+    "licence.installed": 0,
+    "licence.readonly.entered": 0,
+    "licence.readonly.left": 0,
+    "licence.slot.breakglass": 0,
+    "licence.slot.denied": 0,
+    "licence.slot.granted": 0,
+    "licence.slot.released": 0,
+    "licence.validated.failed": 0,
+    "licence.validated.ok": 0
+  },
+  "notable_events": [],
+  "notable_events_truncated": false,
+  "period": {
+    "from": "2026-08-12T07:44:26.446389Z",
+    "to": "2026-08-12T07:44:26.940797Z"
+  },
+  "report_schema_version": 2,
+  "signature": {
+    "alg": "ed25519",
+    "covers": "every field except 'signature', canonicalised per matofx.compliance.canonical",
+    "key_id": "1325b850c2871916",
+    "value": "db7a6f7ae5f50a4e69441f63a591e303db46f8814b441485317e8ae4ffa22b72276c55a7e50e91491406dd9b66b6152c265cc05c528f85d8644050f05c581302"
+  },
+  "usage": {
+    "authoritative": null,
+    "csl": {
+      "breakglass_admissions": 0,
+      "n_slots": null,
+      "over_cap": null,
+      "peak_by_day": {
+        "2026-08-12": 11
+      },
+      "peak_concurrent_sessions": 11,
+      "sessions_started": 0,
+      "slots_denied": 0,
+      "slots_granted": 0
+    },
+    "fal": {
+      "assignments_current": 11,
+      "assignments_denied": 0,
+      "assignments_granted": 0,
+      "assignments_revoked": 0,
+      "n_slots": null,
+      "over_cap": null,
+      "registered_users": 11,
+      "source": "enabled_accounts"
+    },
+    "licence_type": null
+  }
+}

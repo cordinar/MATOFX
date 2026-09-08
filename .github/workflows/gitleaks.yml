@@ -1,0 +1,44 @@
+name: Gitleaks
+
+# Secret scanning. Runs on every PR and on every push to main, plus
+# weekly so leaked secrets that slip past PR review (or end up in a
+# branch that never PRs) still surface within a week.
+#
+# Pre-commit already runs ``detect-private-key`` locally; this is the
+# second line of defence — it catches access keys / API tokens / OAuth
+# refresh tokens that the local hook doesn't recognise.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Sunday 03:00 UTC — quiet hours, before the Monday Dependabot wave.
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Actions tagged ``@v<n>`` here will be auto-rotated to a commit SHA by
+# the weekly Dependabot run. Verify the SHA in the resulting PR before
+# merging — the OpenSSF Scorecard guideline is SHA pins only.
+
+jobs:
+  gitleaks:
+    name: Scan for committed secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Full history so gitleaks can inspect every commit, not just
+          # the tip.
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          # gitleaks-action only collects the (anonymous) license keepalive
+          # ping when GITLEAKS_LICENSE is set. Leave it unset for the
+          # community / open-source path; the scanner runs the same way.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

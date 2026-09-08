@@ -1,0 +1,132 @@
+schema_version = 1
+
+alias = "material_properties"
+name = "Material Properties Calculator"
+version = "1.0.0"
+description = """
+Estimates the bulk thermal conductivity and heat capacity of a three-component formulation \
+from a small library of named components. Useful as the upstream tool in a heat-transfer \
+study — its outputs can be wired into the heat_transfer tool's matching inputs.\
+"""
+main_script = "material_properties.py"
+
+duration_class = "snappy"
+
+retain_files = []
+delete_io_files = []
+
+[execution_backend]
+kind = "subprocess"
+
+[resources]
+cpu_cores = 1
+ram_mb = 256
+gpu_memory_mb = 0
+
+[[input_groups]]
+name = "formulation"
+label = "Formulation"
+column = 1
+row = 1
+sub_columns = 2
+
+[[inputs]]
+name = "component_1"
+label = "Component 1"
+type = "select"
+options = ["Component A", "Component B", "Component C", "Component D", "Component E"]
+group = "formulation"
+sub_column = 1
+required = true
+
+[[inputs]]
+name = "component_2"
+label = "Component 2"
+type = "select"
+options = ["Component A", "Component B", "Component C", "Component D", "Component E"]
+group = "formulation"
+sub_column = 1
+required = true
+
+[[inputs]]
+name = "component_3"
+label = "Component 3"
+type = "select"
+options = ["Component A", "Component B", "Component C", "Component D", "Component E"]
+group = "formulation"
+sub_column = 1
+required = true
+
+[[inputs]]
+name = "component_1_percent"
+label = "Percentage 1"
+type = "float"
+unit = "%"
+minimum = 0.0
+maximum = 100.0
+precision = 0.01
+group = "formulation"
+sub_column = 2
+required = true
+
+[inputs.sum_check]
+value = 100.0
+sum_parameters = ["component_1_percent", "component_2_percent", "component_3_percent"]
+
+[[inputs]]
+name = "component_2_percent"
+label = "Percentage 2"
+type = "float"
+unit = "%"
+minimum = 0.0
+maximum = 100.0
+precision = 0.01
+group = "formulation"
+sub_column = 2
+required = true
+
+[inputs.sum_check]
+value = 100.0
+sum_parameters = ["component_1_percent", "component_2_percent", "component_3_percent"]
+
+[[inputs]]
+name = "component_3_percent"
+label = "Percentage 3"
+type = "float"
+unit = "%"
+minimum = 0.0
+maximum = 100.0
+precision = 0.01
+group = "formulation"
+sub_column = 2
+required = true
+
+[inputs.sum_check]
+value = 100.0
+sum_parameters = ["component_1_percent", "component_2_percent", "component_3_percent"]
+
+[input_column_layout]
+column_1 = 0.4
+column_2 = 0.6
+
+[[output_groups]]
+name = "physical_properties"
+label = "Physical Properties"
+column = 1
+row = 1
+
+[[outputs]]
+name = "thermal_conductivity"
+label = "Thermal Conductivity"
+group = "physical_properties"
+unit = "W/m/K"
+precision = 0.001
+type = "number"
+
+[[outputs]]
+name = "heat_capacity"
+label = "Heat Capacity"
+group = "physical_properties"
+unit = "J/kg/K"
+precision = 0.01
+type = "number"

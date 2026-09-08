@@ -1,0 +1,378 @@
+schema_version = 1
+
+alias = "bracket_stress"
+name = "Bracket Stress"
+version = "1.0.0"
+description = """
+Thermo-mechanical stress analysis of the composite L-bracket. A real \
+finite-element solve (scikit-fem) using a layered solid — one element layer \
+per ply, each with its orthotropic stiffness rotated to follow the flanges. \
+The bracket is loaded by a nodal temperature field (a .vtu, e.g. the soaked \
+field from a thermal analysis) giving per-ply thermal expansion, plus an \
+external mechanical load at the free flange, with the mounting flange \
+clamped. Quadratic elements avoid shear locking. Failure is assessed \
+ply-by-ply with proper composite criteria — both max-stress and Tsai-Wu \
+first-ply-failure — not von Mises. Reports the peak failure index, peak \
+deflection and mass, plus the nodal failure-index field. The stacking \
+sequence matters: fibres on the outside resist bending, so the layup and \
+thickness trade stiffness and strength against weight.\
+"""
+main_script = "bracket_stress.py"
+
+duration_class = "long"
+
+retain_files = []
+delete_io_files = []
+
+
+[execution_backend]
+kind = "subprocess"
+
+[resources]
+cpu_cores = 1
+ram_mb = 2048
+gpu_memory_mb = 0
+
+[[input_groups]]
+name = "material"
+label = "Laminate properties"
+column = 1
+row = 1
+
+[[input_groups]]
+name = "thermal"
+label = "Thermal load"
+column = 2
+row = 1
+
+[[input_groups]]
+name = "mechanical"
+label = "Mechanical load"
+column = 2
+row = 2
+
+[input_column_layout]
+column_1 = 0.5
+column_2 = 0.5
+
+# Laminate per-ply card + layup + thickness + mass. Defaults are the CFRP
+# baseline (e.g. from the Composite Laminate tool's outputs).
+[[inputs]]
+name = "e1"
+label = "Lamina E1"
+group = "material"
+type = "float"
+unit = "GPa"
+default = 181.0
+minimum = 1.0
+maximum = 500.0
+precision = 0.1
+required = true
+
+[[inputs]]
+name = "e2"
+label = "Lamina E2"
+group = "material"
+type = "float"
+unit = "GPa"
+default = 10.3
+minimum = 1.0
+maximum = 200.0
+precision = 0.1
+required = true
+
+[[inputs]]
+name = "g12"
+label = "Lamina G12"
+group = "material"
+type = "float"
+unit = "GPa"
+default = 7.17
+minimum = 0.5
+maximum = 100.0
+precision = 0.01
+required = true
+
+[[inputs]]
+name = "nu12"
+label = "Lamina nu12"
+group = "material"
+type = "float"
+default = 0.28
+minimum = 0.0
+maximum = 0.5
+precision = 0.001
+required = true
+
+[[inputs]]
+name = "alpha1"
+label = "Lamina alpha1"
+group = "material"
+type = "float"
+unit = "1e-6/degC"
+default = 0.02
+minimum = -5.0
+maximum = 50.0
+precision = 0.01
+required = true
+
+[[inputs]]
+name = "alpha2"
+label = "Lamina alpha2"
+group = "material"
+type = "float"
+unit = "1e-6/degC"
+default = 22.5
+minimum = 0.0
+maximum = 100.0
+precision = 0.1
+required = true
+
+[[inputs]]
+name = "xt"
+label = "Strength Xt"
+group = "material"
+type = "float"
+unit = "MPa"
+default = 1500.0
+minimum = 1.0
+maximum = 10000.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "xc"
+label = "Strength Xc"
+group = "material"
+type = "float"
+unit = "MPa"
+default = 1500.0
+minimum = 1.0
+maximum = 10000.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "yt"
+label = "Strength Yt"
+group = "material"
+type = "float"
+unit = "MPa"
+default = 40.0
+minimum = 1.0
+maximum = 2000.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "yc"
+label = "Strength Yc"
+group = "material"
+type = "float"
+unit = "MPa"
+default = 246.0
+minimum = 1.0
+maximum = 2000.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "s_shear"
+label = "Strength S"
+group = "material"
+type = "float"
+unit = "MPa"
+default = 68.0
+minimum = 1.0
+maximum = 1000.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "theta1"
+label = "Ply angle theta1"
+group = "material"
+type = "float"
+unit = "deg"
+default = 45.0
+minimum = 0.0
+maximum = 90.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "theta2"
+label = "Ply angle theta2"
+group = "material"
+type = "float"
+unit = "deg"
+default = 0.0
+minimum = 0.0
+maximum = 90.0
+precision = 1
+required = true
+
+[[inputs]]
+name = "thickness"
+label = "Laminate thickness"
+group = "material"
+type = "float"
+unit = "mm"
+default = 4.0
+minimum = 1.0
+maximum = 8.0
+precision = 0.001
+required = true
+
+[[inputs]]
+name = "mass"
+label = "Bracket mass"
+group = "material"
+type = "float"
+unit = "g"
+default = 49.55
+minimum = 1.0
+maximum = 1000.0
+precision = 0.01
+required = true
+
+# A nodal temperature field (.vtu) on the bracket mesh — e.g. the final
+# soaked field produced by the Thermal Soak tool.
+[[inputs]]
+name = "temperature_field"
+label = "Temperature field"
+group = "thermal"
+type = "file"
+accepted_file_types = ["vtu"]
+expected_field_array = "temperature"
+required = false
+help_text = "Optional .vtu nodal temperature field on the bracket mesh (e.g. the Thermal Soak tool's final soaked field) — drives per-ply thermal expansion. Leave empty for an isothermal, mechanical-only check."
+
+[[inputs]]
+name = "t_ref"
+label = "Stress-free temperature"
+group = "thermal"
+type = "float"
+unit = "degC"
+default = 25.0
+minimum = 0.0
+maximum = 60.0
+precision = 1
+required = true
+
+# --- Open mechanical load ---
+[[inputs]]
+name = "mech_load"
+label = "Tip load"
+group = "mechanical"
+type = "float"
+unit = "N"
+default = 200.0
+minimum = 0.0
+maximum = 2000.0
+precision = 1
+widget = "slider"
+required = true
+
+# --- Outputs ---
+[[output_groups]]
+name = "results"
+label = "Results"
+column = 1
+row = 1
+
+[[output_groups]]
+name = "fields"
+label = "Fields"
+column = 1
+row = 2
+
+[output_column_layout]
+column_1 = 1.0
+
+[[outputs]]
+name = "fi_max"
+label = "Peak failure index"
+group = "results"
+type = "number"
+precision = 0.001
+kpi = true
+kpi_label = "Failure index"
+# Output-validity bounds (ADR-0017). A dimensionless failure index is >= 0
+# (failure at 1); a value in the thousands is a diverged / non-physical solve,
+# not a real overload — flag those runs invalid so they're excluded from
+# surrogates, sensitivity and optimisation. Generous ceiling, tune per tool.
+min = 0.0
+max = 1000.0
+
+[[outputs]]
+name = "field_max"
+label = "Peak field failure index"
+group = "results"
+type = "number"
+precision = 0.001
+# Companion scalar for failure_field (ADR-0017): a non-physical field shows up
+# here (NaN or thousands) and flags the run at record time — the study Health
+# column catches it without opening the .vtu.
+min = 0.0
+max = 1000.0
+
+[[outputs]]
+name = "max_stress_index"
+label = "Peak max-stress index"
+group = "results"
+type = "number"
+precision = 0.001
+# Max-stress index is >= 0 by construction; thousands = a diverged solve.
+min = 0.0
+max = 1000.0
+
+[[outputs]]
+name = "tsai_wu_index"
+label = "Peak Tsai-Wu index"
+group = "results"
+type = "number"
+precision = 0.001
+# The Tsai-Wu polynomial can be legitimately negative (compression), so no
+# floor — only a generous ceiling to catch numerical blow-ups.
+max = 1000.0
+
+[[outputs]]
+name = "max_deflection"
+label = "Peak deflection"
+group = "results"
+type = "number"
+unit = "mm"
+precision = 0.001
+kpi = true
+kpi_label = "Peak deflection"
+kpi_unit = "mm"
+# A physical tip deflection is millimetre-scale; >1 m (1000 mm) is a diverged
+# solve (the solver guard caps displacement, but bound the reported value too).
+min = 0.0
+max = 1000.0
+
+[[outputs]]
+name = "mass"
+label = "Bracket mass"
+group = "results"
+type = "number"
+unit = "g"
+precision = 0.01
+# Mass is strictly positive.
+min = 0.0
+
+[[outputs]]
+name = "failure_field"
+label = "Failure-index field"
+group = "fields"
+type = "file"
+file_type = "field"
+filename = "outputs/failure_index.vtu"
+field_format = "vtu"
+field_node_array_name = "failure_index"
+# Per-node output-validity bounds (ADR-0017): a nodal failure index is >= 0;
+# thousands = a non-physical solve. A run whose field breaches these is dropped
+# at ingest so it can't poison a POD field surrogate. Tunable per tool.
+value_min = 0.0
+value_max = 1000.0

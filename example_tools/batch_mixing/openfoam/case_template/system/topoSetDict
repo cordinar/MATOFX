@@ -1,0 +1,29 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  Batch Mixing — build the `mrf` cellZone (impeller rotating zone) from the
+  cylinder in geometry_meta.json. Run after snappyHexMesh, before the solver.
+  render_case.py rewrites p1/p2/radius; baseline values below.
+\*---------------------------------------------------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object topoSetDict; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+actions
+(
+    {
+        name    mrf;
+        type    cellSet;
+        action  new;
+        source  cylinderToCell;
+        p1      (0 0 @MRF_Z1@);
+        p2      (0 0 @MRF_Z2@);
+        radius  @MRF_R@;
+    }
+    {
+        name    mrf;
+        type    cellZoneSet;
+        action  new;
+        source  setToCellZone;
+        set     mrf;
+    }
+);
+
+// ************************************************************************* //

@@ -1,0 +1,24 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  Batch Mixing — MRF frozen-rotor zone for the impeller. Rotates the `mrf`
+  cellZone (created by system/topoSetDict from geometry_meta's mrf_zone) about
+  the shaft axis at `omega`. render_case.py sets omega from the rpm input.
+  Baseline: 120 rpm -> omega = 12.566 rad/s.
+\*---------------------------------------------------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object MRFProperties; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+MRF1
+{
+    cellZone            mrf;
+    active              yes;
+
+    // Walls inside the zone that should NOT rotate (none here: impeller + the
+    // shaft segment in the zone co-rotate; baffles/tank are outside the zone).
+    nonRotatingPatches  ();
+
+    origin              (0 0 0);
+    axis                (0 0 1);
+    omega               @OMEGA@;   // [rad/s] = rpm * 2pi/60
+}
+
+// ************************************************************************* //

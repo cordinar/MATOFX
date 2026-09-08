@@ -1,0 +1,95 @@
+name: Regenerate lockfile
+
+# Regenerates the hashed Python lockfile (``requirements.lock``) from
+# ``pyproject.toml``. Triggered manually by a maintainer (so dep
+# bumps batch into one PR rather than fighting Dependabot's stream)
+# and on any direct push that touches ``pyproject.toml`` on a feature
+# branch.
+#
+# Outputs ``requirements.lock`` with cryptographic hashes per dep
+# (``--generate-hashes``) so CI's verify step can install with
+# ``pip install --require-hashes`` and reject any swapped artefact.
+#
+# Two transitive constraints worth noting:
+#
+#   - The lockfile is platform-specific (linux/x86_64, py3.12) — we
+#     resolve dependencies on the same OS / interpreter the wheel
+#     ships against. A second lockfile per target platform would be
+#     needed if MATOFX ever shipped Windows / macOS wheels; for now
+#     the supported deployment target is Linux.
+#   - Heavy native deps (asyncpg, cryptography) resolve to manylinux
+#     wheels on this runner; if any of them ever falls back to an
+#     sdist build, ``--generate-hashes`` will still capture the source
+#     tarball's hash.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you regenerating the lockfile?"
+        required: false
+        default: "Routine refresh"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile:
+    name: Compile + open PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: the repository root
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install pip-tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[supply-chain]"
+
+      - name: Compile requirements.lock
+        # Lock both the runtime extras the deployed install will use
+        # (``postgres``) and the dev tooling so CI's verify path matches
+        # what we ship. ``examples`` is intentionally excluded — it's
+        # only for the bundled smoke tools, never for the core wheel.
+        run: |
+          pip-compile pyproject.toml \
+            --extra postgres \
+            --extra dev \
+            --extra supply-chain \
+            --generate-hashes \
+            --resolver=backtracking \
+            --strip-extras \
+            --output-file requirements.lock
+
+      - name: Open PR if the lockfile changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REASON: ${{ github.event.inputs.reason }}
+        run: |
+          if git diff --quiet requirements.lock; then
+            echo "Lockfile already current — nothing to PR."
+            exit 0
+          fi
+          BRANCH="lockfile/regen-$(date -u +%Y%m%d-%H%M%S)"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${BRANCH}"
+          git add requirements.lock
+          git commit -m "deps: regenerate requirements.lock"
+          git push --set-upstream origin "${BRANCH}"
+          gh pr create \
+            --title "deps: regenerate requirements.lock" \
+            --body "Automated regeneration of \`requirements.lock\` (with hashes).\n\n**Reason:** ${REASON}\n\nVerify CI's lockfile-install job passes before merging." \
+            --label dependencies \
+            --label python

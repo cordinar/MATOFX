@@ -1,0 +1,53 @@
+# Dependabot configuration — supply-chain hardening for the v1.0 pilot.
+#
+# Keeps two ecosystems fresh:
+#
+# 1. github-actions: rotates the commit-SHA pins on every workflow.
+#    OpenSSF Scorecard requires actions to be pinned by SHA (tags can be
+#    moved upstream); Dependabot bumps the SHAs as upstream cuts new
+#    releases without us having to track them by hand.
+# 2. pip: Python dependency updates against pyproject.toml.
+#
+# Both run weekly so the maintainer gets a predictable, batched review
+# instead of a stream of one-off bumps. Security advisories surface
+# regardless of schedule via Dependabot's separate alert pipeline.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /the repository root
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/London
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: ci
+      include: scope
+
+  - package-ecosystem: pip
+    directory: /the repository root
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/London
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - python
+    commit-message:
+      prefix: deps
+      include: scope
+    groups:
+      # Group minor + patch bumps so the maintainer reviews one PR per
+      # week per ecosystem rather than ten. Major bumps stay separate
+      # because they need human judgement.
+      python-minor-and-patch:
+        update-types:
+          - minor
+          - patch

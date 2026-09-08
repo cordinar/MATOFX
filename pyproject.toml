@@ -1,0 +1,368 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "matofx"
+version = "0.0.8+local20260724.2"
+description = "MATOFX SPDM — Funis Consulting Ltd"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "Funis Consulting Ltd", email = "support@funisoft.com" }]
+maintainers = [{ name = "Funis Consulting Ltd", email = "support@funisoft.com" }]
+keywords = ["spdm", "simulation", "process-management", "matofx"]
+classifiers = [
+    "Private :: Do Not Upload",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "pydantic>=2.10",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.20",
+    "alembic>=1.14",
+    # cryptography floor raised to 48.0.1 to clear GHSA-537c-gmf6-5ccf
+    # (advisory affecting 47.x). Underpins the Ed25519 audit signing +
+    # secrets crypto, so it stays current.
+    "cryptography>=48.0.1",
+    "argon2-cffi>=23.1",
+    # asyncssh — Linux/Unix AOS (always-on server) target. Dual-licensed
+    # EPL-2.0 OR GPL-2.0-or-later; we elect the EPL-2.0 terms (weak copyleft,
+    # distributable within our proprietary product). Used by matofx.tools.exec.aos_ssh
+    # to submit, poll, cancel, and fetch logs over SSH. The shared mount is the
+    # source of truth for working dirs / heartbeat / logs; SSH is only used to
+    # spawn the launcher and (on cancel) signal the process tree.
+    "asyncssh>=2.18",
+    # pywinrm — Windows AOS target. MIT-licensed. Used by
+    # matofx.tools.exec.aos_winrm. Like SSH the shared mount is the source of
+    # truth; WinRM only spawns the launcher and signals the process tree on
+    # cancel. Synchronous library, so the target wraps calls in asyncio.to_thread.
+    "pywinrm>=0.5",
+    # psutil — BSD-3-Clause. The runner's local admission control
+    # (matofx.runner.hostcaps) reads the host's logical CPU count + total RAM
+    # so a local job is only started when the box actually has the cores /
+    # memory its descriptor declares — not merely a free concurrency slot.
+    # Detected once and cached for the process lifetime; the budget settings
+    # that override it hot-reload from the runtime_setting table.
+    "psutil>=5.9",
+    # fastapi — HTTP API surface (matofx.api). MIT. Carries Starlette + the
+    # request/response stack the NiceGUI shell talks to.
+    "fastapi>=0.115",
+    # uvicorn — ASGI server installed alongside the API for the matofx-api
+    # console script. BSD-3-Clause.
+    "uvicorn[standard]>=0.30",
+    # python-multipart — fastapi's form / file-upload parser. MIT (with Apache-2 components).
+    # Floor raised to 0.0.31 to clear the form-parser DoS advisories
+    # (PYSEC-2026-3036/3037/3040) affecting 0.0.27 and earlier.
+    "python-multipart>=0.0.31",
+    # nicegui — UI shell (matofx.ui). MIT-licensed. Mounts onto the same
+    # FastAPI app the API runs in, so a single uvicorn worker serves
+    # both /api/* and /ui/*. Used by the matofx.ui package only.
+    # Floor raised to 3.12.0 to clear PYSEC-2026-2679/2680 (affecting
+    # 3.11.x). NiceGUI also transitively carries the request-path stack
+    # (starlette / aiohttp / python-engineio / python-socketio /
+    # lxml-html-clean / python-multipart), so keeping it current pulls
+    # the patched versions of those through a single resolve.
+    "nicegui>=3.12.0",
+    # httpx — UI talks to the API over HTTP using an in-process client.
+    # BSD-3. Listed here (not just dev) because the UI ships with the install.
+    "httpx>=0.28",
+    # aiosmtplib — async SMTP client for email notifications (matofx.notify).
+    # MIT. Used by the runner to fire the queued / complete / failed event
+    # mails. The pure-Python `email` stdlib builds the messages.
+    # Floor raised to 5.1.1 to clear PYSEC-2026-2338 (affecting 5.1.0).
+    "aiosmtplib>=5.1.1",
+    # pandas + plotly — used by the result page to render `csv_plot` outputs
+    # as inline line charts (matofx.ui.pages.job). pandas is BSD-3, plotly
+    # is MIT. Promoted from `[examples]` to core because the UI ships with
+    # every install — any tool that emits a CSV plot needs them at runtime.
+    "pandas>=2.0",
+    "plotly>=5.20",
+    # PyYAML — MIT. Used by matofx.tools.syntax_check to validate edited
+    # *.yml / *.yaml files in the in-browser editor before the bundle copy
+    # + version bump. (Already a transitive dep of the install; pinned here
+    # because we now import it directly.)
+    "PyYAML>=6.0",
+    # Jinja2 — BSD-3. Used by matofx.reports to render the self-contained
+    # per-job HTML report from a template (ADR-0004). Already pulled in
+    # transitively via FastAPI/Starlette; pinned here because we now
+    # import it directly.
+    "Jinja2>=3.1",
+    # cadquery + trimesh — server-side CAD → STL conversion so MATOFX can
+    # preview .stp / .step / .iges / .obj inputs and outputs through the
+    # same `ui.scene.stl` viewer it uses for native .stl. cadquery is
+    # Apache-2 and pulls in the cadquery-ocp wheel (~200 MB pre-built
+    # OpenCascade) for STEP / IGES; trimesh is MIT and reads OBJ + many
+    # other mesh formats. Both are imported lazily inside the conversion
+    # module so they only load when a CAD preview is requested.
+    "cadquery>=2.4",
+    "trimesh>=4.0",
+    # numpy + scipy + pyDOE3 — the parametric-studies sampling-plan
+    # generator (matofx.studies.generate, per ADR-0001 /
+    # designs/parametric-studies.md §4/§11). numpy is BSD-3 (promoted
+    # from [examples] — the generator imports it directly now). scipy
+    # is BSD-3 and supplies scipy.stats.qmc (Latin-Hypercube / Sobol)
+    # + the inverse-CDF distributions. pyDOE3 is BSD-3 and supplies the
+    # factorial / Plackett-Burman / central-composite / Box-Behnken
+    # designs. scikit-learn (BSD-3) supplies the standardized-regression
+    # coefficients for sensitivity in 2-PS-b (matofx.studies.analysis,
+    # via LinearRegression on z-scored inputs) and the minimal surrogate
+    # in 2-PS-c. statsmodels (BSD-3) powers the engineering-statistics
+    # phase (2-PS-c-stats): OLS p-values / confidence intervals, the ANOVA
+    # %-contribution table, and the quadratic response-surface fit. All
+    # permissive-licence-clean and air-gap-bundled; they go into the hashed
+    # lockfile + CycloneDX SBOM on the next maintainer lockfile
+    # regeneration (the pending follow-up tracked since 2-PS-a).
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pyDOE3>=1.0",
+    "scikit-learn>=1.4",
+    "statsmodels>=0.14",
+    # pymoo (Apache-2) — the optimisation framework's evolutionary
+    # multi-objective strategies (nsga2 / moea_d): generational search +
+    # reference directions + the hypervolume indicator (ADR-0009 §5/§19).
+    # Single-objective Bayesian optimisation uses MATOFX's *own* surrogate
+    # engine + an acquisition function (ADR-0009 amendment 2026-06-08), so
+    # Optuna was dropped. SBOM regen + hashed-lockfile bump is the maintainer
+    # step before the first release that ships this code.
+    "pymoo>=0.6",
+    # pyvista + meshio + pyarrow — the field-surrogate snapshot loaders
+    # (matofx.studies.surrogate.field, ADR-0008 §4.3/§15). pyvista (BSD-3)
+    # reads VTK / VTU / VTP / CGNS / Ensight Gold mesh fields and supplies
+    # the geometry the predicted-field viewer renders on `ui.scene`; meshio
+    # (MIT) is its format backend for the same; pyarrow (Apache-2) backs the
+    # columnar snapshot cache used when an ensemble is too large to hold in
+    # memory at once. All permissive-licence-clean. `.npy` snapshots need
+    # only numpy, so the loaders import these lazily — but they ship on every
+    # install now that the field path is wired (no longer optional). They go
+    # into the hashed lockfile + CycloneDX SBOM on the next maintainer
+    # lockfile regeneration (workflow_dispatch on lockfile.yml).
+    "pyvista>=0.44",
+    "meshio>=5.3",
+    "pyarrow>=16.0",
+]
+
+[project.urls]
+Homepage = "https://funisoft.com/matofx"
+Repository = "https://github.com/funisoft/matofx"
+Documentation = "https://funisoft.com/matofx/docs"
+Changelog = "https://github.com/funisoft/matofx/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/funisoft/matofx/issues"
+"Security Policy" = "https://github.com/funisoft/matofx/blob/main/SECURITY.md"
+
+[project.optional-dependencies]
+postgres = ["asyncpg>=0.30"]
+# Only the AWS Bedrock LLM-summary adapter needs the AWS SDK; it is lazily
+# imported so the base wheel stays lean. The OpenAI-compatible / Azure / Ollama
+# adapters use the core `httpx` dependency and need nothing extra.
+bedrock = ["boto3>=1.34"]
+# Runtime libraries the bundled example tools (under example_tools/) depend
+# on. Not pulled in by the matofx wheel itself — tools declare their own
+# Python environment and the runner trusts whatever interpreter is
+# configured. Listed here so a developer / CI host can install everything
+# the smoke tests need with `pip install -e .[examples]`.
+#   - Pillow — HPND (permissive) — colour_check
+#   - scikit-fem — BSD-3 (permissive) — the NAFEMS showcase FE tools
+#     (Thermal Soak, Bracket Stress) + their shared bracket mesh. Pure
+#     Python on numpy/scipy/meshio (all already present); no gmsh (GPL).
+# (numpy + pandas + plotly are core deps — the studies generator and
+# the UI use them too — so example tools that need them are covered
+# without an extra.)
+examples = [
+    # Floor raised to 12.3.0 to clear the image-parser advisories
+    # (PYSEC-2026-2253..2257 / 3451..3454 and CVE-2026-54058/59198/59200/59204)
+    # affecting 12.2.0.
+    "Pillow>=12.3.0",
+    "scikit-fem>=10.0",
+]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=5.0",
+    "pytest-timeout>=2.3",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    # PyYAML stubs for `mypy --strict` (PyYAML itself is in the runtime deps).
+    "types-PyYAML>=6.0",
+]
+# Supply-chain hardening tooling. Kept in its own extras so the
+# `[dev]` install stays small for day-to-day work; CI installs
+# `[dev,supply-chain]` for the package + SBOM jobs.
+#   - build — PEP 517 wheel builder; Apache-2.0
+#   - cyclonedx-bom — CycloneDX SBOM generator from the project metadata; Apache-2.0
+#   - pip-tools — `pip-compile --generate-hashes` for the hashed lockfile; BSD-3
+supply-chain = [
+    "build>=1.2",
+    "cyclonedx-bom>=4.5",
+    "pip-tools>=7.4",
+]
+
+[project.scripts]
+matofx = "matofx.cli.main:main"
+matofx-runner = "matofx.runner.daemon:main"
+matofx-api = "matofx.api.daemon:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/matofx"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",       # pycodestyle
+    "F",            # pyflakes
+    "I",            # isort
+    "B",            # flake8-bugbear
+    "UP",           # pyupgrade
+    "SIM",          # flake8-simplify
+    "RUF",          # ruff-specific
+    "S",            # bandit (security)
+    "TRY",          # tryceratops
+    "PL",           # pylint
+    "PT",           # pytest style
+    "RET",          # return statement style
+    "ARG",          # unused arguments
+    "PTH",          # pathlib over os.path
+    "TID",          # tidy imports
+    "N",            # pep8 naming
+    "C4",           # comprehensions
+    "ANN",          # annotations
+    "D",            # pydocstyle
+]
+ignore = [
+    "D203",         # one-blank-line-before-class (conflicts with D211)
+    "D213",         # multi-line-summary-second-line (conflicts with D212)
+    "PLR0913",      # too-many-arguments — service constructors are wide on purpose
+    "TRY003",       # avoid-long-error-messages — clarity over brevity for end-user messages
+    "ANN401",       # any-type — sometimes warranted
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use asserts, magic numbers, and skip docstrings/annotations.
+# TRY301 is fine in tests where deliberately raising-then-catching is the
+# pattern under test. S105/S106 (hardcoded password / token) is a false
+# positive in tests where literal credentials are intentional fixtures.
+"tests/**" = ["S101", "S105", "S106", "D", "ANN", "PLR2004", "TRY301"]
+"**/__init__.py" = ["D104"]
+# UI page modules use NiceGUI's nested-context-manager builder
+# pattern (`with ui.card(): with ui.row(): ...`) which collides with
+# SIM117. Magic numbers like HTTP 401/403 are right next to the
+# user-facing strings they map to — wrapping each in a constant just
+# adds noise. D102 docstring-on-public-method on tiny rendering
+# helpers is also more friction than value here. Form pages are
+# inherently long (one widget + one validation per field) so the
+# PLR statement-count / return-count / branch-count rules don't add
+# value — early-return per-field is clearer than an error-variable
+# state machine.
+"src/matofx/ui/pages/**" = [
+    "SIM117",
+    "PLR2004",
+    "D102",
+    "PLR0911",
+    "PLR0912",
+    "PLR0915",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+check_untyped_defs = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+
+# Plotly + pandas don't ship type stubs we can rely on (pandas-stubs is a
+# third-party effort that frequently lags pandas releases; plotly has no
+# official stubs at all). Treat them as Any inside matofx.ui.pages.job —
+# the module's own surface stays strictly typed.
+[[tool.mypy.overrides]]
+module = ["plotly.*", "pandas"]
+ignore_missing_imports = true
+
+# pyDOE3 ships no type stubs at all; scipy's are partial and don't
+# cover scipy.stats.qmc cleanly; scikit-learn's and statsmodels' are
+# partial too. Treat them as Any inside matofx.studies.{generate,analysis}
+# — the modules' own surfaces stay strictly typed (numpy 2.x is fully
+# typed, so it is NOT excluded here).
+[[tool.mypy.overrides]]
+module = ["pyDOE3.*", "scipy.*", "sklearn.*", "statsmodels.*", "joblib.*"]
+ignore_missing_imports = true
+
+# pymoo (ADR-0009 §19) ships no type stubs — treat it as Any inside the
+# optimisation strategy engine; the strategies' own surfaces stay strictly
+# typed. (Optuna was dropped per the 2026-06-08 amendment.)
+[[tool.mypy.overrides]]
+module = ["pymoo.*"]
+ignore_missing_imports = true
+
+# Optional, lazily-imported field-surrogate deps (ADR-0008 §15): pyvista
+# (+ meshio / pyarrow in later phases) ship no stubs and aren't vendored
+# on every install — the loaders import them inside a try/except. Treat
+# as Any; the field engine's own surface stays strictly typed.
+[[tool.mypy.overrides]]
+module = ["pyvista.*", "meshio.*", "pyarrow.*"]
+ignore_missing_imports = true
+
+# boto3 is an optional extra (matofx[bedrock]) lazily imported by the Bedrock
+# LLM adapter; the base dev env doesn't install it.
+[[tool.mypy.overrides]]
+module = ["boto3.*", "botocore.*"]
+ignore_missing_imports = true
+
+# psutil (matofx.runner.hostcaps) ships no type stubs; it's imported lazily
+# inside the host-capacity detector. Treat as Any — the detector's own
+# surface (HostCapacity / LocalBudget) stays strictly typed.
+[[tool.mypy.overrides]]
+module = ["psutil.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=matofx",
+    "--cov-report=term-missing",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: integration tests requiring external services",
+    "postgres: tests that require Postgres (skipped on SQLite-only runs)",
+]
+timeout = 60
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["src/matofx"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

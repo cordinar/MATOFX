@@ -1,0 +1,29 @@
+# MATOFX code ownership.
+#
+# Per `PROJECT_BRIEF.md` §I47 the build is solo-with-Claude
+# today, so this file mostly exists as a placeholder. The structure
+# below is what we'll populate as the team grows.
+#
+# Format: <path-pattern> <owner> [<owner> ...]
+# See https://docs.github.com/en/repositories/managing-your-repositories-settings-and-security/customizing-your-repository/about-code-owners
+
+# Default owner — every file in the repository.
+*                                       @robfunisoft
+
+# Critical-path modules — security-sensitive, ownership tightens here
+# first when the team grows. (Owners listed once for now; multi-owner
+# review happens when contributors arrive.)
+/src/matofx/audit/       @robfunisoft
+/src/matofx/users/       @robfunisoft
+/src/matofx/db/migrations/ @robfunisoft
+
+# Documentation that must be reviewed when changed.
+/PROJECT_BRIEF.md               @robfunisoft
+/ROADMAP.md                     @robfunisoft
+/CONTRIBUTING.md         @robfunisoft
+/SECURITY.md             @robfunisoft
+/RELEASING.md            @robfunisoft
+
+# CI / supply-chain configuration.
+/.github/                @robfunisoft
+/pyproject.toml          @robfunisoft
