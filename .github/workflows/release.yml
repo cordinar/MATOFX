@@ -65,7 +65,7 @@ jobs:
       - name: Install build + SBOM tools
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[supply-chain]"
+          pip install -c constraints.txt -e ".[supply-chain]"
 
       - name: Build wheel + sdist
         run: |

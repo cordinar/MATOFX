@@ -49,9 +49,7 @@ dependencies = [
     "psutil>=5.9",
     # fastapi — HTTP API surface (matofx.api). MIT. Carries Starlette + the
     # request/response stack the NiceGUI shell talks to.
-    # Pinned while newer releases are vetted: a recent release changed how
-    # included routers are stored. 0.141.1 is what the installed app runs.
-    "fastapi==0.141.1",
+    "fastapi>=0.115",
     # uvicorn — ASGI server installed alongside the API for the matofx-api
     # console script. BSD-3-Clause.
     "uvicorn[standard]>=0.30",
