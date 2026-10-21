@@ -276,11 +276,10 @@ def _relative_sigma_one(
     """One surrogate's relative sigma, or ``None`` if it has no variance."""
     if not surrogate.has_variance or not points:
         return () if surrogate.has_variance else None
-    _, sigma = surrogate.predict([_numeric_only(p) for p in points])
-    if sigma is None:
-        return None
-    scale = surrogate.y_scale or 1.0
-    return tuple(float(s) / scale for s in sigma)
+    # On the scale the model learned (ADR-0021): a log fit's latent sigma, not
+    # the delta-method sigma in the result's units.
+    sigma = surrogate.relative_sigma([_numeric_only(p) for p in points])
+    return None if sigma is None else tuple(sigma)
 
 
 def _numeric_only(point: Mapping[str, Any]) -> dict[str, float]:

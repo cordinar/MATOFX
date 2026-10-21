@@ -39,7 +39,7 @@ $Pip = "$AppHome\venv\Scripts\pip.exe"
 # B5
 & $Pip config set global.require-hashes true | Out-Null
 
-# B6 — the lockfile contains both deps and the matofx wheel itself (file: entry
+# B6 - the lockfile contains both deps and the matofx wheel itself (file: entry
 # with --hash). Run pip install from inside the bundle so the relative path
 # resolves. One command installs everything under --require-hashes.
 $Lock  = Join-Path $Bundle "requirements.lock"
@@ -58,7 +58,7 @@ try {
     Pop-Location
 }
 
-# B7 — install + Windows-ify the default config.
+# B7 - install + Windows-ify the default config.
 $ConfigDst = Join-Path $AppHome "matofx.toml"
 if (-not (Test-Path $ConfigDst)) {
     Copy-Item (Join-Path $Bundle "matofx.toml") $ConfigDst
@@ -131,7 +131,7 @@ if ($UseExampleTools) {
 }
 
 # Copy launcher shims into APP_HOME so the operator can double-click /
-# right-click → Run with PowerShell from Explorer.
+# right-click -> Run with PowerShell from Explorer.
 Write-Host "==> Installing launcher scripts into $AppHome"
 foreach ($name in @("matofx-start.ps1", "matofx-stop.ps1", "matofx-start.bat", "matofx-stop.bat")) {
     Copy-Item -Force (Join-Path $Bundle "scripts\$name") (Join-Path $AppHome $name)

@@ -1,7 +1,7 @@
 """Admin: Migrate Tools/Workflows (``/ui/admin/migrate``).
 
 Single page surfacing the cross-install migration feature
-(:doc:`MIGRATE_GUIDE.md`). Three stacked sections top-to-bottom:
+(:doc:`OUTPUTS/MIGRATE_GUIDE.md`). Three stacked sections top-to-bottom:
 
 1. **This install's fingerprint** + **trusted source installs** —
    one expansion panel grouping the trust-list management.
@@ -355,6 +355,15 @@ async def _render_export_section(client: ApiClient) -> None:
                 state = str(tool.get("state") or "")
                 state_chip = f"[{state}]" if state else ""
                 cb = ui.checkbox(f"{name} {version} {state_chip}")
+                if tool.get("is_surrogate"):
+                    # ADR-0023: a surrogate tool pins a model held on this
+                    # install, so it can't travel. Shown, but not pickable.
+                    cb.disable()
+                    cb.tooltip(
+                        "Surrogate tools can't be exported — they run a fitted model "
+                        "held on this install. Re-create the surrogate on the destination."
+                    )
+                    continue
                 tool_checkboxes.append((cb, alias, version))
 
         ui.label("Workflows to bundle").style("font-weight: 600; padding-top: 0.5rem;")
@@ -371,6 +380,16 @@ async def _render_export_section(client: ApiClient) -> None:
                 state_chip = f"[{state}]" if state else ""
                 cb = ui.checkbox(f"{name} {state_chip}")
                 workflow_checkboxes.append((cb, alias))
+
+        include_required = ui.checkbox(
+            "Include required tools (workflow members, and tools the chosen tools "
+            "take inputs from)",
+            value=True,
+        ).style("padding-top: 0.5rem;")
+        include_required.tooltip(
+            "Adds the current version of every tool a chosen workflow uses and every tool a "
+            "chosen tool is wired to take inputs from, so the bundle works on its own."
+        )
 
         notes_input = (
             ui.textarea(
@@ -396,21 +415,27 @@ async def _render_export_section(client: ApiClient) -> None:
                 )
                 return
             try:
-                bundle_bytes, suggested = await client.export_migration_bundle(
+                bundle_bytes, suggested, added = await client.export_migration_bundle(
                     tool_specs=selected_tools,
                     workflow_aliases=selected_workflows,
                     notes=(notes_input.value or "").strip(),
+                    include_required=bool(include_required.value),
                 )
             except ApiError as exc:
                 ui.notify(f"Export failed: {exc.detail}", type="negative")
                 return
             filename = suggested or "bundle.tar.gz"
             _trigger_browser_download(bundle_bytes, filename)
+            also = ""
+            if added:
+                names = ", ".join(a.replace(":", " ") for a in added)
+                also = f" Also included the required tool(s): {names}."
             ui.notify(
                 f"Bundle ready: {filename} ({len(bundle_bytes):,} bytes). "
-                "Saved to your browser's default download location.",
+                f"Saved to your browser's default download location.{also}",
                 type="positive",
-                timeout=8000,
+                timeout=10000,
+                multi_line=True,
             )
 
         with ui.row().classes("w-full justify-end pt-2"):
@@ -644,6 +669,11 @@ def _render_status_log(container: ui.column, envelope: dict[str, Any]) -> None:
                     "Visit Admin -> Tools and Admin -> Workflows to "
                     "promote imported items from 'new' to 'test' or "
                     "'released' when satisfied."
+                )
+            if any("imported with no teams" in str(e.get("message") or "") for e in events_list):
+                steps.append(
+                    "Items imported with no teams can't be promoted until you set their "
+                    "teams on their edit page (choose World for everyone)."
                 )
             if skipped > 0:
                 steps.append(

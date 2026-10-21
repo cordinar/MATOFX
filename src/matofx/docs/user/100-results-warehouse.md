@@ -25,6 +25,17 @@ tracking — a peak temperature, a total mass, an efficiency — chosen by whoev
 the tool up. A tool only appears in the warehouse if its author has marked at
 least one output as a KPI.
 
+## Which key numbers a tool shows
+
+The columns you see are the key numbers the tool's **current** description asks
+for, plus any key number that **still has values recorded against finished jobs**.
+That second part matters when a tool author changes their mind: un-ticking a key
+number stops it being collected from then on, but the figures already captured
+keep their column for as long as those jobs exist, so nothing you've already
+measured disappears from under you. A key number that no longer applies *and* has
+no recorded values is dropped — you won't be left with an empty column, and a tool
+that tracks nothing at all simply doesn't appear on the warehouse front page.
+
 ## Browsing the key numbers by tool
 
 Open **Results warehouse** and you'll see a tile for each tool that declares KPIs,

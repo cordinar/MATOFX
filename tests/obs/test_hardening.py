@@ -147,11 +147,55 @@ def test_oversize_line_replaced_with_marker() -> None:
     assert "truncated_bytes" in rec
     assert isinstance(rec["truncated_bytes"], int)
     assert rec["truncated_bytes"] > 1024
-    # Marker message identifies what happened.
-    assert "truncated" in str(rec["message"]).lower()
+    # The message survives — it is what says *what* failed, and it is
+    # never the field that blew the cap.
+    assert rec["message"] == "big"
+    # A separate field explains the truncation and names what was dropped.
+    assert "dropped" in str(rec["truncated"]).lower()
+    assert "data" in str(rec["truncated"])
     # Marker preserves identity fields.
     assert rec["level"] == "info"
     assert rec["logger"] == "matofx.test"
+
+
+def test_marker_keeps_message_of_an_oversize_exception_record() -> None:
+    """The real shape: a short message with a huge traceback attached.
+
+    This is what a runner logs when a job's heartbeat fails. Losing the
+    message here left an operator with a run of identical "original was N
+    bytes" lines and no way to tell which job or which failure.
+    """
+    buf, _ = _emit(max_line_bytes=1024)
+    log = get_logger("matofx.test")
+    try:
+        raise RuntimeError("x" * 5_000)
+    except RuntimeError:
+        log.exception("Heartbeat poll for job 1483 raised; skipping it this cycle")
+    rec = read_lines(buf)[0]
+    assert rec["message"] == "Heartbeat poll for job 1483 raised; skipping it this cycle"
+    assert "exception" in str(rec["truncated"])
+
+
+def test_marker_clips_a_pathologically_long_message() -> None:
+    """A message big enough on its own must not let the marker breach the cap."""
+    buf, _ = _emit(max_line_bytes=1024)
+    log = get_logger("matofx.test")
+    log.info("m" * 20_000)
+    text = buf.getvalue()
+    assert text.count("\n") == 1
+    json.loads(text.strip())  # must still parse
+    rec = read_lines(buf)[0]
+    assert len(str(rec["message"]).encode("utf-8")) <= 2048 + 4  # budget + ellipsis
+
+
+def test_marker_clips_on_a_character_boundary() -> None:
+    """Clipping must not split a multi-byte character into invalid UTF-8."""
+    buf, _ = _emit(max_line_bytes=1024)
+    log = get_logger("matofx.test")
+    # 3 bytes each, so the 2048-byte budget lands mid-character.
+    log.info("あ" * 20_000)
+    rec = read_lines(buf)[0]
+    assert isinstance(rec["message"], str)  # round-tripped through JSON intact
 
 
 def test_under_cap_line_unchanged() -> None:

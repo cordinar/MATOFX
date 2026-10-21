@@ -572,7 +572,8 @@ def synthesise_descriptor(
             )
             continue
         outputs.append(OutputField(name=rname, label=base_label, type="number", unit=unit))
-        if with_std:
+        # ``has_std`` is per result (ADR-0022: a version can mix methods).
+        if with_std and response.get("has_std", True):
             outputs.append(
                 OutputField(
                     name=f"{rname}_std",

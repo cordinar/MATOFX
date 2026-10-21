@@ -115,6 +115,50 @@ def test_run_surrogate_tool_writes_vtp_field(tmp_path: Path) -> None:
     assert written.point_data["temperature"].shape[0] == _N_NODES
 
 
+def test_run_surrogate_tool_drops_training_run_arrays(tmp_path: Path) -> None:
+    """The written mesh carries the prediction only, never the reference run's data.
+
+    Regression: the reference mesh is a training run's output, so its solver
+    ``temperature`` array rode along beside the ``temperature_field``
+    prediction — the same values whatever the inputs, and the one ParaView
+    or a by-name consumer would read.
+    """
+    import pyvista as pv  # noqa: PLC0415
+
+    mesh_src = tmp_path / "ref.vtp"
+    pts = np.column_stack([np.linspace(0.0, 1.0, _N_NODES), np.zeros(_N_NODES), np.zeros(_N_NODES)])
+    ref = pv.PolyData(pts)
+    ref.point_data["temperature"] = np.full(_N_NODES, 999.0)
+    ref.cell_data["region"] = np.zeros(ref.n_cells)
+    ref.field_data["solver_version"] = ["stale"]
+    ref.save(mesh_src)
+
+    bundle = tmp_path / "bundle"
+    sha = write_combined_bundle(
+        bundle,
+        {},
+        {"temperature_field": _field()},
+        factors=[{"name": "x", "min": 1.0, "max": 6.0}],
+        responses=[{"name": "temperature_field", "kind": "field"}],
+        field_formats={"temperature_field": "vtp"},
+        reference_meshes={"temperature_field": mesh_src},
+    )
+    out = tmp_path / "outputs"
+    run_surrogate_tool(
+        bundle_path=str(bundle),
+        expected_sha256=sha,
+        version_id=1,
+        tool_alias="surrogate_x_1",
+        point={"x": 3.0},
+        out_dir=str(out),
+    )
+    written = pv.read(str(out / "temperature_field.vtp"))
+    assert list(written.point_data.keys()) == ["temperature_field"]
+    assert len(written.cell_data.keys()) == 0
+    assert len(written.field_data.keys()) == 0
+    assert float(np.max(written.point_data["temperature_field"])) < 999.0
+
+
 def test_synthesise_descriptor_emits_field_output() -> None:
     """A field response becomes a field-file output; scalars stay number outputs."""
     descriptor = synthesise_descriptor(

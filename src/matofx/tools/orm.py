@@ -125,6 +125,14 @@ class Tool(_Base):
     signs off. A mutable per-tool operational lever (like ``run_cap``),
     distinct from the tool's own per-job ``approvals_policy``."""
 
+    teams_pending: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, default=False, server_default=sa.false()
+    )
+    """Set by a cross-install import when none of the tool's teams exist here
+    (ADR-0023 / migration 0098). The tool lands with no teams, which would mean
+    "everyone" once released, so ``promote_state`` refuses to move it out of
+    ``new`` until an edit saves a non-empty team list (which clears this)."""
+
     row_version: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
     """Optimistic-lock counter incremented on every update.
 

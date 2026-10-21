@@ -1,9 +1,9 @@
 # Start matofx-api and matofx-runner in two new PowerShell windows.
 #
-# Self-locates from $PSScriptRoot — drop this script into your APP_HOME
+# Self-locates from $PSScriptRoot - drop this script into your APP_HOME
 # (the folder that contains `venv\` and `matofx.toml`) and either:
 #
-#   - Right-click → Run with PowerShell
+#   - Right-click -> Run with PowerShell
 #   - Or double-click the matching .bat shim (matofx-start.bat)
 #   - Or from a shell:  .\matofx-start.ps1
 #
@@ -24,8 +24,8 @@ $ConfigToml= Join-Path $AppHome "matofx.toml"
 $ApiExe    = Join-Path $VenvBin "matofx-api.exe"
 $RunnerExe = Join-Path $VenvBin "matofx-runner.exe"
 
-if (-not (Test-Path $ApiExe))    { throw "matofx-api.exe not found at $ApiExe — is the venv at $VenvBin?" }
-if (-not (Test-Path $RunnerExe)) { throw "matofx-runner.exe not found at $RunnerExe — is the venv at $VenvBin?" }
+if (-not (Test-Path $ApiExe))    { throw "matofx-api.exe not found at $ApiExe - is the venv at $VenvBin?" }
+if (-not (Test-Path $RunnerExe)) { throw "matofx-runner.exe not found at $RunnerExe - is the venv at $VenvBin?" }
 if (-not (Test-Path $ConfigToml)){ throw "matofx.toml not found at $ConfigToml" }
 
 Write-Host "==> MATOFX home:   $AppHome"

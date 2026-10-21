@@ -176,3 +176,25 @@ Some tools are set up so that a job must be **approved** by a nominated person
 before it runs. If that applies, your job waits in an approval step until an
 approver signs it off. You don't need to do anything except wait — the approver
 is notified, and your job continues automatically once approved.
+
+You're told before and after you commit:
+
+- **Before you submit**, the form shows a note saying the tool needs an
+  approver's sign-off, along with an optional **Justification** box. Anything you
+  write there is shown to the approver, so a line of context often saves a
+  round-trip.
+- **After you submit**, the job doesn't say *queued* — it says **Awaiting
+  approval**, with a short explanation of what happens next. You'll be emailed
+  when it's approved or denied.
+
+**This works the same inside a workflow.** A workflow step whose tool needs
+approval shows the same note and justification box on its tab, and once you
+submit it the tab reads **Pending approval** rather than offering the form
+again. The steps after it stay locked until the approval comes through, and the
+tab updates by itself the moment an approver signs it off — no need to refresh
+the page or re-enter anything.
+
+If a step is **denied**, it is final: that run of the workflow can't continue,
+and any step downstream of it says so plainly rather than waiting for something
+that will never arrive. Start a new run once the reason for the denial has been
+sorted out.

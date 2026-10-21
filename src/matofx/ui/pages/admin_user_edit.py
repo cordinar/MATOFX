@@ -217,7 +217,11 @@ async def _render_form(
                     "No teams configured yet — create them first under Admin Space → Teams."
                 ).style("color: #888; font-size: 0.85rem;")
 
-            approver = ui.checkbox("Eligible to be a tool approver", value=is_approver)
+            approver = ui.checkbox("Can approve runs", value=is_approver)
+            ui.label(
+                "Makes this person selectable as an approver on a tool; they then "
+                "sign off that tool's jobs, studies and optimisation results."
+            ).style("color: #888; font-size: 0.8rem; margin-top: -0.5rem;")
             logon_enabled = ui.checkbox(
                 "Allow this user to log in",
                 value=is_active,
@@ -297,8 +301,8 @@ async def _render_form(
                         f"{tool_names}. No one else is flagged as an eligible approver, so "
                         "removing their approver status (or deactivating them) would leave "
                         f"{'that tool' if len(sole_tools) == 1 else 'those tools'} with no "
-                        "approver. Open Edit User on another person, tick 'Eligible to be a "
-                        "tool approver', and save — then retry this change."
+                        "approver. Open Edit User on another person, tick 'Can approve "
+                        "runs', and save — then retry this change."
                     )
                     return
                 chosen = await _ask_for_replacement_approvers(sole_tools, replacements)

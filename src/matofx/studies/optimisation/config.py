@@ -1023,9 +1023,15 @@ def _validate_batch_and_seed(config: Mapping[str, Any], strategy: str) -> None:
     if seed is not None:
         if not isinstance(seed, Mapping):
             raise OptimisationConfigError("'seed' must be a {kind, n} mapping.")
-        n = seed.get("n")
-        if not isinstance(n, int) or n < 1:
-            raise OptimisationConfigError("The seed batch size 'seed.n' must be at least 1.")
+        if seed.get("kind") == "cohort":
+            # A cohort seed imports the cohort's prior runs — its size is the
+            # cohort's, so there is no 'n' to check.
+            if not isinstance(seed.get("cohort_id"), int):
+                raise OptimisationConfigError("A cohort seed needs a 'cohort_id'.")
+        else:
+            n = seed.get("n")
+            if not isinstance(n, int) or n < 1:
+                raise OptimisationConfigError("The seed batch size 'seed.n' must be at least 1.")
     elif needs_seed:
         raise OptimisationConfigError(
             "This strategy needs an initial seed batch — declare 'seed' with a point count."

@@ -12,6 +12,8 @@ rewrites the DB row's descriptor JSON. Replace bundle calls
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import AsyncIterator
 from typing import Any
 
 from nicegui import ui
@@ -20,7 +22,11 @@ from matofx.tools.descriptor import MAX_GUIDE_IMAGES, tool_descriptions
 from matofx.ui._features import materials_database_enabled, vv_tracking_enabled
 from matofx.ui._holder import get_app
 from matofx.ui.api_client import ApiClient, ApiError
-from matofx.ui.pages._chrome import render_shell, require_logged_in
+from matofx.ui.pages._chrome import (
+    render_shell,
+    render_teams_pending_banner,
+    require_logged_in,
+)
 from matofx.ui.pages._descriptor_wizard import (
     build_descriptor_payload,
     build_upstream_wiring,
@@ -133,6 +139,8 @@ async def admin_tool_edit_page(alias: str) -> None:
         ui.label(f"alias: {alias} · Bundle on disk: {tool.get('bundle_path', '')}").style(
             "color: #888; font-size: 0.85rem;"
         )
+        if tool.get("teams_pending"):
+            render_teams_pending_banner()
 
         # Three tabs: metadata edit (existing), file editor (Session
         # C C2), inputs/outputs wizard (Session C C3). The header
@@ -153,28 +161,74 @@ async def admin_tool_edit_page(alias: str) -> None:
             files_tab = ui.tab("Files", icon="folder_open").props("no-caps")
             io_tab = ui.tab("Inputs & Outputs", icon="dynamic_form").props("no-caps")
             vv_tab = ui.tab("V&V", icon="verified").props("no-caps") if vv_tab_enabled else None
+        # The panels stream to the browser one after another as each is
+        # built, so an operator who clicks ahead (Inputs & Outputs is the
+        # slowest — it prefetches upstream tool details) would otherwise
+        # see an empty panel for seconds. Open every panel with a loading
+        # placeholder first, then fill them in order.
         with (
             ui.tab_panels(tabs, value=metadata_tab)
             .classes("w-full")
             .style("background-color: transparent;")
         ):
             with ui.tab_panel(metadata_tab):
-                await _render_form(
-                    tool, team_options, approver_options, downstream_options, python_envs
-                )
+                metadata_box = _loading_panel_box()
             with ui.tab_panel(files_tab):
-                await _render_files_tab(client, alias=alias, tool=tool)
+                files_box = _loading_panel_box()
             with ui.tab_panel(io_tab):
-                await _render_wizard_tab(
-                    client,
-                    alias=alias,
-                    tool=tool,
-                    existing_tools=existing_tools,
-                    material_classes_with_props=material_classes_with_props,
-                )
+                io_box = _loading_panel_box()
+            vv_box = None
             if vv_tab is not None:
                 with ui.tab_panel(vv_tab):
-                    await _render_vv_tab(client, tool=tool)
+                    vv_box = _loading_panel_box()
+
+        async with _filling(metadata_box):
+            await _render_form(
+                tool, team_options, approver_options, downstream_options, python_envs
+            )
+        async with _filling(files_box):
+            await _render_files_tab(client, alias=alias, tool=tool)
+        async with _filling(io_box):
+            await _render_wizard_tab(
+                client,
+                alias=alias,
+                tool=tool,
+                existing_tools=existing_tools,
+                material_classes_with_props=material_classes_with_props,
+            )
+        if vv_box is not None:
+            async with _filling(vv_box):
+                await _render_vv_tab(client, tool=tool)
+
+
+def _loading_panel_box() -> ui.column:
+    """A tab panel's content box, showing a spinner until it's filled."""
+    box = ui.column().classes("w-full gap-0")
+    with (
+        box,
+        ui.row()
+        .classes("w-full items-center justify-center gap-3 matofx-panel-loading")
+        .style("padding: 3rem 0; color: var(--matofx-muted-text);"),
+    ):
+        ui.spinner(size="lg", color="primary")
+        ui.label("Loading…")
+    return box
+
+
+@contextlib.asynccontextmanager
+async def _filling(box: ui.column) -> AsyncIterator[None]:
+    """Render into ``box``, dropping its loading placeholder when done.
+
+    The placeholder goes even if rendering raises, so a failed panel never
+    leaves a spinner turning forever.
+    """
+    try:
+        with box:
+            yield
+    finally:
+        for child in list(box):
+            if "matofx-panel-loading" in child.classes:
+                child.delete()
 
 
 _PYTHON_ENV_DEFAULT_VALUE = 0

@@ -59,6 +59,9 @@ column_2 = 0.5
 # baseline (e.g. from the Composite Laminate tool's outputs).
 [[inputs]]
 name = "e1"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "e1"
 label = "Lamina E1"
 group = "material"
 type = "float"
@@ -71,6 +74,9 @@ required = true
 
 [[inputs]]
 name = "e2"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "e2"
 label = "Lamina E2"
 group = "material"
 type = "float"
@@ -83,6 +89,9 @@ required = true
 
 [[inputs]]
 name = "g12"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "g12"
 label = "Lamina G12"
 group = "material"
 type = "float"
@@ -95,6 +104,9 @@ required = true
 
 [[inputs]]
 name = "nu12"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "nu12"
 label = "Lamina nu12"
 group = "material"
 type = "float"
@@ -106,6 +118,9 @@ required = true
 
 [[inputs]]
 name = "alpha1"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "alpha1"
 label = "Lamina alpha1"
 group = "material"
 type = "float"
@@ -118,6 +133,9 @@ required = true
 
 [[inputs]]
 name = "alpha2"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "alpha2"
 label = "Lamina alpha2"
 group = "material"
 type = "float"
@@ -130,6 +148,9 @@ required = true
 
 [[inputs]]
 name = "xt"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "xt"
 label = "Strength Xt"
 group = "material"
 type = "float"
@@ -142,6 +163,9 @@ required = true
 
 [[inputs]]
 name = "xc"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "xc"
 label = "Strength Xc"
 group = "material"
 type = "float"
@@ -154,6 +178,9 @@ required = true
 
 [[inputs]]
 name = "yt"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "yt"
 label = "Strength Yt"
 group = "material"
 type = "float"
@@ -166,6 +193,9 @@ required = true
 
 [[inputs]]
 name = "yc"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "yc"
 label = "Strength Yc"
 group = "material"
 type = "float"
@@ -178,6 +208,9 @@ required = true
 
 [[inputs]]
 name = "s_shear"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "s_shear"
 label = "Strength S"
 group = "material"
 type = "float"
@@ -190,6 +223,9 @@ required = true
 
 [[inputs]]
 name = "theta1"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "theta1"
 label = "Ply angle theta1"
 group = "material"
 type = "float"
@@ -202,6 +238,9 @@ required = true
 
 [[inputs]]
 name = "theta2"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "theta2"
 label = "Ply angle theta2"
 group = "material"
 type = "float"
@@ -214,6 +253,9 @@ required = true
 
 [[inputs]]
 name = "thickness"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "thickness"
 label = "Laminate thickness"
 group = "material"
 type = "float"
@@ -226,6 +268,9 @@ required = true
 
 [[inputs]]
 name = "mass"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "mass"
 label = "Bracket mass"
 group = "material"
 type = "float"
@@ -240,6 +285,9 @@ required = true
 # soaked field produced by the Thermal Soak tool.
 [[inputs]]
 name = "temperature_field"
+downstream_input = true
+upstream_tool = "thermal_soak"
+upstream_output = "temperature_final"
 label = "Temperature field"
 group = "thermal"
 type = "file"

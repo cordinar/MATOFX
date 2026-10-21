@@ -7,11 +7,15 @@ gated by the child job's state + upstream completion:
 - ``created`` + every upstream complete → form, with ``downstream_input``
   fields pre-filled from upstream ``outputs.json`` and disabled. The
   free inputs stay editable; the user clicks **Submit**.
-- ``created`` but upstream not all complete → "waiting for X" banner.
+- ``created`` but upstream not all complete → "waiting for X" banner
+  (or a "can't run" banner when an upstream is terminally blocked).
 - ``queued`` / ``running`` → status line; auto-refresh.
 - ``complete`` → outputs panel.
 - ``failed`` → error banner + link to the standard job page for
   re-submission / logs.
+- ``pending_approval`` / ``denied`` / ``pending_results`` /
+  ``results_withheld`` → the shared approval notice (§16.15), never the
+  form: the job has already been submitted, or was terminally refused.
 
 Two entry points:
 
@@ -35,18 +39,33 @@ from nicegui import ui
 
 from matofx.ui.api_client import ApiClient, ApiError
 from matofx.ui.format import format_job_state
+from matofx.ui.pages._approval_notice import (
+    is_approval_state,
+    render_approval_notice,
+)
 from matofx.ui.pages._chrome import require_logged_in
 
 _REFRESH_INTERVAL_S = 2.5
-"""How often the workspace polls the run while any child is
-``queued`` or ``running``. Stops polling effects once every child
-reaches a terminal state — the page reads as static at rest."""
+"""How often the workspace polls the run while any child can still move
+without this user acting (see :data:`_ACTIVE_CHILD_STATES`). Stops
+polling once nothing can — the page reads as static at rest."""
 
-_ACTIVE_CHILD_STATES = frozenset({"queued", "running"})
-"""Child states that can still transition *on their own* — the runner
-drives ``queued → running → complete`` server-side, and polling is the
-only way the UI learns of it. While any child is in one of these, the
-poll keeps running; otherwise it can rest."""
+_ACTIVE_CHILD_STATES = frozenset({"queued", "running", "pending_approval", "pending_results"})
+"""Child states that can still transition *without this user acting* —
+polling is the only way the UI learns of it. While any child is in one
+of these, the poll keeps running; otherwise it can rest.
+
+The runner drives ``queued → running → complete``. The two approval
+holds belong here for the same reason, just with a person rather than
+the runner on the other end: an **approver** drives
+``pending_approval → queued`` and ``pending_results → complete``, and
+nothing the viewer does moves them. Omitting them parked the poll the
+moment a member hit an approval gate, so the tab sat on "Awaiting
+approval" forever and only a manual page refresh revealed that the
+step had been signed off and the workflow had moved on.
+
+Deliberately excluded: ``created`` drafts (they wait on *this* user,
+who navigates + re-renders on submit) and every terminal state."""
 
 _TERMINAL_RUN_STATES = frozenset({"complete", "failed", "partial", "cancelled"})
 """Rolled-up run states for which the summary endpoint produces a card.
@@ -57,12 +76,13 @@ anything else, so we only attempt the fetch once the run lands here."""
 def _poll_can_rest(run: dict[str, Any]) -> bool:
     """True when no child is in flight, so the poll can stop until the user acts.
 
-    The poll exists solely to catch a child's runner-driven
-    ``queued → running → complete``/``failed`` transition. When no child
-    is ``queued``/``running`` — every child is terminal
-    (complete/failed/cancelled) *or* a ``created`` draft awaiting the
-    user — nothing changes on its own, so we deactivate the timer rather
-    than hammer the API for the life of the tab.
+    The poll exists to catch the transitions this user cannot make
+    happen: the runner's ``queued → running → complete``/``failed``, and
+    an approver's ``pending_approval → queued`` /
+    ``pending_results → complete``. When no child is in one of those
+    states — every child is terminal *or* a ``created`` draft awaiting
+    the user — nothing changes on its own, so we deactivate the timer
+    rather than hammer the API for the life of the tab.
 
     This is deliberately *not* keyed on the run-level state:
     ``compute_state`` only reports ``"complete"`` when **every** child is
@@ -159,7 +179,7 @@ async def render_workflow_run_workspace(
     body.clear()
     with body:
         header_container = ui.column().classes("w-full gap-2")
-        # Auto-generated results summary (designs/auto-summaries.md).
+        # Auto-generated results summary (OUTPUTS/designs/auto-summaries.md).
         # The summary 404s (renders nothing) while the run is still in flight
         # and only becomes available once the run reaches a terminal state.
         # It lives in its own re-renderable container so the poll can fill it
@@ -381,6 +401,7 @@ def _render_tabs_strip(state: dict[str, Any]) -> None:
             btn = ui.button(label, icon=icon).props(
                 f"{'unelevated' if is_active else 'outline'} dense color={color}"
             )
+            btn.tooltip(_tab_status_label(tab_status))
             if not is_active:
                 btn.on(
                     "click",
@@ -407,6 +428,10 @@ _TAB_STATE_ICON: dict[str, str] = {
     "running": "hourglass_top",
     "complete": "check_circle",
     "failed": "error",
+    "pending_approval": "fact_check",
+    "denied": "block",
+    "pending_results": "fact_check",
+    "results_withheld": "block",
 }
 _TAB_STATE_COLOR: dict[str, str] = {
     "ready": "primary",
@@ -415,11 +440,42 @@ _TAB_STATE_COLOR: dict[str, str] = {
     "running": "warning",
     "complete": "positive",
     "failed": "negative",
+    "pending_approval": "warning",
+    "denied": "negative",
+    "pending_results": "warning",
+    "results_withheld": "negative",
+}
+#: Chip text per status. The approval statuses are named by
+#: ``format_job_state`` so the tab reads exactly like the same job does
+#: in My Jobs; the two synthetic statuses get their own wording because
+#: they describe the *tab*, not a job state.
+_TAB_STATE_LABEL: dict[str, str] = {
+    "ready": "Ready",
+    "waiting": "Waiting",
 }
 
 
+def _tab_status_label(tab_status: str) -> str:
+    """Chip text for a tab status — never a raw snake_case token."""
+    if tab_status in _TAB_STATE_LABEL:
+        return _TAB_STATE_LABEL[tab_status]
+    return format_job_state(tab_status)
+
+
 def _tab_status_for(child_state: str, upstream_ready: bool) -> str:
-    """Classify a tab into one of the colour-coded statuses."""
+    """Classify a tab into one of the colour-coded statuses.
+
+    Every ``Job.state`` maps to itself except ``created``, which splits
+    on upstream readiness into the two synthetic statuses ``ready`` (the
+    form is offered) and ``waiting`` (locked behind an upstream tool).
+
+    The four approval states (§16.15) used to be missing here, so they
+    fell through the ``created`` branch and came back as ``"ready"``:
+    a tab whose job was already submitted and sitting with an approver
+    re-rendered the **input form** and chipped itself *Ready*, and a
+    ``denied`` job — terminally refused, never going to run — offered a
+    form too. The submitter was never told approval was involved.
+    """
     if child_state == "complete":
         return "complete"
     if child_state == "failed":
@@ -428,6 +484,8 @@ def _tab_status_for(child_state: str, upstream_ready: bool) -> str:
         return "running"
     if child_state == "queued":
         return "queued"
+    if is_approval_state(child_state):
+        return child_state
     # state == "created" — depends on upstream readiness.
     return "ready" if upstream_ready else "waiting"
 
@@ -563,6 +621,15 @@ def _active_body_phase(state: dict[str, Any], active: dict[str, Any]) -> str:
     child_state = str(active.get("state") or "created")
     if child_state == "created":
         return "ready" if _all_upstream_ready(state, active) else "waiting"
+    if is_approval_state(child_state):
+        # Each approval state is its own phase, for two reasons. It
+        # renders the approval notice — not the embedded job renderer —
+        # and the copy differs per state. And ``pending_approval`` and
+        # ``queued`` both used to collapse into ``"inflight"``, so when
+        # an approver released the run the signature never moved: the
+        # tab strip's badge flipped to *queued* while the body below it
+        # went on saying "Awaiting approval" until a manual refresh.
+        return child_state
     if child_state in _TERMINAL_CHILD_STATES:
         return "terminal"
     return "inflight"
@@ -695,6 +762,15 @@ def _render_active_tab(state: dict[str, Any]) -> None:
             _render_tab_header(active, tab_status)
             _render_form(state, active)
         return
+    if is_approval_state(child_state):
+        # Approval-gated: say so, with the same wording My Jobs uses.
+        # Never the form — the job is already submitted (or terminally
+        # denied), so offering inputs again invites a duplicate run and
+        # hides the fact that someone has to sign it off.
+        with ui.card().classes("w-full"), ui.column().classes("w-full gap-3"):
+            _render_tab_header(active, tab_status)
+            render_approval_notice(child_state, active)
+        return
 
     # In-flight / complete / failed → delegate to the standalone job
     # renderer so the tab carries the same inputs+outputs+logs layout
@@ -770,16 +846,28 @@ def _render_tab_header(child: dict[str, Any], tab_status: str) -> None:
     with ui.row().classes("items-center gap-2"):
         ui.icon(icon).style(f"color: var(--q-{color}, #40A1A4); font-size: 1.6rem;")
         ui.label(tool_name).style("font-size: 1.2rem; font-weight: 600;")
-        ui.chip(tab_status.title()).props(f"color={color} text-color=white dense")
+        # ``.title()`` would render "Pending_Approval" now that the
+        # approval states reach this chip — go through the shared
+        # state formatter instead.
+        ui.chip(_tab_status_label(tab_status)).props(f"color={color} text-color=white dense")
+
+
+#: Upstream states this tab can never advance past. ``denied`` and
+#: ``results_withheld`` are the terminal approval refusals; ``failed`` is
+#: the terminal run failure. A tab gated behind one of these is not
+#: "waiting" — it is blocked, and saying "waiting for X to finish" about
+#: a job that will never finish sends the user off to watch nothing.
+_UPSTREAM_DEAD_ENDS = frozenset({"denied", "results_withheld", "failed"})
 
 
 def _render_waiting(state: dict[str, Any], child: dict[str, Any]) -> None:
-    """Show which upstream tools are still pending."""
+    """Show which upstream tools this tab is still gated behind."""
     alias = str(child.get("tool_alias") or "")
     descriptor = state["descriptors"].get(alias) or {}
     inputs = descriptor.get("inputs") or []
     children_by_alias = {str(c.get("tool_alias")): c for c in (state["run"].get("children") or [])}
     pending: list[str] = []
+    blocked: list[str] = []
     seen: set[str] = set()
     for inp in inputs:
         if not isinstance(inp, dict) or not bool(inp.get("downstream_input")):
@@ -791,10 +879,28 @@ def _render_waiting(state: dict[str, Any], child: dict[str, Any]) -> None:
         upstream_child = children_by_alias.get(upstream_alias)
         if upstream_child is None:
             continue
-        if upstream_child.get("state") != "complete":
-            pretty = str(upstream_child.get("tool_name") or upstream_alias)
-            badge = format_job_state(str(upstream_child.get("state") or ""))
-            pending.append(f"{pretty} ({badge})")
+        upstream_state = str(upstream_child.get("state") or "")
+        if upstream_state == "complete":
+            continue
+        pretty = str(upstream_child.get("tool_name") or upstream_alias)
+        entry = f"{pretty} ({format_job_state(upstream_state)})"
+        if upstream_state in _UPSTREAM_DEAD_ENDS:
+            blocked.append(entry)
+        else:
+            pending.append(entry)
+
+    if blocked:
+        ui.label(
+            "This tab can't run: an upstream tool it depends on will never produce results."
+        ).style("color: var(--matofx-error-text);")
+        with ui.column().classes("gap-1"):
+            for entry in blocked:
+                ui.label(f"• {entry}")
+        ui.label("Start a new run of this workflow once the upstream problem is resolved.").style(
+            "color: #888; font-size: 0.85rem;"
+        )
+        if not pending:
+            return
 
     ui.label("Waiting for the upstream tools to finish before this tab can run:").style(
         "color: #888;"
@@ -803,7 +909,7 @@ def _render_waiting(state: dict[str, Any], child: dict[str, Any]) -> None:
         with ui.column().classes("gap-1"):
             for entry in pending:
                 ui.label(f"• {entry}")
-    else:
+    elif not blocked:
         ui.label("(No specific upstreams identified — refresh the page.)").style("color: #888;")
 
 
@@ -932,6 +1038,31 @@ def _render_form(state: dict[str, Any], child: dict[str, Any]) -> None:
                 note.text = "Provided automatically by an upstream tool."
                 note.visible = True
 
+    # Approval heads-up + justification — the same pair the standalone
+    # My Jobs form shows (§16.15). A workflow member is no less gated
+    # than a standalone run, but this form used to offer neither, so the
+    # submitter learned about the gate only after the fact (and the
+    # approver never got a justification from a workflow at all).
+    needs_approval = descriptor.approvals_policy in ("pre", "both")
+    justification_box = None
+    if needs_approval:
+        with ui.column().classes("w-full gap-1"):
+            with ui.row().classes("items-center gap-2"):
+                ui.icon("fact_check").style("color: var(--q-warning, #9a7d0a);")
+                ui.label(
+                    "This tool needs an approver's sign-off. Submitting sends it "
+                    "for approval — it won't run until someone approves it, and "
+                    "the rest of the workflow waits behind it."
+                ).style("color: #9a7d0a; font-size: 0.85rem;")
+            ui.label("Justification (optional) — sent to the approver").style(
+                "font-size: 0.8rem; color: #888;"
+            )
+            justification_box = (
+                ui.textarea(placeholder="Why this run? Context that helps the approver decide.")
+                .props("dense outlined autogrow")
+                .classes("w-full")
+            )
+
     error_banner = ui.label("").style("color: var(--matofx-error-text);")
 
     # Pre-fetch upstream outputs once per unique upstream tool, then seed
@@ -973,11 +1104,38 @@ def _render_form(state: dict[str, Any], child: dict[str, Any]) -> None:
             return
         handle.clear_errors()
         try:
-            await client.queue_draft_job(job_id, inputs=values)
+            queued = await client.queue_draft_job(
+                job_id,
+                inputs=values,
+                justification=(
+                    str(justification_box.value or "").strip()
+                    if justification_box is not None
+                    else None
+                ),
+            )
         except ApiError as exc:
             error_banner.text = exc.detail or "Submitting the job failed."
             return
-        ui.notify(f"{child.get('tool_name', alias)} submitted.", type="positive")
+        tool_label = child.get("tool_name", alias)
+        # Report what actually happened. A pre-gated tool doesn't queue —
+        # it parks with an approver — and saying "submitted" for both is
+        # what let the approval step go unnoticed inside a workflow.
+        #
+        # This toast is a courtesy, not the signal: the navigation below
+        # tears the client down and takes any notification with it (the
+        # same race that hid the Approvals page's failures). The durable
+        # answers are the amber heads-up *above* the Submit button and
+        # the approval notice the tab lands on — both of which say the
+        # run is held. Don't make this sticky expecting it to survive.
+        if str(queued.get("state") or "") == "pending_approval":
+            ui.notify(
+                f"{tool_label} sent for approval — it will run once an approver signs it off.",
+                type="warning",
+            )
+        else:
+            ui.notify(f"{tool_label} submitted.", type="positive")
+        # Load-bearing: re-establishes the poll for the newly in-flight
+        # child and re-renders the tab body into its post-submit state.
         ui.navigate.to(f"/my-jobs?workflow_run={int(state['run_id'])}")
 
     with ui.row().classes("w-full justify-end"):

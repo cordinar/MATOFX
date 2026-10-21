@@ -1951,7 +1951,7 @@ async def _render_detail(
             with ui.tab_panel(progress_tab).style("background-color: transparent;"):
                 progress_content = ui.column().classes("w-full gap-3")
             with ui.tab_panel(results_tab).style("background-color: transparent;"):
-                # Auto-generated results summary (designs/auto-summaries.md).
+                # Auto-generated results summary (OUTPUTS/designs/auto-summaries.md).
                 # Method-aware narrative at the top of the explorer; renders only
                 # once the study is terminal (the card 404s otherwise).
                 from matofx.ui._summary_card import render_summary_card  # noqa: PLC0415

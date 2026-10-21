@@ -136,11 +136,19 @@ async def register_as_tool(
         }
         for f in (version.factors or [])
     ]
+    from matofx.studies.surrogate import GP_KINDS  # noqa: PLC0415
+
+    # Only GP-family fits produce a per-point uncertainty; for poly / gbm the
+    # ``<response>_std`` output would never be filled, so it isn't declared. Since
+    # ADR-0022 a version can mix methods, so this is decided per result (a
+    # result recorded before then used the version's one method).
+    primary = version.surrogate_method or "gp"
     responses = [
         {
             **r,
             "label": output_labels.get(str(r.get("name")), str(r.get("name"))),
             "unit": r.get("unit") or output_units.get(str(r.get("name"))),
+            "has_std": str(r.get("method") or primary) in GP_KINDS,
         }
         for r in (version.responses or [])
     ]
@@ -155,11 +163,6 @@ async def register_as_tool(
         }
         for cname, cval in (version.input_constants or {}).items()
     ]
-    # Only GP-family fits produce a per-point uncertainty; for poly / gbm the
-    # ``<response>_std`` outputs would never be filled, so don't declare them.
-    from matofx.studies.surrogate import GP_KINDS  # noqa: PLC0415
-
-    emit_std = with_std and (version.surrogate_method or "gp") in GP_KINDS
     descriptor = synthesise_descriptor(
         source_tool_alias=model.tool_alias,
         model_id=model.id,
@@ -171,7 +174,7 @@ async def register_as_tool(
         constants=constants,
         version_ordinal=version.ordinal,
         block_extrapolation=block_extrapolation,
-        with_std=emit_std,
+        with_std=with_std,
         # The stored coverage report (ADR-0020 §9) is what makes the exported
         # tool declare `support_sigma` / `support_status`. A version fitted
         # before coverage existed has none, so its export is unchanged — the

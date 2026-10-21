@@ -475,9 +475,10 @@ def get_trusted_peer_service(
 
 def get_export_service(
     audit: Annotated[AuditWriter, Depends(get_audit)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> ExportService:
     """Build a :class:`ExportService` for the migrate surface."""
-    return make_export_service(audit)
+    return make_export_service(audit, workflow_icons_dir=settings.workflows.icons_dir)
 
 
 def get_import_service(
@@ -493,7 +494,10 @@ def get_import_service(
     catalog from the runner's perspective.
     """
     return make_import_service(
-        audit, trust_service=trust_service, bundle_root=settings.tools.bundles_dir
+        audit,
+        trust_service=trust_service,
+        bundle_root=settings.tools.bundles_dir,
+        workflow_icons_dir=settings.workflows.icons_dir,
     )
 
 

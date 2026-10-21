@@ -29,6 +29,49 @@ from matofx.ui.state import current_token
 _TARGET_LABEL: dict[str, str] = {"library": "Library file", "material": "Material"}
 
 
+def request_display_name(item: dict[str, Any], request_id: int) -> str:
+    """How one pending request is named back to the approver.
+
+    Labels, never internal ids (``feedback_use_labels_not_names``): the
+    formatted job number plus the job's own name, or — for a tool-less
+    gate with no job — whatever name the row carries. ``Request N`` is
+    the last resort for a row whose details we no longer hold.
+    """
+    job_id = item.get("job_id")
+    name = str(item.get("job_name") or item.get("tool_name") or "").strip()
+    if job_id:
+        return f"{format_job_id(job_id)} · {name}".strip(" ·")
+    return name or f"Request {request_id}"
+
+
+def summarise_decision_results(
+    results: list[dict[str, Any]], items_by_request: dict[int, dict[str, Any]]
+) -> tuple[str | None, list[str]]:
+    """Turn the batch response into ``(success line, failure lines)``.
+
+    Split out of the page so the outcome wording is testable without a
+    NiceGUI client. ``items_by_request`` supplies the display name for
+    each failure; a request missing from it degrades to ``Request N``
+    rather than dropping the message.
+
+    Each failure line names the simulation and says plainly that the
+    decision was **not** applied. That matters because the row is about
+    to be redrawn still pending — without the line, a failed batch is
+    indistinguishable from having clicked nothing at all.
+    """
+    applied = sum(1 for r in results if r.get("ok"))
+    success = f"{applied} decision(s) applied." if applied else None
+    failures: list[str] = []
+    for r in results:
+        if r.get("ok"):
+            continue
+        rid = int(r.get("request_id") or 0)
+        item = items_by_request.get(rid, {})
+        label = request_display_name(item, rid)
+        failures.append(f"{label} — not applied: {r.get('error') or 'failed'}")
+    return success, failures
+
+
 @ui.page("/approvals")
 async def approvals_page() -> None:
     """Render the approver inbox."""
@@ -47,13 +90,7 @@ async def approvals_page() -> None:
             ui.button("Back to Home", on_click=lambda: ui.navigate.to("/home")).props("flat")
             return
 
-        if not items:
-            with ui.card().classes("w-full"):
-                ui.label("You're all caught up — no simulations are waiting on your approval.")
-            ui.button("Back to Home", on_click=lambda: ui.navigate.to("/home")).props("flat")
-            return
-
-        ui.label(
+        intro = ui.label(
             "Choose Approve or Deny for each simulation, then submit. A "
             "denial needs a reason — it is sent to the requestor."
         ).style("color: #888;")
@@ -66,7 +103,7 @@ async def approvals_page() -> None:
         controls: list[dict[str, Any]] = []
 
         # Filter row — above the list (UI Conventions).
-        with ui.row().classes("w-full items-center gap-3"):
+        with ui.row().classes("w-full items-center gap-3") as filter_row:
             search = (
                 ui.input(placeholder="Filter by job, tool or requestor…")
                 .props("clearable dense outlined")
@@ -159,7 +196,7 @@ async def approvals_page() -> None:
                 _set_decision(c, "deny", reason.strip())
             ui.notify(f"{len(shown)} marked to deny — review and Submit decisions.", type="warning")
 
-        with ui.row().classes("w-full items-center gap-2"):
+        with ui.row().classes("w-full items-center gap-2") as bulk_row:
             ui.label("Select all shown:").style("color: #888; font-size: 0.85rem;")
             ui.button("Approve all", icon="done_all", on_click=_approve_all).props(
                 "flat dense no-caps color=primary"
@@ -168,11 +205,54 @@ async def approvals_page() -> None:
                 "flat dense no-caps color=negative"
             )
 
-        with ui.column().classes("w-full gap-2"):
-            for item in items:
-                rid = int(item["request_id"])
-                decisions[rid] = {"decision": None, "reason": ""}
-                controls.append(_render_row(client, item, decisions[rid]))
+        # The list lives in its own container so a decision can rebuild it in
+        # place. This used to be ``ui.navigate.reload()`` after the submit —
+        # which *did* refresh the queue, but reloaded the document on the same
+        # tick as the ``ui.notify`` calls above it, destroying every message
+        # before it rendered. A batch where some (or all) items failed then
+        # came back looking untouched, with no clue why: "I clicked Approve
+        # and nothing happened". Rebuilding keeps the client alive, so the
+        # outcome is still on screen when the fresh list arrives.
+        list_container = ui.column().classes("w-full gap-2")
+        empty_slot = ui.column().classes("w-full")
+
+        def _rebuild(fresh: list[dict[str, Any]]) -> None:
+            """Redraw the queue from a freshly-fetched item list."""
+            decisions.clear()
+            controls.clear()
+            list_container.clear()
+            empty_slot.clear()
+            has_items = bool(fresh)
+            # The chrome around the list is meaningless with an empty queue —
+            # hide it rather than offering filters and a Submit over nothing.
+            intro.set_visibility(has_items)
+            filter_row.set_visibility(has_items)
+            bulk_row.set_visibility(has_items)
+            submit_btn.set_visibility(has_items)
+            if not has_items:
+                with empty_slot, ui.card().classes("w-full"):
+                    ui.label("You're all caught up — no simulations are waiting on your approval.")
+                return
+            with list_container:
+                for item in fresh:
+                    rid = int(item["request_id"])
+                    decisions[rid] = {"decision": None, "reason": ""}
+                    controls.append(_render_row(client, item, decisions[rid]))
+            _apply_filter()
+
+        async def _refresh() -> None:
+            """Re-fetch the queue and redraw, leaving notifications standing."""
+            try:
+                fresh = await client.list_my_approvals()
+            except ApiError as exc:
+                ui.notify(
+                    f"Decisions were sent, but the queue couldn't be refreshed: {exc.detail}",
+                    type="warning",
+                    close_button=True,
+                    timeout=None,
+                )
+                return
+            _rebuild(fresh)
 
         async def _submit() -> None:
             payload: list[dict[str, Any]] = []
@@ -203,25 +283,27 @@ async def approvals_page() -> None:
             except ApiError as exc:
                 ui.notify(f"Submit failed: {exc.detail}", type="negative")
                 return
-            results = resp.get("results", [])
-            ok = [r for r in results if r.get("ok")]
-            bad = [r for r in results if not r.get("ok")]
-            if ok:
-                ui.notify(f"{len(ok)} decision(s) applied.", type="positive")
-            for r in bad:
-                ui.notify(
-                    f"Request {r['request_id']}: {r.get('error', 'failed')}",
-                    type="negative",
-                )
-            # Re-render so decided rows drop off and any per-item failures
-            # reflect the live state. ``navigate.to`` to the *current* path
-            # is a client-side no-op (the page never re-runs, so the just-
-            # decided rows linger) — force a real reload instead.
-            ui.navigate.reload()
+            applied, failures = summarise_decision_results(
+                resp.get("results", []),
+                {int(c["item"]["request_id"]): c["item"] for c in controls},
+            )
+            if applied:
+                ui.notify(applied, type="positive")
+            for line in failures:
+                # Sticky: a rejected decision is the one message the approver
+                # must not miss, and the row is about to be redrawn still
+                # pending. An auto-dismissing toast here read as "nothing
+                # happened" (see the list_container note above).
+                ui.notify(line, type="negative", close_button=True, timeout=None)
+            # Refresh the queue so decided rows drop off and anything that
+            # failed comes back with its live state.
+            await _refresh()
 
         with ui.row().classes("w-full justify-end gap-2"):
             ui.button("Back to Home", on_click=lambda: ui.navigate.to("/home")).props("flat")
-            ui.button("Submit decisions", on_click=_submit).props("color=primary")
+            submit_btn = ui.button("Submit decisions", on_click=_submit).props("color=primary")
+
+        _rebuild(items)
 
 
 def _render_row(client: ApiClient, item: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:

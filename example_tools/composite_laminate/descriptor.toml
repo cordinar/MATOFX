@@ -18,6 +18,9 @@ with it.\
 """
 main_script = "composite_laminate.py"
 
+# Tools whose inputs may be filled from this tool's outputs (workflow wiring).
+downstream_tools = ["thermal_soak", "bracket_stress"]
+
 duration_class = "snappy"
 
 # Keep the two interactive plots after a successful run so the results page

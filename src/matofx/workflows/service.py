@@ -24,6 +24,7 @@ Locked decisions (see ``project_workflows_design.md`` memory):
 from __future__ import annotations
 
 import datetime as _dt
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -364,6 +365,8 @@ class WorkflowService:
             descriptor["icon_filename"] = before_descriptor["icon_filename"]
         wf.name = draft.name.strip()
         wf.descriptor = descriptor
+        if wf.teams_pending and descriptor.get("teams"):
+            wf.teams_pending = False  # an admin has now chosen its teams
         wf.version = bump_minor(wf.version) if membership_changed else bump_patch(wf.version)
         wf.updated_at = _utcnow()
 
@@ -428,6 +431,13 @@ class WorkflowService:
             raise WorkflowArchivedError(alias)
         if wf.state == new_state:
             return wf
+        if wf.teams_pending and wf.state == "new":
+            # Imported with no resolvable teams (ADR-0023) — see Tool.teams_pending.
+            raise WorkflowStateError(
+                f"The workflow {alias!r} was imported without teams (none of its teams "
+                "exist on this install). Set at least one team on its edit page first — "
+                "choose World to make it available to everyone."
+            )
 
         previous = wf.state
         # Promotions to ``released`` bump the version so each release is
@@ -1393,31 +1403,44 @@ async def _validate_members(
         if tool.archived_at is not None:
             raise ArchivedToolMemberError(alias)
 
-    # Build a position lookup so we can compare upstream vs downstream
-    # without scanning the list each time.
-    position_by_alias = {alias: idx for idx, alias in enumerate(tool_aliases)}
+    check_upstream_ordering(
+        tool_aliases,
+        descriptors={alias: rows[alias].descriptor for alias in tool_aliases},
+        names={alias: rows[alias].name for alias in tool_aliases},
+    )
 
+
+def check_upstream_ordering(
+    tool_aliases: list[str],
+    *,
+    descriptors: Mapping[str, Any],
+    names: Mapping[str, str],
+) -> None:
+    """Raise :class:`UpstreamOrderingError` if a member precedes its upstream.
+
+    Pure: works from descriptors rather than DB rows, so a cross-install
+    import can validate a workflow against tools that are still only in the
+    bundle (ADR-0023). When a member's input is ``downstream_input=True,
+    upstream_tool=X`` and X is also in ``tool_aliases``, X must come earlier.
+    An upstream outside the workflow is fine — the field falls back to entry.
+    """
+    position_by_alias = {alias: idx for idx, alias in enumerate(tool_aliases)}
     for downstream_alias in tool_aliases:
-        downstream_tool = rows[downstream_alias]
         downstream_pos = position_by_alias[downstream_alias]
-        for input_field in _iter_descriptor_inputs(downstream_tool.descriptor):
+        for input_field in _iter_descriptor_inputs(descriptors.get(downstream_alias)):
             if not bool(input_field.get("downstream_input")):
                 continue
             upstream_alias = input_field.get("upstream_tool")
             if not isinstance(upstream_alias, str) or not upstream_alias:
                 continue
             if upstream_alias not in position_by_alias:
-                # Upstream absent from the workflow → field falls back
-                # to free entry. No ordering check needed.
                 continue
-            upstream_pos = position_by_alias[upstream_alias]
-            if upstream_pos >= downstream_pos:
-                upstream_tool = rows[upstream_alias]
+            if position_by_alias[upstream_alias] >= downstream_pos:
                 raise UpstreamOrderingError(
                     downstream_tool_alias=downstream_alias,
-                    downstream_tool_name=downstream_tool.name,
+                    downstream_tool_name=names.get(downstream_alias, downstream_alias),
                     upstream_tool_alias=upstream_alias,
-                    upstream_tool_name=upstream_tool.name,
+                    upstream_tool_name=names.get(upstream_alias, upstream_alias),
                     input_field_name=str(input_field.get("name") or "?"),
                 )
 

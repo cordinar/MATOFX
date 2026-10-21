@@ -326,6 +326,16 @@ async def test_resolve_members_filters_state_tool_and_version(
         assert resolved.acl_hidden == 0
         assert cohort.last_resolved_at is not None
 
+        # A read-only resolve (the cohort list, a fit's ingestion) must not write:
+        # two concurrent lists stamping the same rows made one fail.
+        stamped = cohort.last_resolved_at
+        read_only = await svc.resolve_members(
+            session, actor_user_id=basics.user_id, cohort_id=cohort.id, stamp=False
+        )
+        assert read_only.job_ids == [member.id]
+        assert cohort.last_resolved_at == stamped
+        assert cohort not in session.dirty
+
 
 async def test_resolve_members_input_range_filter(studies_engine, basics: Basics) -> None:
     svc = _service()

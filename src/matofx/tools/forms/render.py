@@ -1544,7 +1544,7 @@ Parasolid (``x_t`` / ``x_b``) needs a Parasolid licence to read; not
 worth the licence cost for an inline preview. These render the same
 "preview pending" placeholder the rest of the unsupported types do.
 Future ParaView-style viewers (volume / contour / streamlines) live
-in a separate roadmap item — see ``ROADMAP.md``."""
+in a separate roadmap item — see ``OUTPUTS/ROADMAP.md``."""
 
 _IMAGE_MIME_BY_EXT: dict[str, str] = {
     "png": "image/png",

@@ -41,6 +41,7 @@ from matofx.tools.errors import (
     InvalidPromotionError,
     InvalidStateTransitionError,
     SyntaxValidationError,
+    TeamsPendingError,
     ToolArchivedError,
     ToolNotFoundError,
     ToolPermissionError,
@@ -414,6 +415,8 @@ class ToolService:
         tool.name = descriptor.name
         tool.version = new_version
         tool.descriptor = descriptor.model_dump(mode="json")
+        if tool.teams_pending and descriptor.teams:
+            tool.teams_pending = False  # an admin has now chosen its teams
         try:
             await session.flush()
         except StaleDataError as exc:
@@ -1053,6 +1056,10 @@ class ToolService:
         previous = tool.state
         if _is_forward_skip(previous, new_state):
             raise InvalidPromotionError(previous, new_state)
+        if tool.teams_pending and previous == "new" and new_state != "new":
+            # Imported with no resolvable teams (ADR-0023): no teams would
+            # mean "everyone", so it stays in ``new`` until teams are set.
+            raise TeamsPendingError(tool.alias)
 
         # Promotions to ``released`` bump the version so each release is
         # distinguishable from the previous one:
@@ -1485,6 +1492,17 @@ class ToolService:
             if not_active_or_not_approver:
                 raise ApproverNotEnabledError(not_active_or_not_approver)
 
+        await self._validate_material_fields(session, descriptor)
+
+    async def validate_material_references(
+        self, session: AsyncSession, descriptor: ToolDescriptor
+    ) -> None:
+        """Run the install-time ``material`` input check on its own.
+
+        A cross-install import (ADR-0023) applies the same rule a normal
+        install does — unknown class or property → refused — without the
+        team / approver half, which import resolves leniently by itself.
+        """
         await self._validate_material_fields(session, descriptor)
 
     async def _validate_material_fields(

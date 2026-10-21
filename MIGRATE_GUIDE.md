@@ -22,15 +22,18 @@
 Reading this section first will save surprises later.
 
 - **Tool descriptor and `static/` files** arrive byte-for-byte from the source. MATOFX rebuilds the tool's container image locally on the destination from the same descriptor, so the destination ends up with its own image — no foreign binaries are ever imported.
-- **Tool settings** (assigned licence, AOS host, HPC cluster, Python environment, storage location, resource requirements, queue, approval-policy flag, email-notifications flag) **are preserved exactly from the source**, as long as the destination has matching entries (matched by name, not by row ID). If the destination is missing a referenced AOS host or HPC cluster, the tool is skipped with a clear message — see §6.
+- **Tool settings** (AOS host, HPC cluster, Python environment, storage location, resource requirements, approval policy, email notifications, **run cap**, **optimisation start-approval**) **are preserved from the source**, as long as the destination has matching entries (matched by name, not by row ID). A missing AOS host / HPC cluster / Python env / storage location, or an unknown material class, skips the tool with a clear message — see §6. Required **licences** travel with the tool but can't be checked automatically; the status log lists them.
+- **Teams and approvers** are checked like a normal install: unknown teams are dropped; approvers who don't exist, are deactivated, or don't have *Can approve runs* are dropped (a tool needing approval with none left is skipped). If **none** of an item's teams exist, it imports with no teams and **can't be promoted until teams are set**.
+- **Workflow links** (which tool feeds which) arrive intact. Where one side of a link is already on the destination, the import completes the other side (an ordinary edit, with a patch bump and change-log entry, reported as *Also updated tool …*); links it can't complete are named in the log.
 - **Tool lifecycle state is reset to `new`** on the destination, regardless of what state the tool was in on the source. You promote it through `test` and `released` on the destination yourself when you are satisfied it works. This is deliberate: a cross-install import is exactly when you want a human sign-off before users see it.
-- **Workflow approver lists** are matched by username/email. Approvers who exist on the destination are kept. Approvers who do not exist on the destination are dropped from the list, with a note in the status log. The workflow itself is still imported.
-- **Workflows arrive in `new` state** too.
+- **Workflows arrive in `new` state** too, with their icon, and are validated like a save in the workflow editor (member order). Approvers live on member tools, not on workflows.
+- **Surrogate tools are not exportable** — they run a fitted model held on the source install.
 
 ### 1.3 What does NOT change on the destination
 
 - Users, teams, projects, scenarios, jobs, the audit log, tutorials, branding, runtime settings, custom workflows. None of these touch the destination.
-- Existing tools and workflows on the destination are not modified or removed. The only way an existing tool changes is if the imported bundle contains the **same `(alias, version)` with an identical descriptor** — that case is a no-op (re-importing the same bundle is safe and idempotent).
+- Nothing is ever removed. An existing tool or workflow is **replaced only by a newer version** from the bundle — it then goes back to `new` (the preview warns if it was `test`/`released`). The same version with identical content is a no-op (re-importing is safe); the same version with different content, an older version, or an item archived here is skipped. A user's personal (custom) workflow is never replaced.
+- The only other change to existing items is completing a workflow link (adding an imported tool to an existing tool's downstream list), reported in the log.
 
 ---
 
@@ -84,7 +87,7 @@ You do this every time you want to ship a new bundle from source to destination.
 
 A single bundle can contain any combination of tools (each at one or more versions) and workflows. The rule of thumb: **bundle together everything that belongs together.** If workflow `thermal_baseline` references tools `material_properties` and `heat_transfer`, put all three in the same bundle — the destination will resolve the references in one go and skip nothing.
 
-If you bundle a workflow without one of its tools, and the destination doesn't already have that tool installed, the workflow will be skipped on import with a "missing dependency" message. The fix is to add the tool to the bundle and re-export.
+Leave **Include required tools** ticked (the default) and the export adds every member of a chosen workflow and every tool a chosen tool takes inputs from, at their current versions. If you untick it and bundle a workflow without one of its tools — and the destination doesn't already have that tool — the workflow is skipped on import with a "missing dependency" message.
 
 ### 3.2 Steps on the source
 
@@ -108,18 +111,15 @@ The filename embeds the export timestamp (UTC) and a short fragment of the sourc
 You do not need to open the tarball — but if you ever want to satisfy your curiosity:
 
 ```
-manifest.json          # bundle metadata + per-item inventory + hashes
+manifest.json          # bundle metadata, tool settings, workflow definitions + icons, file hashes
 manifest.sig           # detached Ed25519 signature over manifest.json
 tools/
-  material_properties-1.5/
-    descriptor.toml
-    descriptor.hash
+  material_properties-1.5.0/
+    descriptor.json    # authoritative, from the source database
     static/...
-workflows/
-  thermal_baseline.json
 ```
 
-Only `manifest.json` is signed. The manifest carries the hash of every per-item file, so per-file integrity is verified against the signed manifest at import time.
+Only `manifest.json` is signed. Workflow definitions (and their icons) are inlined in it; the manifest carries the hash of every tool file, so per-file integrity is verified against the signed manifest at import time. The bundle format is versioned (currently 2); an install refuses a bundle made by a newer MATOFX and asks you to upgrade it first.
 
 ### 3.4 Transferring the bundle to the destination
 
@@ -143,80 +143,41 @@ Always dry-run. The dry-run reads the bundle, verifies the signature, parses the
 1. Go to **Admin → Migrate Tools/Workflows** on the destination install.
 2. Open the **Import** panel.
 3. Drop the `.tar.gz` file onto the file-drop area (or use the file picker).
-4. The page automatically runs the dry-run and shows the preview within a few seconds.
+4. Click **Preview (dry-run)**. The preview runs the real import and then undoes it, so it reports exactly what **Confirm import** will do.
 
-A clean dry-run looks like this:
-
-```
-Verifying signature...
-  Signed by Staging (fingerprint 9F:2E:A1:7B:04:3D:8C:E1:55:6A:2F:97:CB:0D:18:7C)
-  Trust status: trusted (added 2026-04-12 by robert@funisoft.com, label: "Staging")
-
-Reading bundle contents...
-  2 tools, 1 workflow
-  Exported 2026-05-15 14:22:08 UTC by alice@funisoft.com on Staging
-  Notes: "Promote thermal pipeline after QA sign-off (ticket MTX-412)"
-
-Checking against this install...
-
-  Tools:
-    material_properties 1.5    NEW VERSION    (this install has 1.4 as the latest)
-    heat_transfer 2.1          NEW VERSION    (this install has 2.0 as the latest)
-
-  Workflows:
-    thermal_baseline           NEW WORKFLOW   (no existing workflow with this alias)
-
-  References (resolved by name on this install):
-    AOS host  "ansys_main"          present
-    HPC cluster "london_hpc"        present
-    Python env "python3_11_ansys"   present
-    Approver  "alice@funisoft.com"  present
-    Approver  "bob@funisoft.com"    not present (will be dropped from approver list)
-
-Ready to import. Click "Confirm import" to apply.
-```
-
-A dry-run with problems looks like this:
+A preview looks like this (the wording is what the page shows):
 
 ```
 Verifying signature...
-  Signed by Funis Dev (fingerprint 1A:2B:3C:...)
-  Trust status: NOT TRUSTED
-
-This bundle was signed by an install that is not in this install's trusted peer list.
-To accept it, an administrator must first add fingerprint 1A:2B:3C:... to the trust
-list (Admin -> Migrate Tools/Workflows -> Trusted peers -> Add trusted peer).
-
-Import is blocked.
+Signed by 'Staging' (fingerprint 9F:2E:A1:7B:...). Trusted.
+Bundle contents: 3 tool(s), 1 workflow(s). Exported 2026-05-15T14:22:08+00:00 by 'alice@funisoft.com'.
+Importing tools...
+  Tool material_properties 1.5.0: needs licence(s) ANSYS_CFD (x2). This install can't check
+    licence availability automatically — confirm the licence manager provides them.
+  IMPORTED  Tool material_properties 1.5.0 imported (state: new).
+  Tool heat_transfer 2.1.0: dropped approver(s) 'bob' (doesn't exist here).
+  Tool heat_transfer 2.1.0: replaces version 2.0.0, which is 'released' here. The tool goes
+    back to 'new' and is unavailable to users until you promote it again.
+  IMPORTED  Tool heat_transfer 2.1.0 updated (state: new).
+  SKIPPED   Tool stress_analysis 1.2.0 is bound on the source to HPC cluster 'london_hpc', which
+    does not exist on this install. Create it under Admin -> Execution Backends -> HPC Clusters,
+    then re-import.
+Checking workflow links...
+  Would also update tool mesh_prep (1.3.0 → 1.3.1): it now lists material_properties as a
+    downstream tool, so material_properties's inputs can take its outputs.
+Importing workflows...
+  SKIPPED   Workflow 'thermal_baseline' depends on tool 'stress_analysis', which was not imported
+    (see earlier log entries) and is not already installed here.
+Tools: 2 imported, 1 skipped, 0 already present (no-op).
+Workflows: 0 imported, 1 skipped, 0 already present (no-op).
+This was a preview — nothing has been written.
 ```
 
-Or with partial problems that would still allow the rest through:
+An untrusted bundle is refused before anything else:
 
 ```
-Verifying signature...
-  Signed by Staging  trusted
-
-Reading bundle contents...
-  3 tools, 2 workflows
-
-Checking against this install...
-
-  Tools:
-    material_properties 1.5    NEW VERSION
-    heat_transfer 2.1          WILL BE SKIPPED
-       Reason: this tool is bound on the source to HPC cluster "london_hpc",
-       which does not exist on this install. Create it under
-       Admin -> Execution Backends -> HPC Clusters, then re-import.
-    stress_analysis 1.2        NEW VERSION
-
-  Workflows:
-    thermal_baseline           NEW WORKFLOW
-    thermal_with_heat_xfer     WILL BE SKIPPED
-       Reason: depends on tool heat_transfer 2.1, which will not be imported (see above).
-
-If you confirm now, this install will import 2 tools and 1 workflow,
-and skip 1 tool and 1 workflow. You can resolve the skipped items
-and re-import the same bundle to pick them up.
+This bundle was signed by an install that is not in this install's trusted peer list
+(fingerprint 1A:2B:3C:...). Add it under Admin -> Migrate Tools/Workflows -> Trusted peers.
 ```
 
 The dry-run **never modifies the destination**. You can dry-run the same bundle as many times as you like.
@@ -228,52 +189,12 @@ When the preview looks right:
 1. Click **Confirm import**.
 2. The page streams live status to a scrollable log as each item is processed. Each item gets one line, then a multi-line block if there's anything to report about it.
 
-A successful import log:
-
-```
-Starting import...
-
-Tool material_properties 1.5
-  descriptor verified against bundle hash
-  installed at material_properties/1.5/
-  container image built from descriptor (hash recorded)
-  settings carried over from source:
-    AOS host: ansys_main
-    Python env: python3_11_ansys
-    Resource requirements: 4 CPU / 16 GB RAM
-    Approval policy: pre-approval required
-    Email notifications: enabled
-  state: new
-  IMPORTED
-
-Tool heat_transfer 2.1
-  ... (similar block)
-  IMPORTED
-
-Workflow thermal_baseline
-  3 member tools resolved by alias: material_properties, heat_transfer, stress_analysis
-  approver list:
-    alice@funisoft.com   matched (kept)
-    bob@funisoft.com     not present on this install (dropped)
-  state: new
-  IMPORTED
-
-Summary
-  Tools:     2 imported, 0 skipped, 0 failed
-  Workflows: 1 imported, 0 skipped, 0 failed
-
-Next steps:
-  1. Visit Admin -> Tools to promote material_properties 1.5 and heat_transfer 2.1
-     from 'new' to 'test' or 'released'.
-  2. Visit Admin -> Workflows to set the approver list for thermal_baseline
-     (one approver was dropped during import) and promote it from 'new' to 'released'.
-  3. The bundle has been recorded in the audit log. The bundle file itself is no longer
-     needed; you can delete it from disk.
-```
+The log has the same lines as the preview, without "would", followed by next steps —
+promote imported items, and set teams on any item imported without teams.
 
 ### 4.3 Atomicity guarantees
 
-- **Per-item:** each tool and each workflow imports inside its own database transaction. A failure on one item rolls back only that item; everything else proceeds.
+- **Per-item:** each tool and each workflow imports inside its own database transaction. A failure on one item — including an unexpected error — rolls back only that item; everything else proceeds.
 - **Cascading skips:** if a tool is skipped, any workflow in the same bundle that depends on that tool is also skipped — the dependency reason is cited in the log.
 - **Re-importing the same bundle is safe.** Items already present on the destination at the same descriptor hash are no-ops. Items that were skipped last time but now resolve will be imported on the second pass.
 - **A failed bundle never leaves the destination half-changed.** Every item is either fully imported or fully skipped. There is no "imported the descriptor but not the static files" state.
@@ -286,7 +207,7 @@ After a successful import:
 
 1. **Promote new tools.** Imported tools land in `new` state and are not visible to regular users. Under **Admin → Tools**, exercise each new tool with a test job, then promote `new → test → released` when satisfied. The state machine is identical to a tool installed via `matofx tool install`.
 2. **Verify execution bindings.** Open each imported tool's settings page and confirm the AOS host / HPC cluster / Python env / storage location / licence look right for the destination environment. The import preserved these by name; if your environments differ deliberately (e.g. Prod uses a bigger HPC cluster than Staging), this is the moment to adjust.
-3. **Set workflow approvers.** Imported workflows land with approver lists matched by username; any approvers that did not exist on the destination were dropped. Under **Admin → Workflows**, open each imported workflow and confirm the approver list is correct before releasing it.
+3. **Check approvers and teams.** Dropped approvers and teams are listed in the status log. Fix approver lists on the tools' Edit Tool pages; any item imported **with no teams** shows an amber notice and can't be promoted until you choose its teams.
 4. **Test a real job end-to-end** against each imported tool or workflow before announcing the change to users.
 5. **Delete the bundle file** from the destination host. It's no longer needed; the audit log already records the bundle hash and contents.
 
@@ -317,19 +238,27 @@ The tool's runtime is pinned to a named AOS host. The destination doesn't have a
 - Create the host on the destination first under **Admin → Execution Backends → AOS Hosts** (using the same name), then re-import the bundle, **or**
 - Decide that the tool should bind to a different host on the destination — in which case, import the tool first by exporting it on the source with no AOS host bound, and re-bind it on the destination after import.
 
-The same shape of message and resolution applies for HPC clusters, Python envs, storage locations, and licence configs.
+The same shape of message and resolution applies for HPC clusters, Python envs, storage locations, and material classes.
 
 ### 6.4 "Depends on tool X, which was not imported (see above)."
 
 A workflow references a tool that was skipped (for any of the reasons above) or that isn't present in the bundle and isn't already installed on the destination. Resolve the underlying tool issue and re-import.
 
-### 6.5 "Workflow alias X already exists on this install."
+### 6.5 "A user's personal (custom) workflow on this install already uses that alias."
 
-The destination already has a workflow with this alias. Workflows don't have a version axis the way tools do, so a name collision is a hard skip — the destination admin must rename one side. Easiest fix: rename the workflow on the source before re-exporting.
+An existing **admin** workflow with the alias is updated by a newer version instead. Only a user's own custom workflow blocks the import. Rename the workflow on the source and re-export.
 
-### 6.6 "Approver 'EMAIL' is not present on this install."
+### 6.6 "Dropped approver(s) 'NAME' (reason)."
 
-This is a **warning, not an error.** The workflow is imported, and the unmatched approver entry is dropped from the approver list. Set the correct approver list under **Admin → Workflows → (workflow) → Approvers** after import.
+A **warning, not an error**: the approver doesn't exist here, is deactivated, or doesn't have *Can approve runs*. The tool is still imported unless it needs approval and no approvers remain. Fix the list on the tool's Edit Tool page.
+
+### 6.7 "This install already has the newer version …; importing would downgrade it."
+
+The bundle carries an older version than the destination has. Export the current version from the source, or leave the item out.
+
+### 6.8 "… unexpected error while importing …"
+
+Something failed that MATOFX didn't anticipate. Only that item was skipped and nothing was changed for it; the server log has the details. Send the message to Funis support.
 
 ---
 
@@ -343,6 +272,7 @@ matofx migrate export `
   --tools material_properties:1.5,heat_transfer:2.1 `
   --workflows thermal_baseline `
   --notes "Promote thermal pipeline after QA sign-off (ticket MTX-412)" `
+  --include-required `
   --out bundle.tar.gz
 
 # Dry-run an import without writing
@@ -366,7 +296,7 @@ The CLI is gated by the same `migrate.tools_workflows` permission as the UI and 
 Every migration-related action is audit-logged.
 
 - On the source: `migrate.bundle.exported` (bundle hash, contents inventory, notes, exporting user).
-- On the destination: `migrate.bundle.imported` (bundle hash, per-item outcomes including skipped items and reasons, source fingerprint, importing user).
+- On the destination: `migrate.bundle.imported` (bundle hash, per-item outcomes including skipped items and reasons, link repairs made to existing tools, source fingerprint, importing user). Each link repair is also an ordinary `tools.tool.update_descriptor` event.
 - Trust-list mutations: `migrate.peer.trusted` / `migrate.peer.untrusted` (fingerprint, label, acting user, free-text reason).
 
 The bundle hash appears in both the source's export entry and the destination's import entry, so the two ends can be cross-referenced during an investigation.
@@ -378,6 +308,7 @@ The bundle hash appears in both the source's export entry and the destination's 
 - **No automatic transfer between installs.** The two installs never talk to each other directly. This is a security property, not an inconvenience — it means a compromised source install cannot push anything to a destination without an operator deciding to move the bundle.
 - **No automatic promotion on the destination.** Imported items always land in `new` state. Promoting to `test` or `released` is an explicit human decision on the destination.
 - **No carrying over of users, projects, jobs, audit history, custom workflows, tutorials, runtime settings, or branding.** Use backup → restore if that's what you actually want.
-- **No version overwrites.** `(alias, version)` with a different descriptor is a hard skip; bump the version on the source.
+- **No same-version overwrites or downgrades.** `(alias, version)` with different content, or an older version, is a hard skip; bump the version on the source.
+- **No surrogate tools, V&V records or tutorials.** Re-create surrogates on the destination.
 - **No bundle encryption (only signing).** Bundles are signed for authenticity. They are not encrypted. If the transport between source and destination is sensitive, use an encrypted transport (SCP, SFTP, an internal share over TLS).
 - **No partial bundle.** Either the bundle parses and verifies cleanly as a whole, or no items are imported. Per-item atomicity applies once verification succeeds.

@@ -1396,9 +1396,7 @@ async def _surrogate_approval_detail(db: AsyncSession, request: ApprovalRequest)
     metrics = _surrogate_metrics(version, maps)
     training_source = await _surrogate_training_source(db, version)
     review = ApprovalSurrogateReview(
-        model_kind=_SURROGATE_METHOD_LABELS.get(
-            str(version.surrogate_method or "gp"), str(version.surrogate_method or "gp")
-        ),
+        model_kind=_surrogate_kind_label(version),
         predicts=predicts,
         training_samples=version.n_training_points,
         training_source=training_source,
@@ -1482,6 +1480,20 @@ def _surrogate_metrics(
                 )
             )
     return out
+
+
+def _surrogate_kind_label(version: Any) -> str:
+    """The version's method for a reviewer, or *mixed* when results differ (ADR-0022)."""
+    primary = str(version.surrogate_method or "gp")
+    label = _SURROGATE_METHOD_LABELS.get(primary, primary)
+    methods = {
+        str(r.get("method"))
+        for r in (version.responses or [])
+        if isinstance(r, dict) and r.get("kind") != "field" and r.get("method")
+    }
+    if len(methods - {primary}) > 0 or len(methods) > 1:
+        return f"Mixed per result (primary: {label})"
+    return label
 
 
 async def _surrogate_training_source(

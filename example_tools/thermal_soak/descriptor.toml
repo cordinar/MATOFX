@@ -17,6 +17,9 @@ structural analysis). Reports the peak and mean temperature.\
 """
 main_script = "thermal_soak.py"
 
+# Tools whose inputs may be filled from this tool's outputs (workflow wiring).
+downstream_tools = ["bracket_stress"]
+
 duration_class = "medium"
 
 # Field outputs (single + the timestep series) are kept by the ADR-0008
@@ -55,6 +58,9 @@ column_2 = 0.5
 # are the CFRP baseline (e.g. from the Composite Laminate tool's outputs).
 [[inputs]]
 name = "kx"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "kx"
 label = "Conductivity kx (in-plane)"
 group = "material"
 type = "float"
@@ -67,6 +73,9 @@ required = true
 
 [[inputs]]
 name = "ky"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "ky"
 label = "Conductivity ky (in-plane)"
 group = "material"
 type = "float"
@@ -79,6 +88,9 @@ required = true
 
 [[inputs]]
 name = "kz"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "kz"
 label = "Conductivity kz (through-thickness)"
 group = "material"
 type = "float"
@@ -91,6 +103,9 @@ required = true
 
 [[inputs]]
 name = "rho"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "rho"
 label = "Density"
 group = "material"
 type = "float"
@@ -103,6 +118,9 @@ required = true
 
 [[inputs]]
 name = "cp"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "cp"
 label = "Specific heat"
 group = "material"
 type = "float"
@@ -115,6 +133,9 @@ required = true
 
 [[inputs]]
 name = "thickness"
+downstream_input = true
+upstream_tool = "composite_laminate"
+upstream_output = "thickness"
 label = "Laminate thickness"
 group = "material"
 type = "float"

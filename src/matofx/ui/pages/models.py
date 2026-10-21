@@ -22,11 +22,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 from typing import Any
 
 import plotly.graph_objects as go
 from nicegui import ui
 
+from matofx.studies.surrogate.tuning import Config, describe
 from matofx.ui._coverage_panel import MODES_EXPLAINER, modes_count_note
 from matofx.ui._features import surrogate_family_enabled
 from matofx.ui._holder import get_app
@@ -35,6 +37,8 @@ from matofx.ui.format import format_user_datetime
 from matofx.ui.pages._chrome import render_shell, require_logged_in, section_card
 from matofx.ui.state import current_token, current_user_id, has_permission
 from matofx.ui.theme import themed_plotly
+
+_log = logging.getLogger(__name__)
 
 _METHOD_LABELS = {
     "gp": "Gaussian process",
@@ -45,6 +49,19 @@ _METHOD_LABELS = {
 
 # Field methods add 'auto' (best regressor per POD mode) to the scalar set.
 _FIELD_METHOD_LABELS = {**_METHOD_LABELS, "auto": "Auto (best per mode)"}
+
+# Per-result tuning of scalar results (ADR-0022).
+_TUNING_LABELS = {
+    "automatic": "Automatic — MATOFX picks method and scale per result",
+    "off": "Off — one method for every result, as measured",
+}
+_TUNING_SOURCE_LABELS = {
+    "auto": "picked by MATOFX",
+    "user": "chosen by you",
+    "mode": "the model's method",
+}
+_MUTED = "color: var(--matofx-muted-text); font-size: 0.8rem;"
+_WARN = "color: var(--matofx-warning-text); font-size: 0.8rem;"
 
 _REASON_LABELS = {
     "non_finite": "non-finite",
@@ -109,14 +126,17 @@ def _chip(label: str, color: str) -> None:
 
 
 @ui.page("/models")
-async def models_page(source_kind: str | None = None, source_id: int | None = None) -> None:
+async def models_page(
+    source_kind: str | None = None, source_id: int | None = None, fit_job: str | None = None
+) -> None:
     """The Models catalogue — browse + the fit-a-surrogate affordance.
 
     Two tabs: *Catalogue* (browse what exists) and *New Surrogate Model*
     (the fit form). ``?source_kind=&source_id=`` deep-links the fit form
     pre-filled from a completed study / cohort (the "Build a surrogate"
     affordance on the Parametric Studies results tab routes here) and lands
-    straight on the New Surrogate Model tab.
+    straight on the New Surrogate Model tab. ``?fit_job=`` reopens a background
+    *Fit & compare* from the *Fits in progress* panel, form filled in.
     """
     if not require_logged_in() or not _feature_ok():
         return
@@ -133,6 +153,7 @@ async def models_page(source_kind: str | None = None, source_id: int | None = No
         # Creating a model needs models.create (or the curate capability —
         # curators can always create). Viewers get just the catalogue; the
         # surface is feature-gated, so it's visible to read regardless.
+        await _render_fit_jobs_panel(client)
         can_create = has_permission(_MODELS_CREATE) or has_permission(_MODELS_CURATE)
         if not can_create:
             await _render_catalogue(client)
@@ -147,7 +168,7 @@ async def models_page(source_kind: str | None = None, source_id: int | None = No
             new_tab = ui.tab("New Surrogate Model", icon="add").props("no-caps")
         # A deep-linked source means the user came here to fit one — open
         # straight on the form rather than the catalogue.
-        default_tab = new_tab if source_id is not None else catalogue_tab
+        default_tab = new_tab if source_id is not None or fit_job else catalogue_tab
         with (
             ui.tab_panels(tabs, value=default_tab)
             .classes("w-full")
@@ -157,8 +178,95 @@ async def models_page(source_kind: str | None = None, source_id: int | None = No
                 await _render_catalogue(client)
             with ui.tab_panel(new_tab).style("background-color: transparent;"):
                 await _render_create_form(
-                    client, preselect_kind=source_kind, preselect_source_id=source_id
+                    client,
+                    preselect_kind=source_kind,
+                    preselect_source_id=source_id,
+                    resume_job_id=fit_job,
                 )
+
+
+_FIT_JOB_KINDS = {"compare": "Fit & compare", "create": "Build model", "refit": "Refit"}
+
+
+async def _render_fit_jobs_panel(client: ApiClient) -> None:
+    """*Fits in progress*: the user's background fits, so leaving a page loses nothing.
+
+    A fit runs on the server whether or not its page is open. Build and Refit
+    save a model when they finish, but a *Fit & compare* result was held only by
+    the page that started it: leave, or lose touch, and it was gone. Listed here,
+    it can be reopened. Hidden when there's nothing to show; refreshes while
+    anything is still running.
+    """
+    state: dict[str, list[dict[str, Any]]] = {"jobs": []}
+    with contextlib.suppress(Exception):  # a list we can't read just stays hidden
+        state["jobs"] = await client.list_fit_jobs()
+    holder = ui.column().classes("w-full gap-0")
+
+    def _draw() -> None:
+        holder.clear()
+        if not state["jobs"]:
+            return
+        with holder, section_card("hourglass_top", "Fits in progress"):
+            ui.label(
+                "Your fits from the last hour. A fit keeps running if you leave the page; "
+                "a server restart stops it."
+            ).style(_MUTED)
+            for job in state["jobs"]:
+                _fit_job_row(job)
+
+    async def _poll() -> None:
+        if not any(j.get("status") == "running" for j in state["jobs"]):
+            return
+        try:
+            state["jobs"] = await client.list_fit_jobs()
+        except Exception:  # try again on the next tick
+            return
+        with contextlib.suppress(RuntimeError):
+            _draw()
+
+    _draw()
+    ui.timer(3.0, _poll)
+
+
+def _fit_job_row(job: dict[str, Any]) -> None:
+    kind = str(job.get("kind") or "")
+    status = str(job.get("status") or "")
+    job_id = str(job.get("id") or "")
+    with (
+        ui.row()
+        .classes("w-full items-center gap-3 no-wrap")
+        .style("padding: 0.5rem 0; border-top: 1px solid var(--matofx-card-border);")
+    ):
+        with ui.column().classes("flex-1 min-w-0 gap-0"):
+            ui.label(f"{_FIT_JOB_KINDS.get(kind, kind)} · {job.get('title') or '—'}").style(
+                "font-weight: 600; font-size: 0.9rem;"
+            )
+            if status == "running":
+                ui.label(str(job.get("message") or "Running…")).style(_MUTED)
+            elif status == "done":
+                ui.label(f"Finished {format_user_datetime(job.get('finished_at'))}").style(_MUTED)
+            else:
+                ui.label(str(job.get("error") or "The fit failed.")).style(
+                    "color: var(--matofx-warning-text); font-size: 0.8rem;"
+                )
+        if status == "running":
+            total = int(job.get("total") or 0)
+            ui.linear_progress(
+                value=min(1.0, int(job.get("done") or 0) / total) if total else 0.0,
+                show_value=False,
+            ).props("color=primary").classes("w-40")
+        if kind == "compare" and status in ("running", "done"):
+            ui.button(
+                "Open comparison" if status == "done" else "Watch",
+                icon="insights",
+                on_click=lambda _e=None, jid=job_id: ui.navigate.to(f"/models?fit_job={jid}"),
+            ).props("flat dense no-caps color=primary")
+        elif status == "done" and job.get("model_id") is not None:
+            ui.button(
+                "Open model",
+                icon="open_in_new",
+                on_click=lambda _e=None, mid=int(job["model_id"]): ui.navigate.to(f"/models/{mid}"),
+            ).props("flat dense no-caps color=primary")
 
 
 def _model_haystack(model: dict[str, Any]) -> str:
@@ -299,8 +407,14 @@ async def _render_create_form(
     *,
     preselect_kind: str | None = None,
     preselect_source_id: int | None = None,
+    resume_job_id: str | None = None,
 ) -> None:
-    """Fit a surrogate from a completed parametric study or job cohort."""
+    """Fit a surrogate from a completed parametric study or job cohort.
+
+    ``resume_job_id`` reopens a background *Fit & compare*: the form is filled in
+    from what the fit was started with, then its comparison is shown (after
+    watching it finish, if it's still running).
+    """
     is_curator = has_permission(_MODELS_CURATE)
     with section_card("auto_graph", "Fit a new surrogate"):
         try:
@@ -391,6 +505,19 @@ async def _render_create_form(
                     multiple=True,
                     label="Methods to try (field)",
                 ).classes("w-full")
+        # ADR-0022: how each *scalar* result is fitted. Fields are unaffected, so
+        # this sits in the scalar column's width.
+        with ui.row().classes("w-full gap-3 items-start"):
+            tuning_sel = ui.select(
+                _TUNING_LABELS, value="automatic", label="Tuning per result (scalar)"
+            ).classes("flex-1 min-w-0")
+            ui.label(
+                "Automatic tries each ticked method on each result, with its output and "
+                "(for Gaussian processes) its inputs as measured or on a log scale, and "
+                "switches a result only when another combination is clearly and consistently "
+                "more accurate. Fit & compare shows every combination and lets you change any "
+                "result. It takes longer to fit, so it runs in the background."
+            ).classes("flex-1 min-w-0").style(_MUTED)
         scope_sel = ui.select(scope_opts, value="personal", label="Scope").classes("w-full")
         field_col.set_visibility(False)
         field_method_col.set_visibility(False)
@@ -407,8 +534,10 @@ async def _render_create_form(
 
         # On-the-fly output-range filter — exclude outlier runs from the fit
         # without changing the tool's validity bounds (ADR-0018).
-        with ui.expansion("Filter runs by output value (optional)", icon="filter_alt").classes(
-            "w-full"
+        with _expandable(
+            "Filter runs by output value (optional)",
+            "filter_alt",
+            caption="Leave out extreme runs from this fit only",
         ):
             ui.label(
                 "Fit only on runs whose outputs fall in the ranges below — a quick way to "
@@ -571,6 +700,7 @@ async def _render_create_form(
                 ui.notify(f"Couldn't list sources: {exc.detail}", type="negative")
                 return
             except Exception:  # never leave the picker silently empty
+                _log.exception("Listing surrogate sources failed")
                 ui.notify("Couldn't list sources.", type="negative")
                 return
             opts: dict[int, str] = {}
@@ -591,9 +721,23 @@ async def _render_create_form(
             _sync_project_visibility()
             await _reload_sources()
 
-        project_sel.on_value_change(lambda _e=None: _reload_sources())
-        kind_sel.on_value_change(lambda _e=None: _on_kind_change())
-        source_sel.on_value_change(lambda _e=None: _reload_responses())
+        # While the deep-link prefill drives the pickers itself, their change
+        # handlers stay quiet. Otherwise each ``set_value`` started a second
+        # reload racing the prefill's own: the cohort list loaded twice at once
+        # (one failed — "Couldn't list sources.") and a late reload could wipe
+        # the source the prefill had just picked.
+        prefilling = {"on": False}
+
+        async def _noop() -> None:
+            return None
+
+        project_sel.on_value_change(
+            lambda _e=None: _noop() if prefilling["on"] else _reload_sources()
+        )
+        kind_sel.on_value_change(lambda _e=None: _noop() if prefilling["on"] else _on_kind_change())
+        source_sel.on_value_change(
+            lambda _e=None: _noop() if prefilling["on"] else _reload_responses()
+        )
         _sync_project_visibility()
 
         # The comparison panel renders here after "Fit & compare".
@@ -603,13 +747,21 @@ async def _render_create_form(
             source = sources.get(int(source_sel.value)) if source_sel.value else None
             return str((source or {}).get("tool_alias") or "")
 
-        async def _create(method: str, field_method: str | None = None) -> None:
+        async def _create(
+            method: str,
+            field_method: str | None = None,
+            tuning_overrides: dict[str, dict[str, str]] | None = None,
+            tuning_mode: str | None = None,
+        ) -> None:
             """Persist the model with the chosen scalar method + the chosen field method.
 
-            ``method`` is the kept scalar method; ``field_method`` the kept field
-            method (from the comparison). When ``field_method`` is None it falls
-            back to the form's field selector (first pick, which may be 'auto').
-            Numbers + fields build together as one model.
+            ``method`` is the kept scalar (primary) method; ``field_method`` the
+            kept field method (from the comparison). When ``field_method`` is None
+            it falls back to the form's field selector (first pick, which may be
+            'auto'). Numbers + fields build together as one model.
+            ``tuning_overrides`` are the per-result choices from the comparison's
+            tuning table and ``tuning_mode`` the setting that comparison ran with
+            (ADR-0022); both default to the form. Runs as a background fit.
             """
             if not name_in.value:
                 ui.notify("Give the model a name first.", type="warning")
@@ -631,21 +783,12 @@ async def _render_create_form(
                 if field_sel.value and field_method_sel.value
                 else None
             )
-            # Progress for both entry points (form "Build model" + comparison
-            # "Create model"): a spinner that can't auto-dismiss + disabled
-            # buttons, so a long combined/field fit clearly reads as "working".
             build_btn.props("loading")
             build_btn.disable()
             compare_btn.disable()
-            progress = ui.notification(
-                "Building the surrogate — fitting can take a moment…",
-                type="ongoing",
-                spinner=True,
-                timeout=None,
-            )
             model: dict[str, Any] | None = None
             try:
-                model = await client.create_model(
+                job = await client.start_create_model_job(
                     name=str(name_in.value),
                     tool_alias=tool_alias,
                     scope=scope,
@@ -656,17 +799,21 @@ async def _render_create_form(
                     project_id=int(project_sel.value) if scope == "project" else None,
                     field_surrogate_kind=field_kind,
                     output_filter=_collect_output_filter(),
+                    tuning_mode=tuning_mode or str(tuning_sel.value or "automatic"),
+                    candidate_methods=[str(m) for m in (method_sel.value or [])],
+                    tuning_overrides=tuning_overrides,
                 )
+                model = await _await_fit_job(client, job, "Building the surrogate")
             except ApiError as exc:
                 ui.notify(exc.detail, type="negative")
             except Exception:  # surface any unexpected fit/persist error
+                _log.exception("Building a surrogate failed")
                 ui.notify(
                     "Couldn't create the model — an unexpected error occurred. Please try again.",
                     type="negative",
                 )
             finally:
                 with contextlib.suppress(RuntimeError):
-                    progress.dismiss()
                     build_btn.props(remove="loading")
                     build_btn.enable()
                     compare_btn.enable()
@@ -705,17 +852,9 @@ async def _render_create_form(
                 return
             compare_btn.props("loading")
             compare_btn.disable()
-            # An "ongoing" notification has no auto-dismiss timeout — we must
-            # close it ourselves in every exit path, or it hangs on screen
-            # indefinitely even after the comparison has rendered.
-            progress = ui.notification(
-                "Fitting the selected methods — this can take a few seconds…",
-                type="ongoing",
-                spinner=True,
-                timeout=None,
-            )
+            data: dict[str, Any] | None = None
             try:
-                data = await client.compare_model_fits(
+                job = await client.start_compare_fits_job(
                     tool_alias=tool_alias,
                     source_kind=str(kind_sel.value or "parametric"),
                     source_id=int(source_sel.value),
@@ -724,11 +863,14 @@ async def _render_create_form(
                     field_response_names=field_resp,
                     field_methods=field_methods,
                     output_filter=_collect_output_filter(),
+                    tuning_mode=str(tuning_sel.value or "automatic"),
                 )
+                data = await _await_fit_job(client, job, "Fitting and comparing")
             except ApiError as exc:
                 ui.notify(exc.detail, type="negative")
                 return
             except Exception:  # never let a fit error die silently
+                _log.exception("Fit & compare failed")
                 ui.notify(
                     "Something went wrong fitting the surrogate. Please try again, "
                     "or pick a different source.",
@@ -741,9 +883,10 @@ async def _render_create_form(
                 # nothing left to update, so swallow it rather than surface a
                 # spurious traceback.
                 with contextlib.suppress(RuntimeError):
-                    progress.dismiss()
                     compare_btn.props(remove="loading")
                     compare_btn.enable()
+            if data is None:
+                return
             # Rendering into a torn-down page (you navigated away as the fit
             # finished) raises "client deleted" — nothing to draw, so no-op.
             with contextlib.suppress(RuntimeError):
@@ -778,17 +921,90 @@ async def _render_create_form(
         # the source's project, drive the same reload chain a manual pick
         # would, then land on the source with its responses loaded.
         if preselect_source_id is not None:
-            await _prefill_source(
-                client,
-                kind=str(preselect_kind or "parametric"),
-                source_id=int(preselect_source_id),
-                project_sel=project_sel,
-                kind_sel=kind_sel,
-                source_sel=source_sel,
-                name_in=name_in,
-                reload_sources=_reload_sources,
-                reload_responses=_reload_responses,
-            )
+            prefilling["on"] = True
+            try:
+                await _prefill_source(
+                    client,
+                    kind=str(preselect_kind or "parametric"),
+                    source_id=int(preselect_source_id),
+                    project_sel=project_sel,
+                    kind_sel=kind_sel,
+                    source_sel=source_sel,
+                    name_in=name_in,
+                    reload_sources=_reload_sources,
+                    reload_responses=_reload_responses,
+                )
+            finally:
+                prefilling["on"] = False
+                _sync_project_visibility()
+
+        async def _resume_comparison() -> None:
+            try:
+                job = await client.get_fit_job(str(resume_job_id))
+            except ApiError as exc:
+                ui.notify(exc.detail, type="negative")
+                return
+            ctx = job.get("context") or {}
+            if job.get("kind") != "compare" or not ctx.get("source_id"):
+                return
+            prefilling["on"] = True
+            try:
+                await _prefill_source(
+                    client,
+                    kind=str(ctx.get("source_kind") or "parametric"),
+                    source_id=int(ctx["source_id"]),
+                    project_sel=project_sel,
+                    kind_sel=kind_sel,
+                    source_sel=source_sel,
+                    name_in=name_in,
+                    reload_sources=_reload_sources,
+                    reload_responses=_reload_responses,
+                )
+                # Only values the reloaded pickers still offer.
+                scalar_sel.set_value(
+                    [r for r in ctx.get("response_names") or [] if r in scalar_sel.options]
+                )
+                field_sel.set_value(
+                    [r for r in ctx.get("field_response_names") or [] if r in field_sel.options]
+                )
+                if ctx.get("methods"):
+                    method_sel.set_value(list(ctx["methods"]))
+                if ctx.get("field_methods"):
+                    field_method_sel.set_value(list(ctx["field_methods"]))
+                tuning_sel.set_value(str(ctx.get("tuning_mode") or "automatic"))
+                # The filter too, or Build model from the reopened comparison
+                # would train on a different set of runs than it compared.
+                output_filter_rows.clear()
+                for name, bound in (ctx.get("output_filter") or {}).items():
+                    _filter_row_id[0] += 1
+                    output_filter_rows.append(
+                        {
+                            "id": _filter_row_id[0],
+                            "output": name,
+                            "min": (bound or {}).get("min"),
+                            "max": (bound or {}).get("max"),
+                        }
+                    )
+                _rebuild_filter_rows()
+            finally:
+                prefilling["on"] = False
+                _sync_project_visibility()
+            data: dict[str, Any] | None
+            if job.get("status") == "running":
+                data = await _await_fit_job(client, job, "Fitting and comparing")
+            elif job.get("status") == "done":
+                data = job.get("result")
+            else:
+                ui.notify(str(job.get("error") or "The fit failed."), type="negative")
+                return
+            if data:
+                with contextlib.suppress(RuntimeError):
+                    _render_comparison(results_box, data, _create, dict(resp_display))
+
+        if resume_job_id:
+            # After the page is served: watching a running fit can take minutes,
+            # far longer than a page build may take.
+            ui.timer(0.1, _resume_comparison, once=True)
 
 
 async def _prefill_source(
@@ -1010,8 +1226,7 @@ def _render_version_row(
         ui.label(str(version.get("kind") or "scalar")).style(
             "color: var(--matofx-muted-text); font-size: 0.85rem;"
         )
-        method = str(version.get("surrogate_method") or "gp")
-        ui.label(_METHOD_LABELS.get(method, method)).style(
+        ui.label(_version_method_label(version)).style(
             "color: var(--matofx-muted-text); font-size: 0.85rem;"
         )
         ui.label(f"{version.get('n_training_points', 0)} pts").style(
@@ -1116,11 +1331,9 @@ def _render_field_section(
                     factor_labels=factor_labels,
                 )
 
-        exp = (
-            ui.expansion(title, on_value_change=lambda: ui.timer(0.0, _run, once=True))
-            .classes("w-full")
-            .props("icon=grain dense")
-        )
+        exp = _expandable(
+            title, "grain", caption="Open to view and predict the field in 3-D"
+        ).on_value_change(lambda: ui.timer(0.0, _run, once=True))
         with exp:
             holder["container"] = ui.column().classes("w-full")
 
@@ -1191,10 +1404,10 @@ def _render_fit_diagnostics(quality: dict[str, Any], resp_labels: dict[str, str]
     }
     if not plottable:
         return
-    with (
-        ui.expansion("Fit diagnostics — predicted vs actual")
-        .classes("w-full")
-        .props("icon=insights dense")
+    with _expandable(
+        "Fit diagnostics — predicted vs actual",
+        "insights",
+        caption="Held-out predictions for each result",
     ):
         ui.label(
             "Each point is a held-out (cross-validated) run; the dashed line is a "
@@ -1322,10 +1535,11 @@ def _render_field_comparison(data: dict[str, Any], resp_display: dict[str, str])
 
     best_method = fitted[0]
     for r in field_responses:
-        with (
-            ui.expansion(f"{resp_display.get(r, r)} — detail", value=not multi)
-            .classes("w-full")
-            .props("icon=ssid_chart dense")
+        with _expandable(
+            f"{resp_display.get(r, r)} — detail",
+            "ssid_chart",
+            caption="Per-pattern accuracy and mean-field plot",
+            value=not multi,
         ):
             q = (best_method.get("responses") or {}).get(r) or {}
             if q.get("mode_q2"):
@@ -1359,12 +1573,20 @@ def _render_field_comparison(data: dict[str, Any], resp_display: dict[str, str])
 def _render_comparison(
     box: Any, data: dict[str, Any], on_create: Any, resp_display: dict[str, str]
 ) -> None:
-    """Render the compare-fits bake-off: best-highlighted table + overlaid plots.
+    """Render the compare-fits result as one row per result.
 
-    ``data`` is the ``/models/compare-fits`` response; ``on_create`` is the
-    form's ``_create(method)`` coroutine, called when the user keeps a method;
-    ``resp_display`` maps each response name to its "Label (unit)" so every
-    surface reads in human terms.
+    Since ADR-0022 each result has its own fit, so the page leads with *what each
+    result will use*: its fit, Q², RMSE and the error before tuning, with a
+    dropdown to change it. The starting method — the one a result stays on unless
+    something is clearly better — is a setting above the table, suggested from the
+    before-tuning scores. The per-method table is still there, collapsed and
+    labelled "before tuning", for comparing methods.
+
+    An earlier layout scored methods after tuning and put the two tables far
+    apart: every method whose results all moved elsewhere tied for best, so a
+    "best" polynomial fitted none of its results. ``data`` is the
+    ``/models/compare-fits`` response; ``on_create`` the form's ``_create``
+    coroutine; ``resp_display`` maps each response name to its "Label (unit)".
     """
     box.clear()
     methods = list(data.get("methods") or [])
@@ -1375,10 +1597,12 @@ def _render_comparison(
     field_methods = list(data.get("field_methods") or [])
     field_fitted = [m for m in field_methods if m.get("fitted")]
     best_field = data.get("best_field_overall")
+    tuning = data.get("tuning") or {}
+    tuned = _is_tuned(tuning)
     with box, section_card("compare_arrows", "Fit comparison"):
         note = _excluded_note(data.get("excluded"))
         if note:
-            ui.label(note).style("color: var(--matofx-muted-text); font-size: 0.82rem;")
+            ui.label(note).style(_MUTED)
         if not scalar_fitted and not field_fitted:
             ui.label(
                 "No method could fit this data. Try a different source, fewer factors, "
@@ -1387,79 +1611,583 @@ def _render_comparison(
             for m in [*methods, *field_methods]:
                 if m.get("message"):
                     label = _FIELD_METHOD_LABELS.get(m["method"], m["method"])
-                    ui.label(f"{label}: {m['message']}").style(
-                        "color: var(--matofx-muted-text); font-size: 0.8rem;"
-                    )
+                    ui.label(f"{label}: {m['message']}").style(_MUTED)
             return
 
+        start_sel = None
+        choices: dict[str, dict[str, str]] = {}
         if responses and scalar_fitted:
-            _render_comparison_table(methods, responses, best_overall, best_per, resp_display)
-            with (
-                ui.expansion("Predicted vs actual (overlaid)", value=True)
-                .classes("w-full")
-                .props("icon=insights dense")
-            ):
+            _subheading("Numeric results")
+            by_method = {m["method"]: m for m in scalar_fitted}
+            start_opts = {k: _METHOD_LABELS.get(k, k) for k in by_method}
+            start_value = best_overall if best_overall in start_opts else next(iter(start_opts))
+            with ui.row().classes("w-full items-center gap-4 no-wrap"):
+                start_sel = ui.select(
+                    start_opts,
+                    value=start_value,
+                    label="Starting method" if tuned else "Method",
+                ).classes("w-72")
                 ui.label(
-                    "Each method's held-out (cross-validated) predictions; the dashed line "
-                    "is a perfect fit. Tighter to the line = better."
-                ).style("color: var(--matofx-muted-text); font-size: 0.8rem;")
-                for resp in responses:
-                    series = [
-                        (
-                            _METHOD_LABELS.get(m["method"], m["method"]),
-                            [float(v) for v in (m["quality"].get(resp) or {}).get("cv_actual", [])],
-                            [
-                                float(v)
-                                for v in (m["quality"].get(resp) or {}).get("cv_predicted", [])
-                            ],
-                        )
-                        for m in scalar_fitted
-                        if (m["quality"].get(resp) or {}).get("cv_actual")
-                    ]
-                    if series:
-                        _render_overlaid_parity(resp_display.get(resp, resp), series)
+                    "Suggested: the most accurate method before tuning. Each result starts "
+                    "here and moves to another fit only when that fit is clearly and "
+                    "consistently more accurate."
+                    if tuned
+                    else "Suggested: the most accurate method across your results."
+                ).style(_MUTED)
+            results_box = ui.column().classes("w-full gap-2")
 
-        _render_field_comparison(data, resp_display)
-
-        # Keep the best of each side and persist (scalar method + field method).
-        with ui.row().classes("w-full items-center gap-3 flex-wrap"):
-            keep_sel = None
-            if scalar_fitted:
-                keep_opts = {
-                    m["method"]: _METHOD_LABELS.get(m["method"], m["method"]) for m in scalar_fitted
-                }
-                keep_value = best_overall if best_overall in keep_opts else next(iter(keep_opts))
-                keep_sel = ui.select(
-                    keep_opts, value=keep_value, label="Keep scalar method"
-                ).classes("w-64")
-            keep_field_sel = None
-            if field_fitted:
-                fopts = {
-                    m["method"]: _FIELD_METHOD_LABELS.get(m["method"], m["method"])
-                    for m in field_fitted
-                }
-                fvalue = best_field if best_field in fopts else next(iter(fopts))
-                keep_field_sel = ui.select(fopts, value=fvalue, label="Keep field method").classes(
-                    "w-64"
+            def _show_results() -> None:
+                if start_sel is None:
+                    return
+                method = str(start_sel.value)
+                _render_results_table(
+                    results_box,
+                    by_method[method],
+                    tuning,
+                    responses,
+                    resp_display,
+                    choices.setdefault(method, {}),
+                    tuned=tuned,
                 )
 
-            async def _keep() -> None:
-                keep_btn.props("loading")
-                keep_btn.disable()
-                try:
-                    scalar_method = str(keep_sel.value) if keep_sel is not None else "gp"
-                    field_method = str(keep_field_sel.value) if keep_field_sel is not None else None
-                    await on_create(scalar_method, field_method)
-                finally:
-                    with contextlib.suppress(RuntimeError):
-                        keep_btn.props(remove="loading")
-                        keep_btn.enable()
+            start_sel.on_value_change(lambda _e=None: _show_results())
+            _show_results()
 
-            keep_btn = ui.button("Build with kept methods", on_click=_keep).props("color=primary")
+            with _expandable(
+                "All methods, before tuning",
+                "table_chart",
+                caption="Q² and RMSE for every method you ticked, as measured",
+            ):
+                _render_comparison_table(methods, responses, best_overall, best_per, resp_display)
+
+        keep_field_sel = None
+        if field_fitted:
+            _subheading("3-D fields")
+            _render_field_comparison(data, resp_display)
+            fopts = {
+                m["method"]: _FIELD_METHOD_LABELS.get(m["method"], m["method"])
+                for m in field_fitted
+            }
+            fvalue = best_field if best_field in fopts else next(iter(fopts))
+            keep_field_sel = ui.select(fopts, value=fvalue, label="Field method").classes("w-72")
+
+        async def _keep() -> None:
+            keep_btn.props("loading")
+            keep_btn.disable()
+            try:
+                scalar_method = str(start_sel.value) if start_sel is not None else "gp"
+                field_method = str(keep_field_sel.value) if keep_field_sel is not None else None
+                overrides, mode = _tuning_overrides(
+                    tuning, scalar_method, responses, choices.get(scalar_method, {})
+                )
+                await on_create(scalar_method, field_method, overrides, mode)
+            finally:
+                with contextlib.suppress(RuntimeError):
+                    keep_btn.props(remove="loading")
+                    keep_btn.enable()
+
+        ui.separator()
+        with ui.row().classes("w-full items-center gap-3"):
+            keep_btn = ui.button("Build model", icon="build", on_click=_keep).props("color=primary")
+            ui.label("Builds with the fits shown above.").style(_MUTED)
+
+
+def _subheading(text: str) -> None:
+    ui.label(text).style(
+        "font-weight: 600; font-size: 1rem; color: var(--matofx-accent); margin-top: 0.25rem;"
+    )
+
+
+def _expandable(title: str, icon: str, *, caption: str = "", value: bool = False) -> Any:
+    """A collapsible section that looks clickable.
+
+    The default dense expansion read as plain text, so plots and tables inside it
+    went unnoticed. This one has an accent header, a caption saying what's inside
+    and a framed body.
+    """
+    props = (
+        f"icon={icon} expand-separator "
+        'header-style="color: var(--matofx-accent); font-weight: 600;"'
+    )
+    if caption:
+        props += f' caption="{caption}"'
+    return (
+        ui.expansion(title, value=value)
+        .classes("w-full")
+        .props(props)
+        .style(
+            "border: 1px solid var(--matofx-card-border); border-radius: 8px; "
+            "border-left: 3px solid var(--matofx-accent);"
+        )
+    )
+
+
+def _render_results_table(
+    box: Any,
+    method_entry: dict[str, Any],
+    tuning: dict[str, Any],
+    responses: list[str],
+    resp_display: dict[str, str],
+    choices: dict[str, str],
+    *,
+    tuned: bool,
+) -> None:
+    """One row per result for the chosen starting method, then its plots.
+
+    With tuning, the *Fit used* dropdown starts at MATOFX's pick and lists every
+    combination tried with its error; Q², RMSE and the note follow the choice.
+    ``choices`` keeps the user's picks per method across re-renders; changing a
+    pick redraws that result's plot.
+    """
+    redraw: dict[str, Any] = {"fn": lambda: None}
+
+    def _redraw() -> None:
+        # Late-bound: the plots are drawn after the rows that trigger them.
+        redraw["fn"]()
+
+    box.clear()
+    method = str(method_entry["method"])
+    quality = method_entry.get("quality") or {}
+    before = method_entry.get("baseline_quality") or {}
+    with box:
+        with (
+            ui.element("div").classes("w-full overflow-x-auto"),
+            ui.grid(
+                columns=(
+                    "minmax(11rem, 1.3fr) minmax(16rem, 2.2fr) minmax(4.5rem, 0.5fr) "
+                    "minmax(5.5rem, 0.6fr) minmax(6.5rem, 0.7fr) minmax(12rem, 1.6fr)"
+                    if tuned
+                    else "minmax(11rem, 1.3fr) minmax(12rem, 1.5fr) minmax(4.5rem, 0.5fr) "
+                    "minmax(5.5rem, 0.6fr)"
+                )
+            )
+            .classes("w-full items-center")
+            .style("column-gap: 1rem; row-gap: 0.35rem;"),
+        ):
+            headings = [
+                "Result",
+                "Fit used (★ MATOFX's pick, then lowest error first)" if tuned else "Fit used",
+                "Q²",
+                "RMSE",
+            ]
+            if tuned:
+                headings += ["Before tuning", ""]
+            for heading in headings:
+                # Stretch every heading cell to the row's full height and sit the text
+                # at the bottom, so the underline lines up across columns even when a
+                # long heading wraps or a heading is blank.
+                ui.label(heading).style(
+                    "font-weight: 600; font-size: 0.8rem; color: var(--matofx-muted-text); "
+                    "border-bottom: 1px solid var(--matofx-card-border); padding-bottom: 0.25rem; "
+                    "align-self: stretch; display: flex; align-items: flex-end;"
+                )
+            for resp in responses:
+                q = quality.get(resp) or {}
+                b = before.get(resp) or {}
+                entry = tuning.get(resp) or {}
+                decision = (entry.get("decisions") or {}).get(method)
+                ui.label(resp_display.get(resp, resp)).style("font-size: 0.88rem;")
+                if not tuned or not decision:
+                    ui.label(_config_label({**q, "method": q.get("method") or method})).style(
+                        "font-size: 0.88rem;"
+                    )
+                    ui.label(str(_fmt(q.get("q2")))).style("font-size: 0.88rem;")
+                    ui.label(str(_fmt(q.get("rmse_cv")))).style("font-size: 0.88rem;")
+                    if tuned:
+                        ui.label(str(_fmt(b.get("rmse_cv")))).style(_MUTED)
+                        ui.label("")
+                    continue
+                _result_row(
+                    resp,
+                    entry.get("candidates") or [],
+                    decision,
+                    b,
+                    choices,
+                    on_change=_redraw,
+                )
+        redraw["fn"] = _render_result_plots(
+            method_entry, tuning, responses, resp_display, choices, tuned=tuned
+        )
+
+
+def _fit_options(
+    scored: dict[str, dict[str, Any]], auto_key: str, before_key: str
+) -> dict[str, str]:
+    """The *Fit used* list: MATOFX's pick first (★), then the rest by error, lowest first.
+
+    Sorted by error alone the list looked random — methods and scales interleave,
+    and MATOFX's pick is often not the lowest, because a lucky winner on one check
+    isn't enough for the strict rule. Pinning the pick to the top and saying which
+    entry is the before-tuning fit makes the order readable.
+    """
+    ordered = sorted(scored.items(), key=lambda kv: float(kv[1]["rmse"]))
+    if auto_key in scored:
+        ordered = [(auto_key, scored[auto_key])] + [kv for kv in ordered if kv[0] != auto_key]
+    options: dict[str, str] = {}
+    for key, cand in ordered:
+        text = f"{_config_label(cand)} · {_fmt(cand['rmse'])}"
+        if key == auto_key:
+            text = f"★ {text}"
+        if key == before_key:
+            text += " (before tuning)"
+        options[key] = text
+    return options
+
+
+def _result_row(
+    resp: str,
+    candidates: list[dict[str, Any]],
+    decision: dict[str, Any],
+    before: dict[str, Any],
+    choices: dict[str, str],
+    *,
+    on_change: Any = None,
+) -> None:
+    small = "font-size: 0.88rem;"
+    auto_key = str(decision.get("key"))
+    scored = {str(c["key"]): c for c in candidates if c.get("rmse") is not None}
+    options = _fit_options(scored, auto_key, _config_key(decision.get("baseline") or {}))
+    current = choices.setdefault(resp, auto_key if auto_key in options else next(iter(options), ""))
+    select = ui.select(options, value=current).props("dense options-dense").classes("w-full")
+    q2_label = ui.label("").style(small)
+    rmse_label = ui.label("").style(small + " font-weight: 600;")
+    ui.label(str(_fmt(before.get("rmse_cv")))).style(_MUTED)
+    note = ui.label("").style("font-size: 0.8rem;")
+    tip = ui.tooltip("")
+    tip.move(note)
+
+    def _refresh() -> None:
+        chosen = scored.get(choices[resp]) or {}
+        q2_label.set_text(str(_fmt(chosen.get("q2"))))
+        rmse_label.set_text(str(_fmt(chosen.get("rmse"))))
+        warning = _tuning_warning(candidates, choices[resp], auto_key)
+        if choices[resp] == auto_key:
+            note.set_text("✓ Picked by MATOFX — hover for why")
+            note.style(replace="font-size: 0.8rem; color: var(--matofx-muted-text);")
+            tip.set_text(str(decision.get("reason") or ""))
+        elif warning:
+            note.set_text(warning)
+            note.style(replace="font-size: 0.8rem; color: var(--matofx-warning-text);")
+            tip.set_text(f"MATOFX would pick: {_config_label(decision)}")
+        else:
+            note.set_text("Your choice")
+            note.style(replace="font-size: 0.8rem; color: var(--matofx-muted-text);")
+            tip.set_text(f"MATOFX would pick: {_config_label(decision)}")
+
+    def _changed(e: Any) -> None:
+        choices[resp] = str(e.value)
+        _refresh()
+        if on_change is not None:
+            on_change()
+
+    select.on_value_change(_changed)
+    _refresh()
+
+
+def _render_result_plots(
+    method_entry: dict[str, Any],
+    tuning: dict[str, Any],
+    responses: list[str],
+    resp_display: dict[str, str],
+    choices: dict[str, str],
+    *,
+    tuned: bool,
+) -> Any:
+    """Predicted vs actual per result: before tuning and the fit in use.
+
+    The fit in use follows each result's *Fit used* dropdown. With tuning, a *Show
+    every fit tried* tickbox (off by default) adds every other combination to each
+    plot. Returns a function that redraws the plots.
+    """
+    with _expandable(
+        "Predicted vs actual",
+        "insights",
+        caption="Held-out predictions for each result — the closer to the diagonal, the better",
+        value=True,
+    ):
+        state = {"all": False}
+
+        def _toggle(e: Any) -> None:
+            state["all"] = bool(e.value)
+            _draw()
+
+        if tuned:
+            ui.checkbox("Show every fit tried", value=False, on_change=_toggle).props("dense")
+        plots = ui.column().classes("w-full")
+
+        def _draw() -> None:
+            plots.clear()
+            with plots:
+                _draw_result_plots(
+                    method_entry,
+                    tuning,
+                    responses,
+                    resp_display,
+                    choices,
+                    tuned=tuned,
+                    show_all=state["all"],
+                )
+
+        _draw()
+    return _draw
+
+
+_OTHER_FIT_COLOURS = ["#e0a458", "#b07cc6", "#e07a7a", "#7aa6e0", "#c9c26b", "#6bc9a0", "#d4869e"]
+
+
+def _draw_result_plots(
+    method_entry: dict[str, Any],
+    tuning: dict[str, Any],
+    responses: list[str],
+    resp_display: dict[str, str],
+    choices: dict[str, str],
+    *,
+    tuned: bool,
+    show_all: bool,
+) -> None:
+    quality = method_entry.get("quality") or {}
+    before = method_entry.get("baseline_quality") or {}
+    method = str(method_entry["method"])
+    label = _METHOD_LABELS.get(method, method)
+    # At most two per row: a parity plot needs width to read; one per row on a
+    # narrow screen. (auto-fit packed five across a wide monitor.)
+    with ui.element("div").classes("w-full grid grid-cols-1 lg:grid-cols-2 gap-3"):
+        for resp in responses:
+            q = quality.get(resp) or {}
+            candidates = (tuning.get(resp) or {}).get("candidates") or []
+            chosen = next(
+                (c for c in candidates if c.get("key") == choices.get(resp) and c.get("cv_actual")),
+                None,
+            )
+            if chosen is not None:
+                # The user's pick from the Fit used dropdown, not only MATOFX's.
+                q = chosen
+            b = before.get(resp) or {}
+            series: list[tuple[str, list[float], list[float]]] = []
+            colours: list[str] = []
+            used_label = _config_label(q)
+            before_label = _config_label({**b, "method": method})
+            if show_all:
+                others = [
+                    c
+                    for c in candidates
+                    if c.get("cv_actual") and _config_label(c) not in (used_label, before_label)
+                ]
+                for index, cand in enumerate(others):
+                    series.append(
+                        (
+                            f"{_config_label(cand)} · {_fmt(cand.get('rmse'))}",
+                            [float(v) for v in cand["cv_actual"]],
+                            [float(v) for v in cand.get("cv_predicted", [])],
+                        )
+                    )
+                    colours.append(_OTHER_FIT_COLOURS[index % len(_OTHER_FIT_COLOURS)])
+            if tuned and b.get("cv_actual") and before_label != used_label:
+                series.append(
+                    (
+                        f"Before tuning ({label})",
+                        [float(v) for v in b["cv_actual"]],
+                        [float(v) for v in b.get("cv_predicted", [])],
+                    )
+                )
+                colours.append(_BEFORE_COLOUR)
+            if q.get("cv_actual"):
+                series.append(
+                    (
+                        f"Fit used ({used_label})" if tuned else label,
+                        [float(v) for v in q["cv_actual"]],
+                        [float(v) for v in q.get("cv_predicted", [])],
+                    )
+                )
+                colours.append(_FIT_USED_COLOUR)
+            if series:
+                with ui.card().classes("w-full").style("padding: 0.25rem;"):
+                    _render_overlaid_parity(
+                        resp_display.get(resp, resp),
+                        series,
+                        colours=colours,
+                        compact=True,
+                        tall=show_all,
+                    )
+
+
+def _is_tuned(tuning: dict[str, Any]) -> bool:
+    """Whether the comparison ran with automatic tuning (any decision says so)."""
+    return any(
+        d.get("mode") == "automatic"
+        for entry in tuning.values()
+        for d in ((entry or {}).get("decisions") or {}).values()
+    )
+
+
+def _tuned_tag(row: dict[str, Any], method: str) -> str:
+    """What tuning changed for one result when ``method`` is the start, in a few words."""
+    parts: list[str] = []
+    row_method = str(row.get("method") or method)
+    if row_method != method:
+        parts.append(_METHOD_LABELS.get(row_method, row_method).lower())
+    out = row.get("output_scale") == "log"
+    inp = row.get("input_scale") == "log" or bool(row.get("log_factors"))
+    if out and inp:
+        parts.append("log inputs + output")
+    elif inp:
+        parts.append("log inputs")
+    elif out:
+        parts.append("log output")
+    return ", ".join(parts)
+
+
+def _version_method_label(version: dict[str, Any]) -> str:
+    """The version's method, or *Mixed methods* when its results differ (ADR-0022)."""
+    primary = str(version.get("surrogate_method") or "gp")
+    label = _METHOD_LABELS.get(primary, primary)
+    methods = {
+        str(r.get("method"))
+        for r in (version.get("responses") or [])
+        if isinstance(r, dict) and r.get("kind") != "field" and r.get("method")
+    }
+    if methods and methods != {primary}:
+        return f"Mixed methods (primary: {label})"
+    return label
+
+
+def _config_label(entry: dict[str, Any] | None) -> str:
+    """Plain words for a configuration dict (method / output_scale / input_scale)."""
+    if not entry or not entry.get("method"):
+        return "—"
+    text = describe(
+        Config(
+            entry["method"],
+            entry.get("output_scale") or "as_measured",
+            entry.get("input_scale") or "as_measured",
+        )
+    )
+    return text[:1].upper() + text[1:]
+
+
+def _config_key(entry: dict[str, Any]) -> str:
+    return (
+        f"{entry.get('method')}|{entry.get('output_scale') or 'as_measured'}|"
+        f"{entry.get('input_scale') or 'as_measured'}"
+    )
+
+
+def _tuning_overrides(
+    tuning: dict[str, Any], method: str, responses: list[str], choices: dict[str, str]
+) -> tuple[dict[str, dict[str, str]], str | None]:
+    """``({result: choice}, mode)`` to build with: only choices that differ from the pick.
+
+    A result left at MATOFX's pick is not an override, so the model records it as
+    picked by MATOFX and a refit re-decides it; a changed one is the user's.
+    """
+    overrides: dict[str, dict[str, str]] = {}
+    mode: str | None = None
+    for resp in responses:
+        decision = ((tuning.get(resp) or {}).get("decisions") or {}).get(method)
+        if not decision:
+            continue
+        mode = mode or decision.get("mode")
+        choice = choices.get(resp)
+        if choice and choice != decision.get("key"):
+            m, out, inp = choice.split("|")
+            overrides[resp] = {"method": m, "output_scale": out, "input_scale": inp}
+    return overrides, mode
+
+
+def _tuning_warning(candidates: list[dict[str, Any]], chosen_key: str, auto_key: str) -> str | None:
+    """The ADR-0022 warning for a user's choice: any error above the best tried."""
+    if chosen_key == auto_key:
+        return None
+    scored = [c for c in candidates if c.get("rmse") is not None]
+    chosen = next((c for c in scored if c.get("key") == chosen_key), None)
+    if chosen is None or not scored:
+        return None
+    best = min(scored, key=lambda c: c["rmse"])
+    if chosen["rmse"] <= best["rmse"]:
+        return None
+    return (
+        f"⚠ Higher error than the best combination tried: {_config_label(best)} "
+        f"({_fmt(best['rmse'])} against {_fmt(chosen['rmse'])})."
+    )
+
+
+_HTTP_NOT_FOUND = 404
+_POLL_MISSES_ALLOWED = 30  # about 30 s of failed progress checks in a row
+
+
+async def _await_fit_job(
+    client: ApiClient, job: dict[str, Any], title: str
+) -> dict[str, Any] | None:
+    """Show a background fit's progress until it finishes; its result, or ``None``.
+
+    Tuning can take minutes on large models (ADR-0022 §7), so the fit runs on the
+    server and this polls it. A failure is reported here and returns ``None``.
+
+    The dialog is attached to the page's root layout, not to wherever the caller
+    happens to be: started from the Refit dialog's button, it was created *inside*
+    that dialog, which had just closed — so the progress stayed hidden and the
+    refit looked as though nothing was happening.
+    """
+    with (
+        ui.context.client.layout,
+        ui.dialog().props("persistent") as dialog,
+        section_card("hourglass_top", title),
+    ):
+        message = ui.label(str(job.get("message") or "Starting…")).style("font-size: 0.9rem;")
+        bar = ui.linear_progress(value=0.0, show_value=False).classes("w-full")
         ui.label(
-            "★ marks the best in each column. Higher Q² (max 1.0) is better; field methods "
-            "are ranked by Field Q²."
-        ).style("color: var(--matofx-muted-text); font-size: 0.8rem;")
+            "The fit runs on the server. Leaving this page doesn't stop it: find it under "
+            "Fits in progress on the Surrogate Models page."
+        ).style(_MUTED)
+    dialog.open()
+    misses = 0
+    try:
+        while job.get("status") == "running":
+            await asyncio.sleep(1.0)
+            try:
+                job = await client.get_fit_job(str(job["id"]))
+            except ApiError as exc:
+                if exc.status_code == _HTTP_NOT_FOUND:
+                    raise
+                # A missed progress check is not a failed fit: the fit carries on
+                # on the server. Giving up at the first miss told the user the
+                # build had failed while it went on to save the model, and a
+                # retry then made a duplicate.
+                misses += 1
+                if misses >= _POLL_MISSES_ALLOWED:
+                    raise
+                continue
+            except Exception as exc:
+                # In-process, a server-side exception reaches us raised rather
+                # than as a 500 response, so treat it as a miss too.
+                misses += 1
+                _log.warning("Progress check for fit %s failed: %r", job.get("id"), exc)
+                if misses >= _POLL_MISSES_ALLOWED:
+                    raise ApiError(0, "") from exc
+                continue
+            misses = 0
+            total = int(job.get("total") or 0)
+            bar.set_value(min(1.0, int(job.get("done") or 0) / total) if total else 0.0)
+            message.set_text(str(job.get("message") or ""))
+    except ApiError as exc:
+        with contextlib.suppress(RuntimeError):
+            ui.notify(
+                exc.detail
+                if exc.status_code == _HTTP_NOT_FOUND
+                else "Lost touch with the fit, but it may still finish on the server. "
+                "Check the model list before trying again.",
+                type="negative",
+            )
+        return None
+    finally:
+        with contextlib.suppress(RuntimeError):
+            dialog.close()
+    if job.get("status") != "done":
+        with contextlib.suppress(RuntimeError):
+            ui.notify(str(job.get("error") or "The fit failed."), type="negative")
+        return None
+    result = job.get("result")
+    return dict(result) if isinstance(result, dict) else None
 
 
 def _render_comparison_table(
@@ -1478,7 +2206,8 @@ def _render_comparison_table(
     """
     fitted = [m for m in methods if m.get("fitted")]
     fitted.sort(
-        key=lambda m: (m.get("mean_q2") is not None, m.get("mean_q2") or -1e9), reverse=True
+        key=lambda m: (_before_tuning(m, "mean") is not None, _before_tuning(m, "mean") or -1e9),
+        reverse=True,
     )
     unfitted = [m for m in methods if not m.get("fitted")]
 
@@ -1505,9 +2234,9 @@ def _render_comparison_table(
         for m in fitted:
             row: dict[str, Any] = {"method": _method_cell(m)}
             if metric == "q2":
-                row["mean"] = _fmt(m.get("mean_q2"))
+                row["mean"] = _fmt(_before_tuning(m, "mean"))
             for resp in responses:
-                q = m["quality"].get(resp) or {}
+                q = (m.get("baseline_quality") or m.get("quality") or {}).get(resp) or {}
                 value = _fmt(q.get("q2") if metric == "q2" else q.get("rmse_cv"))
                 # Only the headline Q² matrix stars the best (best_per is by Q²).
                 row[resp] = (
@@ -1517,7 +2246,7 @@ def _render_comparison_table(
         ui.table(columns=columns, rows=rows, row_key="method").classes("w-full").props("dense flat")
 
     _matrix("q2")
-    with ui.expansion("Show RMSE (cross-validated)").classes("w-full").props("dense"):
+    with _expandable("RMSE (cross-validated)", "straighten", caption="In each result's own units"):
         ui.label("Lower RMSE is better; each in the response's own units.").style(
             "color: var(--matofx-muted-text); font-size: 0.8rem;"
         )
@@ -1529,8 +2258,32 @@ def _render_comparison_table(
         )
 
 
-def _render_overlaid_parity(label: str, series: list[tuple[str, list[float], list[float]]]) -> None:
-    """One parity plot with a coloured marker trace per method + the diagonal."""
+def _before_tuning(method: dict[str, Any], what: str) -> Any:
+    """A method's before-tuning mean Q² (older responses carry only ``mean_q2``)."""
+    if what == "mean":
+        return method.get("baseline_mean_q2", method.get("mean_q2"))
+    return None
+
+
+_BEFORE_COLOUR = "#9aa5b1"
+_FIT_USED_COLOUR = "#40A1A4"
+
+
+def _render_overlaid_parity(
+    label: str,
+    series: list[tuple[str, list[float], list[float]]],
+    *,
+    colours: list[str] | None = None,
+    compact: bool = False,
+    tall: bool = False,
+) -> None:
+    """One parity plot with a coloured marker trace per method + the diagonal.
+
+    ``compact`` is for a grid of small plots: the legend goes underneath, where it
+    doesn't squeeze the data, and the axes share a range so the diagonal reads as
+    the diagonal. ``colours`` pins a colour per series, so "fit used" is the same
+    colour in every plot whether or not a "before tuning" series is shown.
+    """
     all_vals = [v for _, actual, predicted in series for v in (*actual, *predicted)]
     if not all_vals:
         return
@@ -1546,14 +2299,17 @@ def _render_overlaid_parity(label: str, series: list[tuple[str, list[float], lis
             hoverinfo="skip",
         )
     )
-    for method_label, actual, predicted in series:
+    for index, (method_label, actual, predicted) in enumerate(series):
+        marker: dict[str, Any] = {"size": 6 if compact else 7}
+        if colours is not None and index < len(colours):
+            marker["color"] = colours[index]
         fig.add_trace(
             go.Scatter(
                 x=actual,
                 y=predicted,
                 mode="markers",
                 name=method_label,
-                marker={"size": 7},
+                marker=marker,
                 hovertemplate=(
                     f"{method_label}<br>actual %{{x:.4g}}<br>predicted %{{y:.4g}}<extra></extra>"
                 ),
@@ -1566,6 +2322,17 @@ def _render_overlaid_parity(label: str, series: list[tuple[str, list[float], lis
         height=360,
         margin={"l": 60, "r": 20, "t": 50, "b": 50},
     )
+    if compact:
+        pad = (hi - lo) * 0.05 or 1.0
+        fig.update_layout(
+            # Room underneath for a legend listing every fit tried.
+            height=560 if tall else 400,
+            margin={"l": 55, "r": 15, "t": 45, "b": 40},
+            legend={"orientation": "h", "yanchor": "top", "y": -0.22, "x": 0},
+            title={"font": {"size": 14}},
+        )
+        fig.update_xaxes(range=[lo - pad, hi + pad])
+        fig.update_yaxes(range=[lo - pad, hi + pad])
     ui.plotly(themed_plotly(fig)).classes("w-full")
 
 
@@ -1582,18 +2349,49 @@ def _render_quality(quality: dict[str, Any], resp_labels: dict[str, str]) -> Non
         {"name": "rmse_cv", "label": "RMSE (CV)", "field": "rmse_cv"},
         {"name": "n", "label": "n", "field": "n"},
     ]
+    tuned = any(isinstance(v, dict) and v.get("tuning") for v in quality.values())
+    if tuned:
+        # ADR-0022: how each result was fitted, who chose it, and today's baseline.
+        columns[3:3] = [
+            {"name": "config", "label": "Method and scale", "field": "config", "align": "left"},
+            {"name": "source", "label": "Chosen by", "field": "source", "align": "left"},
+            {"name": "baseline", "label": "RMSE with the model's method", "field": "baseline"},
+        ]
     rows = []
+    warnings: list[tuple[str, str]] = []
+    reasons: list[tuple[str, str]] = []
     for response, metrics in quality.items():
         m = metrics if isinstance(metrics, dict) else {}
-        rows.append(
-            {
-                "response": resp_labels.get(str(response), str(response)),
-                "q2": _fmt(m.get("q2")),
-                "rmse_cv": _fmt(m.get("rmse_cv")),
-                "n": m.get("n"),
+        label = resp_labels.get(str(response), str(response))
+        row = {
+            "response": label,
+            "q2": _fmt(m.get("q2")),
+            "rmse_cv": _fmt(m.get("rmse_cv")),
+            "n": m.get("n"),
+        }
+        t = m.get("tuning") if isinstance(m.get("tuning"), dict) else None
+        if tuned:
+            row |= {
+                "config": _config_label(t)
+                if t
+                else _config_label(
+                    {"method": m.get("method"), "output_scale": m.get("output_scale")}
+                ),
+                "source": _TUNING_SOURCE_LABELS.get(str((t or {}).get("source")), ""),
+                "baseline": _fmt((t or {}).get("baseline_rmse")),
             }
-        )
+            if t and t.get("warning"):
+                warnings.append((label, str(t["warning"])))
+            if t and t.get("reason") and t.get("mode") == "automatic":
+                reasons.append((label, str(t["reason"])))
+        rows.append(row)
     ui.table(columns=columns, rows=rows, row_key="response").classes("w-full").props("dense flat")
+    for label, text in warnings:
+        ui.label(f"⚠ {label}: {text}").style(_WARN)
+    if reasons:
+        with _expandable("Why each result's method and scale", "help_outline"):
+            for label, text in reasons:
+                ui.label(f"{label}: {text}").style(_MUTED)
 
 
 def _fmt(value: Any) -> Any:
@@ -1606,17 +2404,9 @@ def _render_model_actions(client: ApiClient, model: dict[str, Any], refresh: Any
     state = str(model.get("state") or "active")
     is_curator = has_permission(_MODELS_CURATE)
     with ui.row().classes("w-full gap-2"):
-
-        async def _refit() -> None:
-            try:
-                await client.refit_model(mid)
-            except ApiError as exc:
-                ui.notify(exc.detail, type="negative")
-                return
-            ui.notify("Refitted — a new version was added.", type="positive")
-            await refresh()
-
-        ui.button("Refit", on_click=_refit).props("outline color=primary")
+        ui.button("Refit", on_click=lambda: _refit_dialog(client, mid, refresh)).props(
+            "outline color=primary"
+        )
         ui.button("Export as tool", on_click=lambda: _export_dialog(client, mid, refresh)).props(
             "outline"
         )
@@ -1671,6 +2461,51 @@ def _edit_meta_dialog(client: ApiClient, model: dict[str, Any], refresh: Any) ->
         with ui.row().classes("w-full justify-end gap-2"):
             ui.button("Cancel", on_click=dialog.close).props("flat")
             ui.button("Save", on_click=_save).props("color=primary")
+    dialog.open()
+
+
+def _refit_dialog(client: ApiClient, model_id: int, refresh: Any) -> None:
+    """Refit → a new version, optionally changing per-result tuning (ADR-0022)."""
+    with ui.dialog() as dialog, section_card("refresh", "Refit"):
+        ui.label(
+            "Fits the model again on its source's current runs and adds a new version. "
+            "The model's method, and any result you chose a method or scale for yourself, "
+            "are kept."
+        ).style(_MUTED)
+        tuning_sel = ui.select(
+            {"keep": "Keep the current setting", **_TUNING_LABELS},
+            value="keep",
+            label="Tuning per result (scalar)",
+        ).classes("w-full")
+        ui.label(
+            "Models built before tuning existed use one method, as measured. Choose Automatic "
+            "to let MATOFX pick a method and scale for each result — it takes longer to fit."
+        ).style(_MUTED)
+
+        async def _go() -> None:
+            mode = None if tuning_sel.value == "keep" else str(tuning_sel.value)
+            go_btn.props("loading")
+            go_btn.disable()
+            version: dict[str, Any] | None = None
+            try:
+                job = await client.start_refit_model_job(model_id, tuning_mode=mode)
+                dialog.close()
+                version = await _await_fit_job(client, job, "Refitting")
+            except ApiError as exc:
+                ui.notify(exc.detail, type="negative")
+                return
+            finally:
+                with contextlib.suppress(RuntimeError):
+                    go_btn.props(remove="loading")
+                    go_btn.enable()
+            if version is None:
+                return
+            ui.notify("Refitted — a new version was added.", type="positive")
+            await refresh()
+
+        with ui.row().classes("w-full justify-end gap-2"):
+            ui.button("Cancel", on_click=dialog.close).props("flat")
+            go_btn = ui.button("Refit", on_click=_go).props("color=primary")
     dialog.open()
 
 

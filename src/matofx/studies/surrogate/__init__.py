@@ -36,6 +36,7 @@ from typing import Any, Literal
 
 import numpy as np
 from scipy.stats import qmc
+from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -66,6 +67,28 @@ SurrogateKind = Literal["gp", "gp_matern", "poly", "gbm"]
 
 GP_KINDS: frozenset[str] = frozenset({"gp", "gp_matern"})
 """Strategies that produce a per-point 1-sigma uncertainty (drive the ± band)."""
+
+OutputScale = Literal["as_measured", "log"]
+"""The scale a scalar result is learned on (ADR-0021).
+
+- ``as_measured`` — the model learns ``y`` itself (every fit before ADR-0021).
+- ``log`` — the model learns ``log(y)`` and predictions come back through
+  ``exp``. Suits results that behave like a product of powers of the inputs
+  (temperature rise, resistance, stress, power); needs every ``y > 0``.
+"""
+
+_LOG_CLIP = math.log(np.finfo(float).max) - 1.0
+"""Largest latent value ``exp`` is allowed to see: a far extrapolation on the log
+scale must come back as a huge number, not ``inf``."""
+
+
+LOG_NOT_POSSIBLE = "Log scale isn't possible: some runs are zero or negative."
+"""Why a result stays as measured whatever was asked for (ADR-0021 §6)."""
+
+
+def _safe_exp(z: Any) -> Any:
+    return np.exp(np.clip(z, -_LOG_CLIP, _LOG_CLIP))
+
 
 _MIN_SURROGATE_POINTS = 5
 """Below this many complete runs a surrogate isn't worth fitting / validating."""
@@ -127,10 +150,19 @@ class Surrogate:
         y_scale_override: float | None = None,
         categorical_levels: Mapping[str, Sequence[str]] | None = None,
         training_categoricals: Mapping[str, Sequence[str]] | None = None,
+        output_scale: OutputScale = "as_measured",
+        log_factors: Sequence[str] = (),
     ) -> None:
         """Hold a fitted (or, when ``model`` is ``None``, unfitted) surrogate."""
         self.factors = factors
         self.kind = kind
+        self.output_scale: OutputScale = output_scale
+        """What the model learned (ADR-0021). ``quality`` is always reported in
+        the result's own units, whichever scale this is."""
+        self.log_factors: tuple[str, ...] = tuple(str(f) for f in log_factors)
+        """Numeric factors the model sees as ``log(x)`` (ADR-0022). Callers always
+        pass real units — :meth:`_encode` takes the log — and ``training_inputs``,
+        ``ranges`` and ``means`` stay in real units."""
         self.ranges = ranges
         self.means = means
         self.quality = quality
@@ -187,6 +219,10 @@ class Surrogate:
         """
         state.setdefault("categorical_levels", {})
         state.setdefault("training_categoricals", {})
+        # Every bundle written before ADR-0021 learned the result as measured.
+        state.setdefault("output_scale", "as_measured")
+        # ...and every input as measured before ADR-0022.
+        state.setdefault("log_factors", ())
         self.__dict__.update(state)
 
     @property
@@ -201,7 +237,24 @@ class Surrogate:
 
         Factors absent from a point default to their training mean, so a
         profiler can vary one factor while holding the rest at a setpoint.
+
+        Always in the result's own units. A ``log`` fit returns ``exp(μ)`` — the
+        median, which is also what its cross-validated quality was scored on —
+        and the delta-method 1-sigma ``exp(mu) * sigma``.
         """
+        mean, std = self._predict_latent(points)
+        if self.output_scale != "log" or not mean:
+            return mean, std
+        values = _safe_exp(np.asarray(mean))
+        out = [float(v) for v in values]
+        if std is None:
+            return out, None
+        return out, [float(v * s) for v, s in zip(values, std, strict=True)]
+
+    def _predict_latent(
+        self, points: Sequence[Mapping[str, float]]
+    ) -> tuple[list[float], list[float] | None]:
+        """The model's own output: ``y`` for as-measured, ``log(y)`` for a log fit."""
         if self._model is None or not points:
             return [], None
         x = np.asarray([self._encode(p) for p in points])
@@ -210,6 +263,23 @@ class Surrogate:
             mean, std = self._model.predict(xs, return_std=True)
             return [float(m) for m in mean], [float(s) for s in std]
         return [float(m) for m in self._model.predict(xs)], None
+
+    def relative_sigma(self, points: Sequence[Mapping[str, float]]) -> list[float] | None:
+        """1-sigma as a fraction of the training response's spread (ADR-0020 §5).
+
+        Unit-free, so comparable across responses. Computed on the scale the
+        model learned: for a ``log`` fit that is ``sigma / std(log y)``, which keeps
+        the coverage thresholds calibrated — dividing the delta-method sigma
+        by ``std(y)`` would instead make hot corners look less supported.
+        ``None`` for a method with no variance.
+        """
+        if not self.has_variance:
+            return None
+        _, sigma = self._predict_latent(points)
+        if sigma is None:
+            return None
+        scale = self.y_scale or 1.0
+        return [float(s) / scale for s in sigma]
 
     def _encode(self, point: Mapping[str, Any]) -> list[float]:
         """One model row for ``point``: numeric factors, then the one-hots.
@@ -223,6 +293,19 @@ class Surrogate:
         stop.
         """
         row = [float(point.get(name, self.means.get(name, 0.0))) for name in self.factors]
+        if self.log_factors:
+            logged = set(self.log_factors)
+            for i, name in enumerate(self.factors):
+                if name not in logged:
+                    continue
+                if row[i] <= 0.0:
+                    # A silent NaN here would reach an exported tool's outputs.json
+                    # unnoticed; the form guards it, this is the backstop.
+                    raise ValueError(
+                        f"{name!r} must be above 0 for this model, which learned it on a "
+                        f"log scale; got {row[i]:g}."
+                    )
+                row[i] = math.log(row[i])
         for name, levels in self.categorical_levels.items():
             raw = point.get(name)
             value = str(raw) if raw is not None else levels[0]
@@ -264,14 +347,25 @@ class Surrogate:
         it again gives a **relative** sigma that is genuinely free of the
         response's magnitude and therefore comparable across responses in
         different physical units (ADR-0020 §5).
+
+        On the scale the model learned: ``std(log y)`` for a ``log`` fit.
         """
         if self._y_scale_override is not None:
             return self._y_scale_override
-        actual = self.quality.actual
-        if not actual:
+        latent = self._latent_actual()
+        if latent is None or latent.size == 0:
             return None
-        spread = float(np.std(np.asarray(actual)))
+        spread = float(np.std(latent))
         return spread if spread > 0.0 else None
+
+    def _latent_actual(self) -> Any:
+        """The training response on the scale the model learned, or ``None``."""
+        actual = np.asarray(self.quality.actual, dtype=float)
+        if self.output_scale != "log":
+            return actual
+        if actual.size and np.any(actual <= 0.0):
+            return None
+        return np.log(actual)
 
     @property
     def ard_length_scales(self) -> list[float] | None:
@@ -350,8 +444,16 @@ class Surrogate:
         )
         base_x = [self._encode(self._training_point(i)) for i in range(len(self.quality.actual))]
         x = np.asarray(base_x + rows)
-        y = np.asarray([*self.quality.actual, *extra_y])
+        y = np.asarray([*self.quality.actual, *extra_y], dtype=float)
         xs = self._scaler.transform(x)
+        base = np.asarray(self.quality.actual, dtype=float)
+        if self.output_scale == "log":
+            # The kernel was fitted on log(y), so the frozen copy must be too. A
+            # made-up pseudo-response at or below zero is floored: sigma is
+            # y-free, so it only nudges the copy's mean.
+            tiny = np.finfo(float).tiny
+            y = np.log(np.maximum(y, tiny))
+            base = np.log(np.maximum(base, tiny))
 
         # normalize_y=False + the already-fitted kernel: no re-optimisation,
         # no y-driven rescaling, so sigma is exactly y-free.
@@ -359,8 +461,10 @@ class Surrogate:
         frozen = GaussianProcessRegressor(kernel=self._model.kernel_, optimizer=None)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=ConvergenceWarning)
-            frozen.fit(xs, (y - float(np.mean(self.quality.actual))) / scale)
+            frozen.fit(xs, (y - float(np.mean(base))) / scale)
 
+        # The copy is already on the latent, standardised scale (y_scale 1.0),
+        # so it is "as measured" from here on — including for a log parent.
         return Surrogate(
             factors=list(self.factors),
             kind=self.kind,
@@ -378,11 +482,18 @@ class Surrogate:
             ),
             scaler=self._scaler,
             model=frozen,
+            # Real units, like every other surrogate: rebuilt from the points
+            # rather than the encoded matrix, which is logged for a log-input fit.
             training_inputs={
-                name: [float(row[i]) for row in x] for i, name in enumerate(self.factors)
+                name: [
+                    *(float(v) for v in self.training_inputs.get(name, [])),
+                    *(float(p.get(name, self.means.get(name, 0.0))) for p in points),
+                ]
+                for name in self.factors
             },
             source_ref=self.source_ref,
             y_scale_override=1.0,
+            log_factors=self.log_factors,
         )
 
 
@@ -421,7 +532,23 @@ def _make_estimator(kind: SurrogateKind, k: int) -> Any:
     )
 
 
-def _cross_val_quality(estimator: Any, xs: Any, y: Any, n: int) -> SurrogateQuality:
+def _on_scale(estimator: Any, output_scale: OutputScale) -> Any:
+    """``estimator`` learning ``log(y)`` but predicting ``y`` for a log fit.
+
+    Cross-validation goes through this so held-out predictions, Q² and RMSE
+    are always in the result's own units — the only way the two scales can
+    be compared like for like (ADR-0021).
+    """
+    if output_scale != "log":
+        return estimator
+    return TransformedTargetRegressor(
+        regressor=estimator, func=np.log, inverse_func=_safe_exp, check_inverse=False
+    )
+
+
+def _cross_val_quality(
+    estimator: Any, xs: Any, y: Any, n: int, output_scale: OutputScale = "as_measured"
+) -> SurrogateQuality:
     actual = [float(v) for v in y]
     cv = (
         LeaveOneOut()
@@ -429,9 +556,13 @@ def _cross_val_quality(estimator: Any, xs: Any, y: Any, n: int) -> SurrogateQual
         else KFold(n_splits=_MAX_CV_FOLDS, shuffle=True, random_state=0)
     )
     pred: Any = None
-    with contextlib.suppress(Exception), warnings.catch_warnings():
+    with (
+        contextlib.suppress(Exception),
+        warnings.catch_warnings(),
+        np.errstate(over="ignore", invalid="ignore"),
+    ):
         warnings.simplefilter("ignore", category=ConvergenceWarning)
-        pred = cross_val_predict(estimator, xs, y, cv=cv)
+        pred = cross_val_predict(_on_scale(estimator, output_scale), xs, y, cv=cv)
     if pred is None:
         return SurrogateQuality(None, None, n, actual, [], "Cross-validation failed.")
     ss_res = float(np.sum((y - pred) ** 2))
@@ -441,6 +572,123 @@ def _cross_val_quality(estimator: Any, xs: Any, y: Any, n: int) -> SurrogateQual
     return SurrogateQuality(q2, rmse, n, actual, [float(v) for v in pred], None)
 
 
+@dataclass(frozen=True, slots=True)
+class _Design:
+    """The model matrix a scalar fit is built from, before scaling."""
+
+    names: list[str]
+    """Varied numeric factors."""
+    levels: dict[str, tuple[str, ...]]
+    cols: dict[str, list[float]]
+    n: int
+    k: int
+    """Model columns: numeric factors plus one-hots."""
+    x: Any
+    """Model matrix; the ``logged`` columns already hold ``log(x)``."""
+    y: Any
+    logged: tuple[str, ...] = ()
+    log_problem: str | None = None
+
+    def problem(self, kind: SurrogateKind) -> str | None:
+        """Why ``kind`` can't be fitted on this design, or ``None``."""
+        if self.log_problem is not None:
+            return self.log_problem
+        if self.k == 0 or self.n < _MIN_SURROGATE_POINTS:
+            return (
+                f"Need at least {_MIN_SURROGATE_POINTS} complete runs and a varied factor "
+                "to fit a surrogate."
+            )
+        if kind == "poly":
+            n_terms = 1 + 2 * self.k + self.k * (self.k - 1) // 2
+            if self.n <= n_terms:
+                return (
+                    f"A degree-2 polynomial surrogate needs more than {n_terms} complete "
+                    f"runs for {self.k} factor(s); try the Gaussian process."
+                )
+        return None
+
+
+def _design(
+    factor_columns: Mapping[str, Sequence[float | None]],
+    response: Sequence[float | None],
+    categorical_columns: Mapping[str, Sequence[Any]] | None,
+    log_factors: Sequence[str] = (),
+) -> _Design:
+    names = varied_columns(factor_columns)
+    levels = _categorical_levels(categorical_columns)
+    encoded = _one_hot_columns(categorical_columns, levels)
+    # One-hots are ordinary numeric columns from here on, so row completeness,
+    # scaling and cross-validation all work unchanged.
+    all_columns = {**factor_columns, **encoded}
+    model_names = [*names, *encoded]
+    masked, _ = _mask_extreme(response)
+    y_list, cols = _complete_float_rows(all_columns, masked, model_names)
+    n = len(y_list)
+    x = np.asarray([[cols[name][r] for name in model_names] for r in range(n)], dtype=float)
+    wanted = set(log_factors)
+    logged = tuple(name for name in names if name in wanted)
+    log_problem = None
+    for name in logged:
+        j = names.index(name)
+        if x.size and bool(np.any(x[:, j] <= 0.0)):
+            log_problem = f"Log inputs aren't possible: {name!r} has runs at or below zero."
+            break
+        if x.size:
+            x[:, j] = np.log(x[:, j])
+    return _Design(
+        names,
+        levels,
+        cols,
+        n,
+        len(model_names),
+        x,
+        np.asarray(y_list, dtype=float),
+        logged,
+        log_problem,
+    )
+
+
+def repeated_cv_rmse(
+    factor_columns: Mapping[str, Sequence[float | None]],
+    response: Sequence[float | None],
+    *,
+    kind: SurrogateKind,
+    output_scale: OutputScale,
+    seeds: Sequence[int],
+    categorical_columns: Mapping[str, Sequence[Any]] | None = None,
+    log_factors: Sequence[str] = (),
+) -> list[float]:
+    """Shuffled 5-fold CV RMSE (result's own units) once per seed.
+
+    The evidence the automatic output-scale choice is made on (ADR-0021 §3).
+    A repeat that cannot be scored — too few rows per fold for a polynomial, a
+    non-finite prediction, ``log`` on a non-positive response — scores ``inf``,
+    so it can never win.
+    """
+    design = _design(factor_columns, response, categorical_columns, log_factors)
+    if design.problem(kind) is not None or design.n < _MAX_CV_FOLDS:
+        return [math.inf for _ in seeds]
+    y = design.y
+    if output_scale == "log" and bool(np.any(y <= 0.0)):
+        return [math.inf for _ in seeds]
+    xs = StandardScaler().fit_transform(design.x)
+    out: list[float] = []
+    for seed in seeds:
+        estimator = _on_scale(_make_estimator(kind, design.k), output_scale)
+        cv = KFold(n_splits=_MAX_CV_FOLDS, shuffle=True, random_state=seed)
+        pred: Any = None
+        with (
+            contextlib.suppress(Exception),
+            warnings.catch_warnings(),
+            np.errstate(over="ignore", invalid="ignore"),
+        ):
+            warnings.simplefilter("ignore", category=ConvergenceWarning)
+            pred = cross_val_predict(estimator, xs, y, cv=cv)
+        rmse = math.inf if pred is None else float(np.sqrt(np.mean((y - pred) ** 2)))
+        out.append(rmse if math.isfinite(rmse) else math.inf)
+    return out
+
+
 def fit_surrogate(
     factor_columns: Mapping[str, Sequence[float | None]],
     response: Sequence[float | None],
@@ -448,6 +696,8 @@ def fit_surrogate(
     kind: SurrogateKind = "gp",
     source_ref: SourceRef | None = None,
     categorical_columns: Mapping[str, Sequence[Any]] | None = None,
+    output_scale: OutputScale = "as_measured",
+    log_factors: Sequence[str] = (),
 ) -> Surrogate:
     """Fit a scalar surrogate over the varied inputs (2-PS-c).
 
@@ -464,18 +714,16 @@ def fit_surrogate(
     with ``factor_columns``. They are one-hot encoded onto the end of the model
     matrix, so a material or a solver choice is a real axis of the fit. Omitting
     them (the raw-column callers) behaves exactly as before.
+
+    ``output_scale='log'`` learns ``log(y)`` (ADR-0021). It needs every kept
+    response value to be positive; otherwise the result is unfitted with a
+    message saying so. Quality is reported in the result's own units either way.
+
+    ``log_factors`` are numeric factors learned as ``log(x)`` (ADR-0022); every
+    value must be positive. Names that aren't varied factors are ignored.
     """
-    names = varied_columns(factor_columns)
-    levels = _categorical_levels(categorical_columns)
-    encoded = _one_hot_columns(categorical_columns, levels)
-    # One-hots are ordinary numeric columns from here on, so row completeness,
-    # scaling and cross-validation all work unchanged.
-    all_columns = {**factor_columns, **encoded}
-    model_names = [*names, *encoded]
-    response, _ = _mask_extreme(response)
-    y_list, cols = _complete_float_rows(all_columns, response, model_names)
-    n = len(y_list)
-    k = len(model_names)
+    design = _design(factor_columns, response, categorical_columns, log_factors)
+    names, levels, cols, n, k = design.names, design.levels, design.cols, design.n, design.k
 
     def _empty(message: str) -> Surrogate:
         return Surrogate(
@@ -485,31 +733,27 @@ def fit_surrogate(
             means={},
             quality=SurrogateQuality(None, None, n, [], [], message),
             categorical_levels=levels,
+            output_scale=output_scale,
+            log_factors=design.logged,
         )
 
-    if k == 0 or n < _MIN_SURROGATE_POINTS:
-        return _empty(
-            f"Need at least {_MIN_SURROGATE_POINTS} complete runs and a varied factor "
-            "to fit a surrogate."
-        )
-    if kind == "poly":
-        n_terms = 1 + 2 * k + k * (k - 1) // 2
-        if n <= n_terms:
-            return _empty(
-                f"A degree-2 polynomial surrogate needs more than {n_terms} complete "
-                f"runs for {k} factor(s); try the Gaussian process."
-            )
+    problem = design.problem(kind)
+    if problem is not None:
+        return _empty(problem)
+    x, y = design.x, design.y
+    if output_scale == "log" and bool(np.any(y <= 0.0)):
+        return _empty(LOG_NOT_POSSIBLE)
 
-    x = np.asarray([[cols[name][r] for name in model_names] for r in range(n)])
-    y = np.asarray(y_list)
     scaler = StandardScaler().fit(x)
     xs = scaler.transform(x)
     estimator = _make_estimator(kind, k)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=ConvergenceWarning)
-        estimator.fit(xs, y)
-    quality = _cross_val_quality(estimator, xs, y, n)
+        estimator.fit(xs, np.log(y) if output_scale == "log" else y)
+    quality = _cross_val_quality(estimator, xs, y, n, output_scale)
     return Surrogate(
+        output_scale=output_scale,
+        log_factors=design.logged,
         factors=names,
         kind=kind,
         # Numeric-only, deliberately: the coverage gauge, the profiler and the
@@ -684,10 +928,12 @@ from matofx.studies.surrogate.field import (  # noqa: E402
 
 __all__ = [
     "GP_KINDS",
+    "LOG_NOT_POSSIBLE",
     "FieldPrediction",
     "FieldQuality",
     "FieldSurrogate",
     "FieldSurrogateError",
+    "OutputScale",
     "SobolIndex",
     "SourceRef",
     "Surrogate",
@@ -697,5 +943,6 @@ __all__ = [
     "fit_surrogate",
     "load_field_snapshot",
     "optimize_surrogate",
+    "repeated_cv_rmse",
     "sobol_indices",
 ]

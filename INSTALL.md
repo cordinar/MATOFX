@@ -5,7 +5,7 @@ Step-by-step install for a clean target machine (Windows or Linux). The procedur
 - **Part A — Build the deployable bundle on the dev machine.** Produces a single folder you copy to the target. Wheel + hashed lockfile + SBOM + example config + example tools + migration helper + seed scripts, all in one place.
 - **Part B — Install the bundle on the target machine.** Numbered steps from a freshly-imaged box to a running login screen.
 
-Tested against the as-built state of `` (Alembic migrations through the current head, `0094_hpc_cluster_accounting`). The bundle is self-contained: no internet access is required on the target machine if you populate the offline wheelhouse described in Part A step 7.
+Tested against the as-built state of `OUTPUTS/matofx/` (Alembic migrations through the current head, `0094_hpc_cluster_accounting`). The bundle is self-contained: no internet access is required on the target machine if you populate the offline wheelhouse described in Part A step 7.
 
 **At runtime the installed site requires no internet at all.** Every piece of JavaScript the browser needs is served by the MATOFX host — the charting library, the Cytoscape provenance/workflow diagrams, and the `<model-viewer>` 3-D viewer with its Draco and KTX2 decoders all ship inside the wheel under `matofx/ui/assets/vendor/` and are served from `/matofx-assets/vendor/…`. Downloaded charts and comparison reports inline their own copy of plotly.js so they plot on a machine that has never seen this server. The only exclusions are features you enable yourself (email relay, remote execution, the optional LLM summariser) and the `/ui/demo` marketing page, which deliberately embeds remote content and is expected to look broken on an isolated network. A regression guard (`tests/ui/test_no_external_assets.py`) fails the build if a new external URL appears in the UI source.
 
@@ -15,16 +15,16 @@ One residual, recorded so it isn't discovered later: plotly.js carries a built-i
 
 ## Part A — Build the bundle (on the dev machine)
 
-These steps run **once per release**, on the machine where the source tree lives. They produce a directory at `dist/matofx-bundle-<version>/` that contains everything the target machine needs.
+These steps run **once per release**, on the machine where the source tree lives. They produce a directory at `OUTPUTS/dist/matofx-bundle-<version>/` that contains everything the target machine needs.
 
 ### A1. Prerequisites on the dev machine
 
 - Python 3.12 or 3.13 already installed and on PATH (`python --version` prints `3.12.x` or `3.13.x`).
-- A checkout of this repository.
+- The MATOFX source tree at `OUTPUTS/matofx/` (this repo).
 - A working virtualenv for the project (the build commands run inside it). If you don't already have one:
 
   ```powershell
-  cd <your checkout>
+  cd OUTPUTS\matofx
   python -m venv .venv
   .\.venv\Scripts\Activate.ps1
   pip install -e ".[dev,supply-chain]"
@@ -33,7 +33,7 @@ These steps run **once per release**, on the machine where the source tree lives
   On Linux/macOS:
 
   ```bash
-  cd <your checkout>
+  cd OUTPUTS/matofx
   python3 -m venv .venv
   source .venv/bin/activate
   pip install -e ".[dev,supply-chain]"
@@ -41,7 +41,7 @@ These steps run **once per release**, on the machine where the source tree lives
 
 ### A2. Run the bundle script
 
-From the repository root:
+From `OUTPUTS/`:
 
 ```powershell
 .\scripts\build_bundle.ps1
@@ -56,10 +56,10 @@ From the repository root:
 The script does, in order:
 
 1. Validates the dev venv has `build`, `pip-tools`, and `cyclonedx-py` installed (from the `supply-chain` extras).
-2. Calls `python -m build --wheel` against `` → produces `dist/matofx-<version>-py3-none-any.whl`.
+2. Calls `python -m build --wheel` against `OUTPUTS/matofx/` → produces `OUTPUTS/matofx/dist/matofx-<version>-py3-none-any.whl`.
 3. Calls `pip-compile --generate-hashes --output-file requirements.lock pyproject.toml` → produces a fully pinned, SHA256-hashed dependency lockfile.
 4. Calls `cyclonedx-py requirements --of JSON --output-file sbom.json requirements.lock` → produces a CycloneDX SBOM (software bill of materials) listing every dependency with its licence.
-5. Stages the bundle directory `dist/matofx-bundle-<version>/` with this layout:
+5. Stages the bundle directory `OUTPUTS/dist/matofx-bundle-<version>/` with this layout:
 
    ```
    matofx-bundle-<version>/
@@ -87,14 +87,14 @@ If you want a single archive instead of a folder, pass `-Zip` (PowerShell) or `-
 .\scripts\build_bundle.ps1 -Zip
 ```
 
-…which additionally produces `dist/matofx-bundle-<version>.zip`.
+…which additionally produces `OUTPUTS/dist/matofx-bundle-<version>.zip`.
 
 ### A3. Optional — populate an offline wheelhouse
 
 If the target machine has no internet access, run this **on a machine with the same OS and Python version as the target** before stepping away:
 
 ```powershell
-cd dist\matofx-bundle-<version>
+cd OUTPUTS\dist\matofx-bundle-<version>
 mkdir wheelhouse
 pip download --no-deps --dest wheelhouse --requirement requirements.lock
 pip download --no-deps --dest wheelhouse matofx-<version>-py3-none-any.whl
@@ -440,7 +440,7 @@ Behaviour:
 - Copies each found file into `<icons_dir>/<key>.<ext>` (where `icons_dir` defaults to `<config_dir>/branding/`) and writes the matching basename into the `runtime_setting` row, going through the same `GeneralSettingsService.set_image` path the live admin upload uses — same mime-allowlist, same per-key size cap, same audit shape.
 - **Idempotent:** only writes a `runtime_setting` row when it's currently null, so re-running the installer over an admin's customised branding is a no-op. If an admin "Reset to default" from Admin → General Settings, the next install run re-seeds.
 
-To customise the bundled defaults for your customer pack, drop replacement files into `etc/branding/` on the dev machine and rebuild the bundle (Part A2). The build script copies the whole directory verbatim. See `etc/branding/README.md` for the accepted filenames and constraints.
+To customise the bundled defaults for your customer pack, drop replacement files into `OUTPUTS/matofx/etc/branding/` on the dev machine and rebuild the bundle (Part A2). The build script copies the whole directory verbatim. See `OUTPUTS/matofx/etc/branding/README.md` for the accepted filenames and constraints.
 
 ### B13. First-run smoke test (manual)
 
@@ -676,9 +676,47 @@ The audit key (B9) and `matofx.toml` (B7) are kept across re-installs by design.
 ## Upgrading to a newer bundle
 
 1. Stop both services.
-2. Activate the venv (`source /opt/matofx/venv/bin/activate` or `.\venv\Scripts\Activate.ps1`).
-3. `cd <NEW_BUNDLE>` then `pip install --upgrade --requirement requirements.lock` (the lockfile contains the new wheel's `file:` entry).
-4. `python scripts/matofx_migrate.py upgrade head` — applies any new migrations.
-5. Start the services.
+2. **Back up the database and `matofx.toml`** before touching anything — migrations are one-way, and there is no `downgrade` path you should rely on.
+3. Activate the venv (`source /opt/matofx/venv/bin/activate` or `.\venv\Scripts\Activate.ps1`).
+4. `cd <NEW_BUNDLE>` then `pip install --upgrade --requirement requirements.lock` (the lockfile contains the new wheel's `file:` entry).
+5. **Reconcile `matofx.toml` against the bundle's `matofx.toml`** — see the warning below. A newly *required* key is the one thing that stops a newer build from starting on an older config.
+6. `python scripts/matofx_migrate.py upgrade head` — applies any new migrations.
+7. Start the services, then re-run the §B16 end-to-end check.
 
 The audit chain, the DB, the signing key, and the config file are preserved unchanged.
+
+### Config keys can become required between bundles
+
+The upgrade replaces the **code**, never your `matofx.toml`. When a release adds
+a key that `environment = "prod"` demands, the old config is now incomplete and
+the process **refuses to start** rather than running degraded — deliberate, but
+it looks like the upgrade broke the install. The startup error names the
+missing key.
+
+Compare the section/key skeleton of the two files before starting the services:
+
+```bash
+diff <(grep -E '^[[:space:]]*\[|^[[:space:]]*[a-z_]+[[:space:]]*=' /etc/matofx/matofx.toml) \
+     <(grep -E '^[[:space:]]*\[|^[[:space:]]*[a-z_]+[[:space:]]*=' <NEW_BUNDLE>/matofx.toml)
+```
+
+```powershell
+$pat = '^\s*\[|^\s*[a-z_]+\s*='
+Compare-Object `
+  (Select-String $pat "$env:PROGRAMDATA\matofx\matofx.toml" | ForEach-Object Line) `
+  (Select-String $pat "<NEW_BUNDLE>\matofx.toml"            | ForEach-Object Line)
+```
+
+**Upgrading from a bundle older than 0.0.9 (pre-2026-08):** those builds predate
+the licence subsystem (ADR-0019), so their `matofx.toml` has no `[licence]`
+section at all. On a `prod` install the new build stops with:
+
+> `licence.file is not set, but environment='prod' requires a licence.`
+
+Point `[licence].file` at the signed licence your supplier issued, and install it
+with `matofx licence install <path>` (see the admin guide, "Your licence"). An
+install running `dev` / `test` / `staging` is unaffected: with no `[licence].file`
+configured it is never treated as unlicensed, and stays writable.
+
+A licence is **bound to the machine** it was issued for. Moving an install to
+different hardware needs a re-issued licence, not a copied file.

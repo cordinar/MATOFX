@@ -106,6 +106,7 @@ from matofx.migrate.bundle import BundleError
 from matofx.migrate.errors import (
     BundleUntrustedError,
     MigrateError,
+    SurrogateToolNotExportableError,
     ToolNotFoundForExportError,
     TrustPeerAlreadyTrustedError,
     TrustPeerNotFoundError,
@@ -127,9 +128,13 @@ from matofx.tools.errors import (
     ApproverNotEnabledError,
     DuplicateToolError,
     InvalidFileEditError,
+    InvalidPromotionError,
+    InvalidStateTransitionError,
     PythonEnvNotUsableError,
     SoleApproverError,
     SyntaxValidationError,
+    TeamsPendingError,
+    ToolArchivedError,
     ToolError,
     ToolNotFoundError,
     UnknownApproverError,
@@ -269,6 +274,12 @@ _STATUS_MAP: dict[type[Exception], int] = {
     SoleApproverError: status.HTTP_409_CONFLICT,
     InvalidFileEditError: status.HTTP_400_BAD_REQUEST,
     SyntaxValidationError: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    # Lifecycle refusals carry a plain-English reason the UI shows as-is;
+    # unmapped they fell through to the generic 500 message.
+    InvalidStateTransitionError: status.HTTP_400_BAD_REQUEST,
+    InvalidPromotionError: status.HTTP_409_CONFLICT,
+    TeamsPendingError: status.HTTP_409_CONFLICT,
+    ToolArchivedError: status.HTTP_409_CONFLICT,
     # --- runtime settings ---
     RuntimeSettingsAccessDeniedError: status.HTTP_403_FORBIDDEN,
     UnknownSettingKeyError: status.HTTP_400_BAD_REQUEST,
@@ -289,6 +300,7 @@ _STATUS_MAP: dict[type[Exception], int] = {
     TrustPeerAlreadyTrustedError: status.HTTP_409_CONFLICT,
     BundleUntrustedError: status.HTTP_403_FORBIDDEN,
     ToolNotFoundForExportError: status.HTTP_404_NOT_FOUND,
+    SurrogateToolNotExportableError: status.HTTP_409_CONFLICT,
     WorkflowNotFoundForExportError: status.HTTP_404_NOT_FOUND,
     # ``BundleError`` covers malformed-tarball / hash-mismatch / path-traversal
     # detected at unpack time. ``BundleSigningError`` covers

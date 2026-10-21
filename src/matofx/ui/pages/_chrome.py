@@ -25,7 +25,7 @@ import json
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from typing import SupportsInt, cast
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote
 
 from nicegui import context, ui
 
@@ -782,11 +782,18 @@ def _post_login_target() -> str | None:
 
 
 def _current_nav_path() -> str | None:
-    """The current page as a mount-relative path (no query), or ``None``.
+    """The current page as a mount-relative path **with its query**, or ``None``.
 
     Mirrors the ``/ui`` prefix-stripping in :func:`_post_login_target` so
     the result is directly comparable to each :attr:`_NavItem.target`.
     Used to highlight the active entry in the sidebar.
+
+    The query used to be dropped here, which silently broke every nav
+    item that distinguishes itself by one. "V&V records inbox" targets
+    ``/vv-records?tab=queue``; with the query gone the current path was
+    always plain ``/vv-records``, so the inbox entry could never match
+    and its parent "V&V records" lit up instead — whichever of the two
+    you had clicked.
     """
     try:
         request = context.client.request
@@ -799,24 +806,44 @@ def _current_nav_path() -> str | None:
         if path == prefix or path.startswith(prefix):
             path = path[len(prefix) - 1 :] or "/"
             break
-    return path if path.startswith("/") else None
+    if not path.startswith("/"):
+        return None
+    query = request.url.query
+    return f"{path}?{query}" if query else path
 
 
 def _active_target(targets: Iterable[str], current: str | None) -> str | None:
-    """Longest segment-aware prefix match of ``current`` among ``targets``.
+    """Longest segment-aware match of ``current`` among ``targets``.
 
     A target matches when the current path equals it or sits beneath it
     (``/studies`` lights up on ``/studies/42``). Matching on segment
     boundaries (``target + "/"``) stops ``/admin/tools`` lighting up on a
     sibling ``/admin/tools-archive``; the longest match wins so a nested
     ``/admin/vv-records`` beats a hypothetical parent ``/admin``.
+
+    **Queries pin, they don't gate.** A target carrying a query
+    (``/vv-records?tab=queue``) matches only when the current URL sets
+    every parameter it names to the same value — so the inbox entry
+    lights only on its own tab. A target *without* a query ignores the
+    current one entirely, so the plain ``/vv-records`` entry still lights
+    on any other tab rather than leaving the sidebar with nothing
+    highlighted. Where both match, the longer (query-bearing) target
+    wins, which is what makes the more specific entry the active one.
     """
     if not current:
         return None
+    cur_path, _, cur_query = current.partition("?")
+    cur_params = parse_qs(cur_query)
     best: str | None = None
     for target in targets:
-        matches = current == target or current.startswith(target.rstrip("/") + "/")
-        if matches and (best is None or len(target) > len(best)):
+        t_path, _, t_query = target.partition("?")
+        if not (cur_path == t_path or cur_path.startswith(t_path.rstrip("/") + "/")):
+            continue
+        if t_query and any(
+            cur_params.get(key) != value for key, value in parse_qs(t_query).items()
+        ):
+            continue
+        if best is None or len(target) > len(best):
             best = target
     return best
 
@@ -1075,6 +1102,26 @@ def _render_maintenance_banner() -> None:
     ):
         ui.icon("warning").style("color: #856404;")
         ui.label(full)
+
+
+_TEAMS_PENDING_TEXT = (
+    "Imported without teams — none of its teams exist on this install. Choose its "
+    "teams (World for everyone) and save before promoting it out of 'new'."
+)
+
+
+def render_teams_pending_banner() -> None:
+    """Amber notice for an item imported with no resolvable teams (ADR-0023)."""
+    with (
+        ui.row()
+        .classes("w-full items-center no-wrap")
+        .style(
+            "background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; "
+            "border-radius: 8px; padding: 0.5rem 0.9rem; gap: 0.6rem;"
+        )
+    ):
+        ui.icon("group_off").style("color: #856404;")
+        ui.label(_TEAMS_PENDING_TEXT).style("font-size: 0.9rem;")
 
 
 def _render_readonly_banner() -> None:
@@ -2186,7 +2233,59 @@ def _inject_shell_css() -> None:
         " white-space: nowrap; }"
         ".matofx-launchitem:hover { background: var(--matofx-accent); color: #fff; }"
         ".matofx-launchitem:hover * { color: #fff !important; }"
+        # Hover menus inside a clipping container (the Quick Access list
+        # scrolls, its card hides overflow) are lifted out to
+        # ``position: fixed`` by the script below; ``.up`` flips the hover
+        # bridge to the bottom edge when the menu opens above its button.
+        ".matofx-launchmenu.matofx-fixed { position: fixed; z-index: 6000; }"
+        ".matofx-launchmenu.matofx-up::before { top: auto; bottom: -9px; }"
+        ".matofx-launchwrap.matofx-closed .matofx-launchmenu { display: none !important; }"
         "</style>"
+    )
+    _install_launch_menu_positioning()
+
+
+def _install_launch_menu_positioning() -> None:
+    """Keep ``.matofx-launchmenu`` hover menus from being clipped.
+
+    The menus are absolutely positioned inside their row, so a scrolling
+    list (``overflow: auto``) or a card with ``overflow: hidden`` cuts off
+    any menu that runs past its edge. On hover-in, this pins the menu to
+    the viewport (``position: fixed``) at the button's on-screen spot,
+    opening upwards when there's no room below. The menu stays a DOM child
+    of its wrap, so the CSS ``:hover`` show/hide chain is untouched.
+
+    Scrolling while a menu is open would leave it floating away from its
+    button, so any scroll closes it until the pointer leaves the wrap.
+    Delegated on ``document`` so rows rebuilt after load are covered.
+    """
+    ui.add_head_html(
+        "<script>(function(){"
+        "if (window.__matofxLaunchMenuHook) return;"
+        "window.__matofxLaunchMenuHook = true;"
+        "var GAP = 6, EDGE = 8, open = null;"
+        "function reset(w){var m=w.querySelector(':scope > .matofx-launchmenu');"
+        "w.classList.remove('matofx-closed');if(!m)return;"
+        "m.classList.remove('matofx-fixed','matofx-up');"
+        "m.style.top='';m.style.right='';}"
+        "function place(w){var m=w.querySelector(':scope > .matofx-launchmenu');"
+        "if(!m)return;var r=w.getBoundingClientRect();"
+        "var vw=document.documentElement.clientWidth,vh=window.innerHeight;"
+        "m.classList.add('matofx-fixed');m.classList.remove('matofx-up');"
+        "var h=m.offsetHeight,top=r.bottom+GAP;"
+        "if(top+h>vh-EDGE && r.top-GAP-h>=EDGE){top=r.top-GAP-h;"
+        "m.classList.add('matofx-up');}"
+        "m.style.top=top+'px';m.style.right=Math.max(EDGE,vw-r.right)+'px';}"
+        "document.addEventListener('mouseover',function(e){"
+        "var w=e.target.closest&&e.target.closest('.matofx-launchwrap');"
+        "if(!w||w===open)return;if(open)reset(open);open=w;place(w);},true);"
+        "document.addEventListener('mouseout',function(e){if(!open)return;"
+        "var to=e.relatedTarget;if(to&&open.contains(to))return;"
+        "if(!open.contains(e.target))return;reset(open);open=null;},true);"
+        "document.addEventListener('scroll',function(){"
+        "if(open)open.classList.add('matofx-closed');},"
+        "{capture:true,passive:true});"
+        "})();</script>"
     )
 
 

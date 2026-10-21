@@ -60,24 +60,34 @@ _KPI_DESCRIPTOR_OUTPUTS = [
 
 
 async def _patch_descriptor_with_kpis(api_factory: SessionFactory, *, tool_alias: str) -> int:
-    """Stamp the seeded tool's first ToolVersion snapshot with KPI outputs.
+    """Stamp KPI outputs on EVERY ToolVersion snapshot of the seeded tool.
 
-    Returns the tool_version_id so callers can FK jobs against it.
+    Returns the newest tool_version_id so callers can FK jobs against it.
+
+    The ``seeded`` fixture installs then promotes twice, so the tool
+    carries three snapshots. Stamping only the oldest left the version
+    *in force* declaring nothing — and the catalog answers from the
+    version in force, not from a union over retired ones (see
+    :func:`matofx.kpi.service.list_kpis_for_tool`). Stamping all of
+    them keeps the fixture's intent — "this tool declares these KPIs" —
+    true whichever version a test pins.
     """
     async with session_scope(api_factory) as session:
-        tv = (
-            await session.execute(
-                sa.select(ToolVersion)
-                .where(ToolVersion.alias == tool_alias)
-                .order_by(ToolVersion.created_at.asc())
-                .limit(1)
-            )
-        ).scalar_one()
-        snapshot = dict(tv.descriptor_snapshot or {})
-        snapshot["outputs"] = list(_KPI_DESCRIPTOR_OUTPUTS)
-        tv.descriptor_snapshot = snapshot
+        versions = list(
+            (
+                await session.execute(
+                    sa.select(ToolVersion)
+                    .where(ToolVersion.alias == tool_alias)
+                    .order_by(ToolVersion.created_at.desc(), ToolVersion.id.desc())
+                )
+            ).scalars()
+        )
+        for tv in versions:
+            snapshot = dict(tv.descriptor_snapshot or {})
+            snapshot["outputs"] = list(_KPI_DESCRIPTOR_OUTPUTS)
+            tv.descriptor_snapshot = snapshot
         await session.flush()
-        return int(tv.id)
+        return int(versions[0].id)
 
 
 async def _seed_completed_job_and_kpis(

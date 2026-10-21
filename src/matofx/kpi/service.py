@@ -738,46 +738,100 @@ async def list_kpis_for_tool(
     tool_alias: str,
     tool_version_id: int | None = None,
 ) -> list[ToolKpiCatalogEntry]:
-    """List declared KPIs for a tool, deduplicated across versions.
+    """List the KPI columns the warehouse should show for a tool.
 
-    When ``tool_version_id`` is set, returns the single version's KPIs;
-    when ``None``, the union over every released version. The dedup
-    key is ``(kpi_name, kpi_label, kpi_unit)`` — two versions that
-    declare the same KPI with the same label and unit collapse to one
-    catalog entry. A label / unit divergence between versions surfaces
-    as separate entries so the warehouse can't accidentally collide
-    them into one column.
+    When ``tool_version_id`` is set, returns exactly that version's
+    declared KPIs — the honest per-version answer the job page and the
+    version-filtered warehouse want.
+
+    When ``None``, the catalog is **the newest version's declared KPIs,
+    plus any KPI name that actually has captured values** in
+    ``job_kpi_value``. The historic-only names resolve their label /
+    unit from the newest version that declared them.
+
+    **Why not the union over every version.** The union resurrected
+    columns from versions that no job ever ran: ``bracket_stress``
+    showed "2 KPI(s)" and two all-``—`` columns over 650 rows because
+    two retired versions had declared them, while the descriptor in
+    force declared none. That contradicts ``designs/kpi-extraction.md``
+    §109 — a descriptor with no ``kpi = true`` output is meant to be
+    *invisible* to the KPI layer. Intersecting with captured values
+    instead drops the dead columns without orphaning real data: a KPI
+    un-ticked after runs already captured it keeps its column for as
+    long as those values exist.
+
+    **Why the dedup key is ``kpi_name`` alone.** Every downstream
+    surface keys on the name — the AG-Grid coldef ``field`` is
+    ``kpi__{kpi_name}``, the row pivot reads ``kpi_values[kpi_name]``,
+    the CSV column and the per-KPI range filter likewise. Two entries
+    sharing a name can therefore never render as two *distinct*
+    columns, only as duplicates of one. The old
+    ``(name, label, unit)`` key meant un-ticking a KPI and re-ticking
+    it doubled the column count, because un-ticking sweeps
+    ``kpi_label`` (``clear_kpi_overrides``) and the re-tick's
+    effective label falls back to the output's own ``label``.
+    Newest-version-wins on the label so a relabelled KPI shows its
+    current name.
     """
-    from matofx.tools.orm import Tool, ToolVersion  # noqa: PLC0415
+    from matofx.tools.orm import ToolVersion  # noqa: PLC0415
 
     if tool_version_id is not None:
         tv = await session.get(ToolVersion, tool_version_id)
         if tv is None or tv.alias != tool_alias:
             return []
-        return _extract_kpi_catalog(tv.descriptor_snapshot)
+        return _dedupe_by_name(_extract_kpi_catalog(tv.descriptor_snapshot))
 
-    # Union across released versions. The Tool row's `state` covers
-    # "released" semantically; the ToolVersion table doesn't carry a
-    # released flag of its own (versions are immutable snapshots).
-    tool = (
-        await session.execute(select(Tool).where(Tool.alias == tool_alias))
-    ).scalar_one_or_none()
-    if tool is None:
-        return []
+    # Newest first: the head of the list is the descriptor in force, and
+    # walking the rest newest-first means the first declaration we meet
+    # for a historic-only name is the most recent one.
     versions = list(
         (
-            await session.execute(select(ToolVersion).where(ToolVersion.alias == tool_alias))
+            await session.execute(
+                select(ToolVersion)
+                .where(ToolVersion.alias == tool_alias)
+                .order_by(ToolVersion.created_at.desc(), ToolVersion.id.desc())
+            )
         ).scalars()
     )
-    seen: set[tuple[str, str | None, str | None]] = set()
-    out: list[ToolKpiCatalogEntry] = []
-    for tv in versions:
+    if not versions:
+        return []
+
+    current = _dedupe_by_name(_extract_kpi_catalog(versions[0].descriptor_snapshot))
+    declared = {e.kpi_name for e in current}
+
+    # Names that still carry captured values. Only these earn a column
+    # back; a KPI no version declares and no job ever captured is gone.
+    with_values = set(
+        (
+            await session.execute(
+                select(JobKpiValue.kpi_name).where(JobKpiValue.tool_alias == tool_alias).distinct()
+            )
+        ).scalars()
+    )
+    orphaned = with_values - declared
+    if not orphaned:
+        return current
+
+    historic: list[ToolKpiCatalogEntry] = []
+    for tv in versions[1:]:
+        if not orphaned:
+            break
         for entry in _extract_kpi_catalog(tv.descriptor_snapshot):
-            key = (entry.kpi_name, entry.kpi_label, entry.kpi_unit)
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append(entry)
+            if entry.kpi_name in orphaned:
+                orphaned.discard(entry.kpi_name)
+                historic.append(entry)
+    return current + historic
+
+
+def _dedupe_by_name(entries: list[ToolKpiCatalogEntry]) -> list[ToolKpiCatalogEntry]:
+    """First-wins dedup on ``kpi_name``, preserving descriptor order."""
+    seen: set[str] = set()
+    out: list[ToolKpiCatalogEntry] = []
+    for e in entries:
+        if e.kpi_name in seen:
+            continue
+        seen.add(e.kpi_name)
+        out.append(e)
     return out
 
 
