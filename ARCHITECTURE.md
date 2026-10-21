@@ -1,7 +1,7 @@
 # MATOFX SPDM — Architecture (legacy_code/)
 
 > Reference document describing the existing application in `legacy_code/`.
-> Sections 1-15 describe the **legacy** v1 application, kept as a reference when porting concepts; section 16 onward is the as-built record of this repository.
+> The legacy tree is read-only; this file lives under `OUTPUTS/` so it can be edited and extended without touching the reference code.
 
 ---
 
@@ -406,14 +406,14 @@ with PythonWrapper(tool_name="material_properties",
 
 ---
 
-## 16. v2 architecture (``) — what's being built
+## 16. v2 architecture (`OUTPUTS/matofx/`) — what's being built
 
-The v2 rewrite is this repository. The legacy tree is reference-only and is not included here; nothing in v2 depends on it at runtime. The shape below tracks the **as-built state** — `PROJECT_BRIEF.md` is the source of truth for *decisions*, `ROADMAP.md` for *delivery progress*; this section captures the live module map for cross-cutting orientation.
+The v2 rewrite lives entirely under `OUTPUTS/matofx/`. The legacy tree is reference-only; nothing in v2 depends on it at runtime. The shape below tracks the **as-built state** — `PROJECT_BRIEF.md` is the source of truth for *decisions*, `ROADMAP.md` for *delivery progress*; this section captures the live module map for cross-cutting orientation.
 
 ### Top-level package layout
 
 ```
-src/matofx/
+OUTPUTS/matofx/src/matofx/
 ├── api/            # FastAPI routes (HTTP surface; consumes services)
 │   ├── app.py / daemon.py / deps.py / errors.py / schemas.py
 │   └── routers/        # admin, admin_db_explorer, auth, jobs, projects,
@@ -571,7 +571,7 @@ Per-user dark/light theme, default `dark`, toggled live without a page reload.
 `/compare` is a full v2 surface — pick 2–6 items, see overlay charts + side-by-side input/output diff, download HTML or PDF report. **Three modes from one page** (G36), chosen by a plain-English radio on the Select tab and carried in `?mode=`: **Jobs of one tool**, **Runs of one workflow**, **Scenarios**. Replaces the legacy `dashboard_pages/regular/compare_jobs.py`.
 
 ```
-src/matofx/ui/pages/compare/
+OUTPUTS/matofx/src/matofx/ui/pages/compare/
 ├── page.py             # @ui.page("/compare") — Select + Compare tabs; per-mode pickers + renderers
 ├── selection.py        # URL parser (?mode=tool|workflow|scenario&...) + cross-tool detection
 ├── diff.py             # compute_differing_keys
@@ -637,7 +637,7 @@ A third **Similar** mode on the same `/job-search` page (alongside All / Filtere
 ### 16.6 UI page surfaces (current state)
 
 ```
-src/matofx/ui/pages/
+OUTPUTS/matofx/src/matofx/ui/pages/
 ├── login.py / home.py / dashboard.py / account.py / demo.py
 ├── my_jobs.py / job.py / submit.py            # unified workspace + deep-link aliases
 ├── job_search.py                              # discovery by inputs
@@ -745,7 +745,7 @@ Three new `file_type` values join the existing dispatch table (`html_plot`, `csv
 
 **What's deliberately out of scope (v1):** server-side transcoding (`.mov`→`.mp4`, `.fbx`→`.glb`), in-scene playback controls for `animation_3d` (`AnimationMixer` plays on load, no scrubber), and PDF page navigation outside what the browser viewer offers. Each is a follow-up if the user surfaces a real need — for now the download link is always present so an unsupported sub-format never blocks the workflow.
 
-**Demo group wiring (sidebar):** the four `/demo/*` pages (`demo.py`) showcase the same viewers without a job-submission round-trip. They scan a filesystem folder resolved by `matofx.ui.pages._demo_assets.resolve_demo_root` (`MATOFX_DEMO_ASSETS_DIR` if set, else `demo_assets/` beside the working directory — the assets themselves are per-install and are not shipped) and present one picker + inline viewer per category. Subfolders: `cad/`, `images/`, `pdf/`, `animation_3d/`, `video/`. CAD non-STL formats (STP/STEP/IGES/OBJ) tessellate via `matofx.tools.cad_convert.convert_to_stl` directly (no API round-trip — the demo runs in-process). `/demo/web` is a sandboxed iframe with a URL field. Tests for the resolver live in `tests/ui/test_demo_assets.py`.
+**Demo group wiring (sidebar):** the four `/demo/*` pages (`demo.py`) showcase the same viewers without a job-submission round-trip. They scan a filesystem folder resolved by `matofx.ui.pages._demo_assets.resolve_demo_root` (default `OUTPUTS/demo_assets/`, override via `MATOFX_DEMO_ASSETS_DIR`) and present one picker + inline viewer per category. Subfolders: `cad/`, `images/`, `pdf/`, `animation_3d/`, `video/`. CAD non-STL formats (STP/STEP/IGES/OBJ) tessellate via `matofx.tools.cad_convert.convert_to_stl` directly (no API round-trip — the demo runs in-process). `/demo/web` is a sandboxed iframe with a URL field. Tests for the resolver live in `tests/ui/test_demo_assets.py`.
 
 ### 16.10 Tutorials — scoped upload manager (shipped 2026-05-14)
 
@@ -843,7 +843,7 @@ No `user_id` in the path — identity is the bearer token. No "save all" verb �
 
 ### 16.13 Cross-install Migrate Tools/Workflows (shipped 2026-05-15)
 
-Operator-facing surface to copy admin-released tools and admin-released workflows from one MATOFX install to another — typically Staging → Production. End-to-end decisions live in PROJECT_BRIEF.md §Q5 (2026-05-15 amendment); the operator walkthrough is `MIGRATE_GUIDE.md`. Three durable rules govern the implementation, captured as memory entries: lifecycle resets to `new` on import (`feedback_migrate_reset_to_new.md`), every FK reference travels by stable name not row id (`feedback_migrate_references_by_name.md`), and atomicity is per-item with cascading skips (`feedback_migrate_per_item_atomicity.md`).
+Operator-facing surface to copy admin-released tools and admin-released workflows from one MATOFX install to another — typically Staging → Production. End-to-end decisions live in PROJECT_BRIEF.md §Q5 (2026-05-15 amendment); the operator walkthrough is `OUTPUTS/MIGRATE_GUIDE.md`. Three durable rules govern the implementation, captured as memory entries: lifecycle resets to `new` on import (`feedback_migrate_reset_to_new.md`), every FK reference travels by stable name not row id (`feedback_migrate_references_by_name.md`), and atomicity is per-item with cascading skips (`feedback_migrate_per_item_atomicity.md`).
 
 **Transport** — signed gzipped tarball only. No peer-to-peer HTTP between installs, even on the same subnet, because the brief's "no outbound at runtime" property is a security feature. Operators move the bundle by `scp` / share / USB. The bundle is signed with the install's existing Ed25519 audit key (per §Q4 — "signed by the per-install Ed25519 key").
 
@@ -925,7 +925,7 @@ Domain errors fall through to the global handler in `api/errors.py`: `BundleUntr
 - SSE / live event streaming. The import path returns the complete event list synchronously in the response JSON; the page renders all events at once when the request finishes. Typical bundles import in well under a second.
 - Feature-flag gate. `features.cross_install_migration` is documented in the brief but the feature-flag runtime isn't wired into the router yet. Permission + flag will compose when both land.
 
-**Key files** — `matofx/migrate/` (whole subpackage), `api/routers/migrate.py`, `api/deps.py` (four new factories), `api/errors.py` (domain-error map entries), `cli/main.py` (migrate subparser tree), `ui/pages/admin_migrate.py`, `ui/api_client.py` (six new methods), `ui/pages/_chrome.py` (nav entry), `users/permissions.py` (`MIGRATE_TOOLS_WORKFLOWS`), migration `0028_migrate_trusted_peers.py`. Operator guide: `MIGRATE_GUIDE.md`.
+**Key files** — `matofx/migrate/` (whole subpackage), `api/routers/migrate.py`, `api/deps.py` (four new factories), `api/errors.py` (domain-error map entries), `cli/main.py` (migrate subparser tree), `ui/pages/admin_migrate.py`, `ui/api_client.py` (six new methods), `ui/pages/_chrome.py` (nav entry), `users/permissions.py` (`MIGRATE_TOOLS_WORKFLOWS`), migration `0028_migrate_trusted_peers.py`. Operator guide: `OUTPUTS/MIGRATE_GUIDE.md`.
 
 ### 16.14 Email & broadcast notifications (shipped 2026-05-15)
 
@@ -1022,6 +1022,19 @@ running ─fail─▶  failed   (failed runs skip post — nothing to release)
 **Build phases** (pause for review after the design section and after each phase): **1 ✅** data layer — `JobState` extension + CHECK, migration `0031` (states + `approval_request`), `matofx/approvals/` (`orm.py`/`service.py`/`errors.py`), audit events; **2 ✅** pre gate — `JobService.queue_or_hold_for_approval` above `queue_for_runner`, `decide_approval` approval-triggered queue path (project-EDIT recheck bypassed, `via=approval`); **3 ✅** post gate + output lockdown — `supervisor._open_post_approval_if_required` runner intercept, `decide_approval` post release/withhold, `ResultsWithheldError` + `JobService.ensure_outputs_accessible` across all 6 output surfaces + Compare; **4 ✅** `/approvals` batch page + approver-only home card + cached-`is_approver` nav link + My Jobs read-only notices + the approvals API (`/api/users/me/approvals[/summary]`, `/api/approvals/{id}`, `/api/approvals/decisions` with per-item savepoint isolation); **5 ✅** notifications — `Notifier.notify_approval_request_opened` (eligible approvers, fired from the pre-hold API path + the supervisor's post-hold) and `notify_approval_decisions` (one consolidated email per requestor per batch), riding the existing `job_email_notifications_enabled` master switch + per-user opt-out; `EmailNotifier`/`NoopNotifier` both implement them so call sites need no None-check; the optional submit-time `justification` field (`JobQueueRequest`/`JobCreate` → `queue_or_hold_for_approval` → `ApprovalRequest`, shown in the review panel, surfaced in the submit form only for approval-policy tools); **6 ✅** docs/tests landed per phase.
 
 Implementation notes (as built): the pre gate reads the policy via `ToolDescriptor.model_validate` (real installs always have a full descriptor); the **post** gate reads it as a plain mapping (run finalisation must be fail-safe on a minimal/legacy snapshot). `decide_approval` is one kind-aware method (not separate pre/post entry points). The chrome nav gates on a login-cached `is_approver` (state.py) since `render_shell` is sync; the live pending **count** is on the home card / summary endpoint, not the nav. Admin = `Permission.PROJECTS_SEE_ALL` (the see-all capability) for both the output-lockdown bypass and the approvals admin superset/override.
+
+**Submit feedback + in-place refresh (fixed 2026-09-21).** `_submit` ended with `ui.navigate.reload()`. The queue *did* refresh, but the document reloaded on the same tick as the `ui.notify` calls immediately above it, so every message — the "N decision(s) applied" confirmation **and** each per-item failure from the batch endpoint's `ok: false` results — was destroyed before it rendered. `POST /api/approvals/decisions` returns **200 with per-item outcomes** (each item has its own savepoint), so a rejected decision is a successful HTTP call; the only signal the approver ever got was that toast. A batch where items failed therefore came back looking untouched, radios reset, with no explanation — reproduced in a browser: two rows in, one approved, list identical afterwards, zero messages.
+
+The page now owns a `list_container` + `empty_slot` and a `_rebuild(fresh)` / `_refresh()` pair, so a decision re-fetches `GET /api/users/me/approvals` and redraws the rows **without tearing down the client**. Messages survive. Failures are `close_button=True, timeout=None` (sticky) because the row is about to be redrawn still pending, and are named by job — `0002977 · <job name>`, never a bare request id (`feedback_use_labels_not_names`). The intro line, filter row, bulk bar and Submit button hide when the refreshed queue is empty, so the "all caught up" card stands alone. Outcome wording is factored into the module-level pure helpers `request_display_name` + `summarise_decision_results` and covered by `tests/ui/test_approvals_outcome.py` (10 tests) — the page had no UI tests at all before.
+
+**Workflow members were blind to the approval states (fixed 2026-09-21).** `workflow_run._tab_status_for` branched on only the five original lifecycle states, so the four §16.15 states fell through the `created` case and — upstream being ready — came back as `"ready"`. A member already submitted and parked with an approver re-rendered its **input form** and chipped itself *Ready*; a `denied` member, terminally refused, offered a form too. Standalone jobs were unaffected because the My Jobs right pane routes those states to the approval notice; only the workflow surface was blind. Four linked defects, all fixed and verified in a browser against a `pre`-policy member of a real 3-step run:
+
+1. **Status classification.** `_tab_status_for` now returns each approval state as its own status, and the tab body routes them to the shared notice instead of the form. `_TAB_STATE_ICON` / `_TAB_STATE_COLOR` gain entries; the chip goes through the new `_tab_status_label` because `tab_status.title()` would have read "Pending_Approval". The tab-strip button gains a tooltip naming the status (the strip carries only an icon).
+2. **No warning before the click.** The workflow form offered neither the approval heads-up nor the **Justification** box the standalone form has had since §16.15 — and `queue_draft_job` was called without `justification`, so a workflow gate reached its approver with no context at all. Both added; the post-submit toast now distinguishes "sent for approval" from "submitted" (on both surfaces). Those toasts are deliberately **not** sticky: the navigation that follows tears the client down and takes them with it, so the durable signals are the pre-submit heads-up and the destination notice.
+3. **Polling parked on the gate.** `pending_approval` / `pending_results` were absent from `_ACTIVE_CHILD_STATES`, which lists states that move *without this user acting*. They belong there for the same reason `queued` does — an approver drives them rather than the runner — so the poll stopped the moment a member hit a gate and the tab sat on "Awaiting approval" until a manual refresh.
+4. **Body signature collapsed the release.** `_active_body_phase` mapped `pending_approval` and `queued` both to `"inflight"`, so when an approver released the run the signature never moved: the strip's badge flipped to *queued* while the body below it went on saying "Awaiting approval". Each approval state is now its own phase (they render different copy anyway). Caught only by driving the real app — the first three fixes all passed while this one still failed.
+
+The notice itself moved out of `my_jobs.py` into `ui/pages/_approval_notice.py` (`APPROVAL_NOTICES`, `APPROVAL_STATES`, `is_approval_state`, `render_approval_notice`) — its living in one page is how the other surface came to have no approval handling at all. `_render_waiting` additionally separates terminally-blocked upstreams (`denied` / `results_withheld` / `failed`, via `_UPSTREAM_DEAD_ENDS`) from genuinely-pending ones: "waiting for X to finish" is wrong about a job that will never finish. Covered by `tests/ui/test_workflow_run_approval_gating.py` (40 tests), including whole-vocabulary guards that every `JOB_STATES` member maps to exactly one tab status and one body phase, so a future state can't silently fall into the `created` branch again.
 
 ### 16.16 Conditional input dependencies (designed 2026-05-16)
 
@@ -1387,7 +1400,7 @@ Design: `designs/kpi-extraction.md`. Implementation in `matofx.kpi` (service, OR
 - **Runner extraction hook** — `extract_kpis_for_job(audit, session, job, outputs_doc)` slots into `runner.supervisor._post_complete` immediately after `record_study_result` and before `_apply_cleanup_for_tool`. Reads the frozen `tool_version.descriptor_snapshot` to know which outputs are KPIs; UPSERTs one `job_kpi_value` row per declared KPI keyed on `(job_id, kpi_name)`. Sentinel-NULL classification: missing / non-numeric / `bool` / NaN / ±Inf each map to `value_numeric = NULL` with a WARNING log + audit detail; the row still lands so the warehouse can answer "did this job complete with KPI X populated?" without joining `outputs.json`. **Never-raise contract**: the body runs inside `session.begin_nested()` so an unexpected DB error rolls back just the KPI work without poisoning the outer transaction.
 - **Re-extraction sweep** — `reextract_tool_version(audit, session, tool_version_id, triggered_by_user_id, trigger)` walks every completed job of the version, re-reads its `outputs.json` from durable storage (`storage_location.mount_path + job.working_dir_relative + "outputs/outputs.json"`; ADR-0003 retention floor keeps the file), re-runs the extractor per job, rate-limits 50-jobs-per-yield. Serialised per `tool_version_id` via the in-memory `matofx.kpi._reextract_state.acquire()` lock — raises `KpiReextractInProgressError` if another sweep is in flight; `is_reextract_in_progress(tv_id)` is the visibility surface the warehouse page reads for its "refreshing" banner. Process-local for v1; multi-process runners (v1.x) swap in a DB advisory lock with the same surface. Audits `kpi.reextracted` with the trigger discriminator (`admin_manual` / `descriptor_promote`). `compute_kpi_signature(descriptor)` + `should_reextract_after_descriptor_change(prev, new)` are the auto-trigger condition helpers; the actual `ToolService.promote_state` call-site wire-up is a small follow-up.
 - **HTTP API** (`api/routers/kpi.py`) — 5 endpoints behind `features.kpi_extraction` 404-when-off gate:
-  - `GET /api/tools/{alias}/kpis` — catalog (dedup union across released versions).
+  - `GET /api/tools/{alias}/kpis` — catalog. `?version_id=` answers for that one version; without it, the catalog is **the newest version's declared KPIs plus any `kpi_name` that still has rows in `job_kpi_value`**, deduped on `kpi_name` alone (see the *Catalog semantics* note below).
   - `GET /api/tools/{alias}/results` — paginated warehouse rows; per-row pivoted KPI values + `hidden_by_acl` rollup.
   - `GET /api/tools/{alias}/results/timeseries?kpi_name=...` — ascending-extracted-at points for one KPI.
   - `GET /api/tools/{alias}/results/export.csv` — streaming CSV (100k row cap); supports `?job_ids=` allow-list for the unbounded-selection export.
@@ -1412,6 +1425,15 @@ Design: `designs/kpi-extraction.md`. Implementation in `matofx.kpi` (service, OR
   - ~~**Per-KPI value-range filters** — the warehouse page surfaces a UI placeholder~~ — **DONE 2026-07-22** (see §16.45): `WarehouseFilters.kpi_ranges` + a correlated `EXISTS`-per-KPI subquery, the `kpi_range=name:min:max` query param on the list + CSV + PDF endpoints, and real min/max inputs on the filter card. The V&V-status filter (backend-ready since slice 9) is now surfaced too. Exports honour both (V&V post-filter factored into `_apply_vv_status_filter`, shared by the table + CSV paths).
   - **Project / scenario / requestor multi-select pickers** on the warehouse filter card — the API accepts the params (slice 5); the page UI doesn't surface the widgets yet.
   - **Plot series / marker-size pickers + cross-tool dashboard + project-rollup scorecards + saved warehouse queries + scheduled exports + custom KPI formulae + KPI-value time-series alerting** — all explicitly v1.x per design §13.
+
+**Catalog semantics (corrected 2026-09-21).** `list_kpis_for_tool` originally returned the union over *every* `ToolVersion`, deduped on `(kpi_name, kpi_label, kpi_unit)`. Both halves were wrong:
+
+- **The union resurrected dead columns.** `bracket_stress` advertised "2 KPI(s)" and drew two all-`—` columns over 650 runs, because two retired versions (`0.1.0` / `1.0.0`, zero jobs between them) had declared them while every version the jobs actually ran declared none. That contradicts `designs/kpi-extraction.md` §109 — a descriptor with no `kpi = true` output is meant to be invisible to the KPI layer. The catalog now takes the **newest version's** KPIs and adds back only names that still have captured values, resolving each one's label / unit from the newest version that declared it. A KPI un-ticked after runs captured it keeps its column; one that was never captured is gone.
+- **The `(name, label, unit)` dedup key doubled columns.** Un-ticking sweeps `kpi_label` (`clear_kpi_overrides`), so a re-tick's effective label falls back to the output's own `label` and the key diverges — two entries for one output. Every downstream surface keys on the name alone (AG-Grid `field: kpi__{kpi_name}`, the row pivot, the CSV header, the per-KPI range filter), so two entries sharing a name can only ever render as **duplicate** columns over the same values, never as distinct ones. Dedup is now on `kpi_name`, newest-version-wins on the label.
+
+**Per-job card pins the job's own version.** `job.py::_render_job_kpi_card` called `list_tool_kpis(alias)` with no `version_id`, so a run was judged against the tool-wide catalog: a job whose pinned descriptor declared no KPI still drew tiles reading `—`. It now passes `job["tool_version_id"]` (populated by `GET /api/jobs/{id}`), falling back to the tool-wide catalog only when the version didn't resolve.
+
+**Descriptor-wizard KPI wipe (data incident, repaired 2026-09-21).** From the initial commit until `2d59fd1` (2026-08-12), `_descriptor_wizard._output_to_payload` never serialised the `kpi` / `kpi_label` / `kpi_unit` / `kpi_category` keys, so **any** save through the editor silently cleared every KPI tick — including edits that only touched inputs. Four demo tools lost their KPIs this way (`bracket_stress` at v1.0.1, `thermal_soak` at v1.0.2, `composite_laminate` at v1.0.2, `simple_fermentation` at v2.1.1). The serialisation bug is fixed; the demo DB was repaired in place (live `tool.descriptor` + every `tool_version.descriptor_snapshot` from the wipe forward — the snapshots matter because extraction reads the job's *pinned* snapshot) and back-filled through `reextract_tool_version`, capturing 2,858 values across 1,044 completed runs with zero skips. The same shape of repair is what any install that ran a pre-`2d59fd1` wizard needs.
 
 **Migrations shipped** — `0057` (`job_kpi_value` table + composite UNIQUE + two perf indexes).
 
@@ -1448,7 +1470,7 @@ Design: `designs/surrogate-family.md` (+ the shared `designs/studies-engine.md` 
 
 ## UI Conventions (v2)
 
-These are durable, app-wide rules. They override per-page preferences and apply to every page added under `src/matofx/ui/pages/`.
+These are durable, app-wide rules. They override per-page preferences and apply to every page added under `OUTPUTS/matofx/src/matofx/ui/pages/`.
 
 ### Filters and search controls live above the results, never below
 
@@ -1459,6 +1481,27 @@ On any page that has a filter bar, search box, "show archived" toggle, owner pic
 - Implementation guard — in NiceGUI, the order you `ui.column()` / `ui.card()` is the order they render. Creating the list container *before* the filter card is a common bug (the list ends up on top); always build the filter card first, then the result container.
 
 If a page needs in-list filters too (e.g. a per-row search-as-you-type), that's fine — but the primary filter row stays at the top.
+
+### A nav target's query is part of its identity
+
+Two sidebar entries may point at the same page and differ only by a query
+(`V&V records` → `/vv-records`; `V&V records inbox` → `/vv-records?tab=queue`).
+The active-entry highlight therefore compares **path + query**, not path alone:
+`_current_nav_path` keeps `request.url.query`, and `_active_target` treats a
+target's query as parameters it *pins* — the target matches only when the current
+URL sets each of them to the same value, while a target with no query ignores the
+current one entirely and still lights on any other tab (matching a query too
+strictly would leave the sidebar with nothing highlighted). Longest match wins, so
+the more specific query-bearing entry beats its bare parent.
+
+Fixed 2026-09-21 (reported): `_current_nav_path` returned `request.url.path` and
+dropped the query, so the current path was always plain `/vv-records` and the
+inbox entry — whose target contains `?` — could never equal or prefix it. Clicking
+the inbox opened the queue but highlighted its parent, every time. It was the only
+query-bearing nav target, so the whole class of bug had exactly one instance;
+`tests/ui/test_login_redirect.py` now walks **every** nav target through
+`_current_nav_path` → `_active_target` and asserts it resolves to itself, so a
+future one can't be added unreachable.
 
 ### Tool labels in pickers show the human name, not the alias
 
@@ -1733,7 +1776,7 @@ surrogate engine (ADR-0008) rather than Optuna (dropped); pymoo retained.
 
 Wiring + UX/robustness pass over §16.27 after the first live runs. All UI is
 feature-gated by `OPTIMISATION_FRAMEWORK` and built/tested against
-`.venv` (the env with `pymoo`/`ruff` — *not* `venv_MATOFX`, which
+`OUTPUTS/matofx/.venv` (the env with `pymoo`/`ruff` — *not* `venv_MATOFX`, which
 lacks them; see `feedback_use_dotvenv_for_tests`).
 
 - **Dispatch + access fix** — `_job_project_id` (`hierarchy/service.py`) gained
@@ -1796,7 +1839,7 @@ A deterministic, air-gap-safe **templated narrative** for every terminal result 
 single jobs, workflow runs, parametric studies, optimisation studies — plus an
 optional, governed **LLM enrichment** that re-proses the *same audited facts*
 behind a fail-closed guard stack. Feature row (no ADR); design
-`designs/auto-summaries.md`. Built/tested against `.venv`.
+`OUTPUTS/designs/auto-summaries.md`. Built/tested against `OUTPUTS/matofx/.venv`.
 
 - **`matofx.summaries`** — `facts.py` defines the `SummaryFacts` grounding
   contract (closed `SURFACE_KINDS`, headline numbers, JSON-serialisable `details`,
@@ -1871,8 +1914,8 @@ A rework of §16.26's "Run Cohorts" into **Job Cohorts**: renamed everywhere
 **workspace-level object** keyed on a tool + its tolerated `major.minor` version
 bands, with explicit-selection *or* auto-grow membership, a build-time preview
 across the whole workspace, and an in-place editor. Design
-`designs/job-cohorts.md`; still behind `features.surrogate_family`.
-Built/tested against `.venv`.
+`OUTPUTS/designs/job-cohorts.md`; still behind `features.surrogate_family`.
+Built/tested against `OUTPUTS/matofx/.venv`.
 
 - **Rename + DB** (migration `0073`) — `run_cohort` → `job_cohort` (table + indexes;
   `pk_/fk_/ck_` constraint names preserved per the `0058` precedent), `RunCohort`
@@ -1899,6 +1942,31 @@ Built/tested against `.venv`.
   frozen `member_job_ids` (validated at save against the live candidate universe —
   completed · tool · tolerated version · visible). The candidate query is parameterised
   (`_CandidateFilter`) and shared by `resolve_members` and `preview_candidates`.
+  **Switching a cohort off auto-grow (fixed 2026-09-21).** The builder demanded an
+  explicit tick set: turning the switch off and saving answered *"Preview and tick at
+  least one run, or turn auto-grow on."* — a demand that arrived only **after** Save,
+  named rows, and so read as though ticking a row were what got disabled (the switch is
+  cohort-wide). Worse, it was a permanent dead end for a cohort matching nothing:
+  `_preview` sets `self.table = None` and returns *before* building the table when there
+  are no rows, so there was nothing to tick and every save was refused, forever. Now
+  "off" means "keep what you have" — with nothing ticked, `_submit` calls
+  `_current_match_ids` (the same preview query) and freezes **everything the query
+  currently matches**; ticking narrows that set rather than being a precondition. The
+  switch runs the preview on change, so the list you are about to freeze is on screen
+  before you commit, and `_refresh_grow_hint` keeps a plain-language sentence under it
+  true to the switch's position. A zero-match cohort still cannot go fixed (the service's
+  `CohortConfigError` stands — a fixed cohort with nothing in it is meaningless), but the
+  builder says so the moment the switch moves and names **Archive** as the way out
+  instead of stranding the curator. `_current_match_ids` warns when `acl_hidden > 0`:
+  a live cohort resolves per reader, a frozen one is fixed by whoever froze it, so runs
+  the curator cannot see would otherwise be dropped silently.
+  **Membership chip** — `membership_badge` (extracted for test) now has three states, not
+  two. A non-growing cohort with `auto_include_study_ids` still unions in those studies'
+  completed runs at resolve time (ADR-0020 §11.5 / migration `0096`), so a bare
+  "Fixed set" was a promise the resolver does not keep; it reads **"Fixed +
+  commissioned"** with a tooltip saying those runs still arrive. The detail page already
+  explained this; the list row flattened it away. Covered by
+  `tests/ui/test_cohort_membership_switch.py` (13 tests).
 - **Version bands + future-patch tolerance** (migration `0076`) — a cohort stores
   chosen `major.minor` bands in `tolerated_version_bands`; live membership **re-expands**
   them to the *current* matching `tool_version.id`s on every read
@@ -5178,3 +5246,193 @@ declare a KPI, and `synthesise_descriptor` does not carry the source tool's
 `surrogate_finned_plate_21` is `kpi: False`. So an exported surrogate never
 appears on that page at all. Same family as the input-rule gap fixed earlier
 today: the export keeps the model's view and drops the tool's.
+
+### Surrogates learn each result on the scale that fits it — ADR-0021 — 2026-09-16
+
+**Trigger.** The Finned Cold Plate surrogate built on 70 runs predicted peak
+component temperature *worse* than the one built on 20 (misses of 2.2 and
+3.8 °C). The data were clean; the response is a power law that climbs steeply
+into the few-fins, low-fan corner, and one set of GP length scales cannot serve
+both that corner and the flat region the user tested.
+
+**Mechanism.** `Surrogate.output_scale` (`as_measured` | `log`). A log fit
+learns `log(y)`; `predict` returns `exp(μ)` and the delta-method `exp(μ)·σ`.
+Cross-validation runs through a `TransformedTargetRegressor`, so Q², RMSE and
+the parity pairs are always in the result's own units and the two scales are
+comparable like for like. `relative_sigma` stays on the learned scale
+(`σ / std(log y)`), so the ADR-0020 coverage thresholds keep their calibration;
+`coverage/gp.py` now calls it instead of dividing the delta-method σ by
+`std(y)`, which would have made hot corners look less supported.
+`conditioned_on` fits its frozen GP on `log(y)`. `__setstate__` defaults
+old bundles to `as_measured`, so nothing already exported changes.
+
+**The decision** lives in `studies/surrogate/scale.py:fit_with_output_scale`,
+per result, returning the surrogate plus a `ScaleDecision` that the service
+writes into `version.responses` (what refit needs) and `version.quality`
+(the evidence the UI shows). No migration.
+
+**Three things the build found.**
+1. *The rule could contradict the table.* The first rule used repeated CV only;
+   on real data it picked log for fan power while the displayed error for log
+   was the larger number. The displayed check now comes first — which also
+   made it the cost fix below.
+2. *`Both` was 8× slower than as measured* (169 s on the 373-run model — four
+   methods would have neared the 600 s in-app request ceiling). Displayed check
+   first plus stopping at the first lost repeat: 65 s (3×).
+3. *Refit silently changed the method.* `ModelRefitRequest.surrogate_kind`
+   defaulted to `"gp"`; the service treats any value as explicit; the button
+   sends `{}`. Model 18 in the demo database shows it (v1 Matérn, v2 smooth GP).
+   Default is now `None`. Refit also gained a dialog, because without one a model
+   built before this change could never be refitted on a log scale.
+
+**Measured, not assumed.** The shipped code was benchmarked over every training
+set in the demo database (outer 5-fold, decision taken on each training fold):
+GP 60 better / 65 same / 13 worse of 138 (mean −14%, worst 1.75×), polynomial
+25 / 36 / 2 (−20%, worst 1.07×), gradient boosting 9 / 59 / 1 (−3%). Forcing log
+everywhere was 32 worse of 82 GP fits and up to 10,843× worse on a polynomial
+mass fit — hence per result, visible, overridable, and the ⚠ at 1.5×.
+
+**Alongside:** exported field `.vtu` files carried the reference training run's
+own arrays (a stale `temperature` beside the `temperature_field` prediction);
+`models/runtime.py:_write_field_file` now calls `mesh.clear_data()` first.
+
+### Each result fits its own way — ADR-0022 — 2026-09-17
+
+**Why.** ADR-0021 let a result choose its output scale, but a model still used one
+method for every result and inputs as measured. Three benchmarks over every
+training set in the demo database (outer 5-fold CV, choices made on training
+folds only) showed each restriction costs accuracy, and that combining a
+per-result method, output scale and — for Gaussian processes — input scale under
+the ADR-0021 "clearly and consistently" rule helped 45 of 69 results, left 17
+alone and hurt 7 (typical −12%, worst 1.68×). The "lowest CV error wins" version
+hurt 16 of 69 (worst 3.4×): single CV scores are too noisy to pick by alone.
+
+**Engine** — `studies/surrogate/tuning.py`. `ResultTuner` fits a result's
+candidates once (method × output scale × input scale; log inputs only for GP
+methods), caches repeated-check scores, and can `decide(primary, override)` for
+any primary method without refitting — which is what lets Fit & compare re-render
+the table when the user changes the kept method. The **baseline** is the
+starting method exactly as measured — "before tuning" in every table — and log
+output is a tuning option like any other (it briefly included the ADR-0021
+log-output choice, so a "before tuning" table showed log scales). `scale.py` is gone.
+The starting method is **suggested from before-tuning scores**: ranked after tuning,
+every method whose results all moved elsewhere tied for best, so a "best" polynomial
+fitted none of its results. A baseline whose own repeated checks vary more than 3-fold
+is judged on average and worst case, not repeat by repeat (Matérn on a 20-run air
+velocity had been kept at a displayed Q² of 0.35).
+
+**Log inputs** — `Surrogate.log_factors`; `_encode` takes the log, so every caller
+(profiler, coverage, exported tool, BO) keeps passing real units, and
+`training_inputs`/`ranges`/`means` stay real. Eligibility needs positive training
+values **and** a declared tool minimum above zero — a tool that allows 0 could hand
+an exported surrogate a value with no log; `_encode` raises rather than emit NaN.
+`conditioned_on` now rebuilds real-unit training inputs from the points (it used
+the encoded matrix, which would have been logged).
+
+**One version, several methods.** `surrogate_method` stays the primary method;
+each result's `method`/`output_scale`/`input_scale`/`log_factors`/`tuning_*` live in
+`responses`, the full evidence in `quality[r].tuning`. No migration. Consumers
+that assumed one method changed: the exporter declares `<name>_std` per result
+(`has_std`), the runtime support guard takes sigma from the first result **with
+variance** (a polynomial-first model silently lost `support_sigma`), and displays
+say *Mixed methods*.
+
+**Background fits** — `models/fit_jobs.py`. Tuning is up to 12 fits per result
+plus repeats: 129 s for six results over 70 runs, 258 s for three results over 133
+runs. Compare/create/refit gained `…/jobs` endpoints running the same helper in its
+own session; `GET /api/models/fit-jobs/{id}` reports progress; the page shows a
+progress dialog. Jobs are in-process and per-user, forgotten an hour after
+finishing — a restart loses a running fit, which is safe because nothing persists
+until it completes. The synchronous endpoints remain for scripts and tests.
+
+*Fits in progress* (added 2026-09-17): each job keeps a `title` (model or source
+name) and its `context` (request body, plus `model_id` for a refit).
+`GET /api/models/fit-jobs` lists the caller's jobs without result bodies; the
+Surrogate Models page shows them in a panel (polls every 3 s while one runs).
+`/models?fit_job=<id>` reopens a comparison: the form is refilled from `context`
+(the output filter too, so Build trains on the runs it compared) and the result
+rendered, after a deferred `ui.timer` so watching a running fit doesn't hold the
+page build. The poller treats a failed progress check as a miss (30 allowed), not
+a failed fit.
+
+*Lock hygiene found with it:* a cohort source's `populate_study_results` always
+runs a DELETE, so the fit's session held SQLite's write lock for the whole fit;
+`_ensure_cohort_results` now commits straight after. `resolve_members(stamp=False)`
+for read-only callers (cohort list, results, ingestion): stamping
+`last_resolved_at` made the list a write, and two concurrent lists raised
+`StaleDataError`. Session validation touches `last_activity_at` with a core
+UPDATE (no row-count check) for the same reason.
+
+**Refit** reproduces the version: `_recorded_tuning` reads ADR-0022 rows, maps
+ADR-0021 rows (`both`/`log` → automatic, user output-scale → an override on the
+primary method) and treats older versions as *off*.
+
+**Warning.** Any user choice with a higher displayed error than the best
+combination tried shows ⚠ — no ratio (the ADR-0021 1.5× rule is gone). MATOFX's own
+picks never warn, even when they aren't the lowest number, because the strict rule
+deliberately declines lucky winners.
+
+
+### Migrate carries the whole tool, and completes its links — ADR-0023 — 2026-10-06
+
+**Why.** A report that "upstream/downstream links were lost" after moving three
+showcase tools turned out not to be Migrate at all: the destination
+(`C:\ProgramData\matofx`) had installed them with `install_showcase_tools.py`,
+whose `example_tools/*/descriptor.toml` carried no link fields by design. The
+real July bundle, imported into a fresh install via the service and via HTTP,
+kept all 6 + 16 wired inputs. But the audit that chased it found the *rest* of
+the tool was incomplete or unchecked: `run_cap` and the optimisation
+start-approval flag dropped; teams, the approver flag and material classes not
+checked (an unresolved team list silently becomes **visible to everyone** once
+released — empty `teams` means World); links never reconciled; surrogate tools
+carrying a foreign `surrogate_model_version_id`; no `bundle_hash` (V&V
+inheritance broken); silent downgrade / demotion / overwrite of archived tools;
+workflows without icon, change log, update path or member-order validation — and
+**Preview 500'd** for any workflow-plus-members bundle (tool savepoints rolled
+back, then the `workflow_member` FK insert failed; only `ItemSkippedError` was
+caught).
+
+**Shape** (`migrate/service.py`, spec `designs/migrate-completeness.md`):
+
+- **Bundle v2** (`bundle.py`): `WorkflowManifestEntry.icon_png_b64` (inlined,
+  signed, ≤ 1 MB); tool `settings` gains `run_cap` /
+  `optimisation_start_approval_required`; workflow members carry `tool_version`.
+  A newer `bundle_version` is refused in plain English before schema validation.
+- **Export**: surrogate tools → `SurrogateToolNotExportableError` (409);
+  `ExportService.resolve_selection(include_required=…)` adds workflow members and
+  transitive upstream sources (header `X-Matofx-Included-Tools`; CLI
+  `--include-required`; UI checkbox, default on).
+- **Import, per tool**: surrogate skip; by-name FKs (unchanged); teams resolved
+  (`_resolve_teams` — none left → `teams_pending`); approvers must exist, be
+  active and `is_approver`; `ToolService.validate_material_references` (skip, like
+  install); licences listed (no registry exists); version rules via
+  `versioning.compare_versions` (older/archived/same-but-different → skip; newer →
+  update with an "offline until re-promoted" warning); `bundle_hash` from
+  `versioning.compute_bundle_hash_from_files` (byte-identical to the directory
+  hash — the files reach disk after the savepoint).
+- **Links** (`_reconcile_links`): never removed; missing half added — on a tool
+  this run created, in place; on a tool already here, through
+  `ToolService.update_descriptor` (patch bump + change log + audit), recorded as
+  `link_repairs` on the result and the import audit row. "Same content" for
+  idempotency ignores `downstream_tools` (`_without_downstream`), since that list
+  is reconciled additively.
+- **Workflows**: members resolved against this run's tools or the DB; validated
+  with the extracted pure `workflows.service.check_upstream_ordering`; admin alias
+  → update / no-op / conflict / downgrade (custom alias → skip); a
+  `WorkflowVersion` row per import/update; icon written to `workflows.icons_dir`.
+- **Transactions**: every per-item exception is now a per-item skip; preview runs
+  the real import in one outer savepoint and rolls it back (audit chain head is a
+  DB row, so the rollback is clean).
+- **Teams pending** (migration `0098`): `tool.teams_pending` /
+  `workflow.teams_pending`; `promote_state` refuses to leave `new`
+  (`TeamsPendingError` 409 / `WorkflowStateError` 400); cleared by the first save
+  with a non-empty team list. Amber banner on Edit Tool, chip on the workflow card,
+  "no teams yet" on the tools list.
+- **Also fixed on the way**: `InvalidStateTransitionError`,
+  `InvalidPromotionError`, `ToolArchivedError` were unmapped and surfaced as a
+  generic 500; now 400/409 with their message.
+
+**Showcase chain ships pre-wired** (same day, maintainer's call): the three
+`example_tools` descriptors now carry the links copied from the demo install;
+`test_showcase_tools_ship_wired_and_still_run_alone` replaces the old
+"no wiring" guard. Tests: `tests/migrate/test_migrate_completeness.py` (28).

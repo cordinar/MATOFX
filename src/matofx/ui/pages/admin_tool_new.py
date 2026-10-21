@@ -415,8 +415,8 @@ async def _render_form(
                 approvers_picker.value = []
                 approvers_picker.disable()  # default policy is none → picker inactive
                 ui.label(
-                    "Only users flagged as approvers (Edit User → 'Eligible to be a "
-                    "tool approver') appear here. The picker activates when the "
+                    "Only users flagged as approvers (Edit User → 'Can approve "
+                    "runs') appear here. The picker activates when the "
                     "policy is anything other than None."
                 ).style("color: #888; font-size: 0.8rem;")
 

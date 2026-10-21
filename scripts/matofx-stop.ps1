@@ -33,7 +33,7 @@ Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" 
     }
 
 if ($Killed -eq 0) {
-    Write-Host "Nothing to stop — matofx-api and matofx-runner aren't running."
+    Write-Host "Nothing to stop - matofx-api and matofx-runner aren't running."
 } else {
     Write-Host "Stopped $Killed process(es)."
 }

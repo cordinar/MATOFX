@@ -34,6 +34,7 @@ from matofx.api.deps import (
     get_cohort_service,
     get_current_user,
     get_db,
+    get_factory,
     get_model_service,
     get_notifier,
     get_settings,
@@ -53,6 +54,7 @@ from matofx.api.schemas import (
     ModelExportRequest,
     ModelExportResponse,
     ModelFieldMethodFit,
+    ModelFitJobResponse,
     ModelMethodFit,
     ModelRefitRequest,
     ModelResponse,
@@ -65,14 +67,20 @@ from matofx.api.schemas import (
     SurrogateExclusionSummary,
 )
 from matofx.approvals.orm import ApprovalRequest
+from matofx.audit import ensure_chain_head
 from matofx.config import Settings
 from matofx.config.general_service import load_general_settings
+from matofx.db import SessionFactory, session_scope
 from matofx.features import Feature, feature_enabled
 from matofx.hierarchy.orm import Project
 from matofx.models import ModelService, register_as_tool
+from matofx.models.fit_jobs import FIT_JOBS, FitJob
 from matofx.models.orm import SurrogateModel, SurrogateModelVersion
 from matofx.notify import Notifier
+from matofx.studies.cohort.orm import JobCohort
 from matofx.studies.cohort.service import CohortService
+from matofx.studies.optimisation.orm import OptimisationStudy
+from matofx.studies.orm import ParametricStudy
 from matofx.studies.surrogate.ingest import FactorFilter
 from matofx.tools.orm import Tool
 from matofx.tools.service import ToolService
@@ -264,6 +272,14 @@ async def _ensure_cohort_results(
     await cohort_service.populate_study_results(
         db, actor_user_id=actor_user_id, cohort_id=source_id
     )
+    # Commit before fitting. Populating always runs a DELETE, which on SQLite
+    # takes the database's write lock; left open, that lock was held for the
+    # whole fit (minutes with tuning), so every other write in the app — even
+    # the session-activity touch on the page's own progress poll — waited and
+    # then failed with "database is locked". The page reported the build as
+    # failed while it went on to save the model, and a second click made a
+    # duplicate. The rows are an idempotent projection, safe to commit alone.
+    await db.commit()
 
 
 @router.get("/models/picker", response_model=list[ModelResponse])
@@ -408,32 +424,135 @@ async def compare_fits(
     """Fit several methods over the same data, persist none (§4 bake-off).
 
     Returns each method's cross-validated quality + held-out pairs (for
-    overlaid parity plots) and the best picks, so the user compares before
-    committing. They then ``POST /api/models`` with the chosen method.
+    overlaid parity plots), the best picks and the ADR-0022 per-result tuning,
+    so the user compares before committing. They then ``POST /api/models`` with
+    the chosen method. Large comparisons belong on the background variant,
+    ``POST /api/models/compare-fits/jobs``.
     """
-    await _ensure_cohort_results(
-        db, cohort_service, current_user.id, body.source_kind, body.source_id
+    return await _run_compare(db, service, cohort_service, current_user.id, body)
+
+
+@router.post("/models/compare-fits/jobs", response_model=ModelFitJobResponse)
+async def start_compare_fits_job(
+    body: ModelCompareRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    factory: Annotated[SessionFactory, Depends(get_factory)],
+    service: Annotated[ModelService, Depends(get_model_service)],
+    cohort_service: Annotated[CohortService, Depends(get_cohort_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ModelFitJobResponse:
+    """Start :func:`compare_fits` in the background (ADR-0022 §7)."""
+    user_id = current_user.id
+
+    async def _work(job: FitJob) -> dict[str, Any]:
+        async with session_scope(factory) as session:
+            await ensure_chain_head(session)
+            result = await _run_compare(session, service, cohort_service, user_id, body, job.report)
+        return result.model_dump(mode="json")
+
+    title = await _source_title(db, body.source_kind, body.source_id)
+    return _job_response(
+        FIT_JOBS.start("compare", user_id, _work, title=title, context=body.model_dump(mode="json"))
     )
+
+
+@router.get("/models/fit-jobs", response_model=list[ModelFitJobResponse])
+async def list_fit_jobs(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[ModelFitJobResponse]:
+    """The caller's background fits still held (running, or finished in the last hour).
+
+    Results are left out, as a comparison can be large; fetch one job for its result.
+    """
+    return [
+        _job_response(job).model_copy(update={"result": None})
+        for job in FIT_JOBS.for_user(current_user.id)
+    ]
+
+
+@router.get("/models/fit-jobs/{job_id}", response_model=ModelFitJobResponse)
+async def get_fit_job(
+    job_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ModelFitJobResponse:
+    """A background fit's progress, and its result once finished (own jobs only)."""
+    job = FIT_JOBS.get(job_id, current_user.id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="That fit isn't running any more — it may have been lost in a restart.",
+        )
+    return _job_response(job)
+
+
+def _job_response(job: FitJob) -> ModelFitJobResponse:
+    model_id = job.context.get("model_id")
+    if job.kind == "create" and job.status == "done" and isinstance(job.result, dict):
+        model_id = job.result.get("id")
+    return ModelFitJobResponse(
+        id=job.id,
+        kind=job.kind,
+        status=job.status,
+        done=job.done,
+        total=job.total,
+        message=job.message,
+        error=job.error,
+        result=job.result if job.status == "done" else None,
+        title=job.title,
+        context=job.context,
+        model_id=int(model_id) if model_id is not None else None,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+    )
+
+
+async def _source_title(db: AsyncSession, source_kind: str, source_id: int) -> str:
+    """The source's name for the fits list; a plain fallback if it can't be read."""
+    orm: Any = {
+        "cohort": JobCohort,
+        "parametric": ParametricStudy,
+        "optimisation": OptimisationStudy,
+    }.get(source_kind)
+    row = await db.get(orm, source_id) if orm is not None else None
+    name = getattr(row, "name", None)
+    return str(name) if name else f"Source #{source_id}"
+
+
+async def _run_compare(
+    db: AsyncSession,
+    service: ModelService,
+    cohort_service: CohortService,
+    user_id: int,
+    body: ModelCompareRequest,
+    progress: Any = None,
+) -> ModelCompareResponse:
+    await _ensure_cohort_results(db, cohort_service, user_id, body.source_kind, body.source_id)
     factor_filter = FactorFilter(output_ranges=body.output_filter) if body.output_filter else None
     per_method: list[dict[str, Any]] = []
     best_overall: str | None = None
     best_per_response: dict[str, str] = {}
     excluded: dict[str, Any] = {"n_excluded": 0, "reason_counts": {}}
+    tuning: dict[str, Any] = {}
     if body.response_names and body.methods:
-        per_method, best_overall, best_per_response, excluded = await service.compare_fits(
+        per_method, best_overall, best_per_response, excluded, tuning = await service.compare_fits(
             db,
-            actor_user_id=current_user.id,
+            actor_user_id=user_id,
             source_kind=body.source_kind,
             source_id=body.source_id,
             response_names=body.response_names,
             methods=body.methods,
             factor_filter=factor_filter,
+            tool_alias=body.tool_alias,
+            tuning_mode=body.tuning_mode,
+            progress=progress,
         )
     # Field bake-off (ADR-0018): resolve the field specs from the descriptor and
     # rank the chosen field methods (incl 'auto') on Field Q².
     field_per_method: list[dict[str, Any]] = []
     best_field_overall: str | None = None
     if body.field_response_names and body.field_methods:
+        if progress is not None:
+            progress(0, 0, "Fitting the 3-D field outputs")
         field_specs = []
         for name in body.field_response_names:
             fs = await service.resolve_field_spec(
@@ -461,6 +580,7 @@ async def compare_fits(
         field_methods=[ModelFieldMethodFit(**m) for m in field_per_method],
         best_field_overall=best_field_overall,
         excluded=SurrogateExclusionSummary(**excluded),
+        tuning=tuning,
     )
 
 
@@ -501,17 +621,48 @@ async def create_model(
 
     A single response naming a tool's ``field`` output is routed to the POD
     field path automatically (the descriptor is authoritative, so the client
-    needs no extra flag).
+    needs no extra flag). Large builds belong on the background variant,
+    ``POST /api/models/jobs``.
     """
-    await _ensure_cohort_results(
-        db, cohort_service, current_user.id, body.source_kind, body.source_id
+    return await _run_create(db, service, cohort_service, current_user.id, body)
+
+
+@router.post("/models/jobs", response_model=ModelFitJobResponse)
+async def start_create_model_job(
+    body: ModelCreateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    factory: Annotated[SessionFactory, Depends(get_factory)],
+    service: Annotated[ModelService, Depends(get_model_service)],
+    cohort_service: Annotated[CohortService, Depends(get_cohort_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ModelFitJobResponse:
+    """Start :func:`create_model` in the background (ADR-0022 §7).
+
+    Permission is checked before the job starts, so a user without it gets the
+    403 at once instead of from a job minutes later.
+    """
+    await _require_create_permission(db, current_user.id)
+    user_id = current_user.id
+
+    async def _work(job: FitJob) -> dict[str, Any]:
+        async with session_scope(factory) as session:
+            await ensure_chain_head(session)
+            result = await _run_create(session, service, cohort_service, user_id, body, job.report)
+        return result.model_dump(mode="json")
+
+    return _job_response(
+        FIT_JOBS.start(
+            "create", user_id, _work, title=body.name, context=body.model_dump(mode="json")
+        )
     )
-    is_curator = await user_has_permission(db, current_user.id, Permission.MODELS_CURATE)
+
+
+async def _require_create_permission(db: AsyncSession, user_id: int) -> bool:
+    """Raise 403 unless the user may create models; returns whether they curate."""
+    is_curator = await user_has_permission(db, user_id, Permission.MODELS_CURATE)
     # Create is allowed to base ``models.create`` holders or to curators
     # (who can always create). Curate stays the gate for global publishes.
-    if not is_curator and not await user_has_permission(
-        db, current_user.id, Permission.MODELS_CREATE
-    ):
+    if not is_curator and not await user_has_permission(db, user_id, Permission.MODELS_CREATE):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
@@ -519,6 +670,19 @@ async def create_model(
                 f"({Permission.MODELS_CREATE.value})."
             ),
         )
+    return is_curator
+
+
+async def _run_create(
+    db: AsyncSession,
+    service: ModelService,
+    cohort_service: CohortService,
+    user_id: int,
+    body: ModelCreateRequest,
+    progress: Any = None,
+) -> ModelResponse:
+    await _ensure_cohort_results(db, cohort_service, user_id, body.source_kind, body.source_id)
+    is_curator = await _require_create_permission(db, user_id)
     # Split the requested responses into scalar names + field specs — the
     # descriptor is authoritative (ADR-0018), so a request mixing numbers and
     # field outputs creates one combined model.
@@ -533,7 +697,7 @@ async def create_model(
     factor_filter = FactorFilter(output_ranges=body.output_filter) if body.output_filter else None
     model, _version, excluded = await service.create_model(
         db,
-        actor_user_id=current_user.id,
+        actor_user_id=user_id,
         name=body.name,
         tool_alias=body.tool_alias,
         scope=body.scope,
@@ -550,6 +714,10 @@ async def create_model(
         field_auto_select=body.field_auto_select,
         field_surrogate_kind=body.field_surrogate_kind,
         factor_filter=factor_filter,
+        tuning_mode=body.tuning_mode,
+        candidate_methods=body.candidate_methods,
+        tuning_overrides={k: v.model_dump() for k, v in body.tuning_overrides.items()},
+        progress=progress,
     )
     return _to_model(model).model_copy(update={"excluded": SurrogateExclusionSummary(**excluded)})
 
@@ -599,6 +767,54 @@ async def refit_model(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> ModelVersionResponse:
     """Re-fit on the source's current data → a new version (§8)."""
+    return await _run_refit(db, service, cohort_service, current_user.id, model_id, body)
+
+
+@router.post("/models/{model_id}/refit/jobs", response_model=ModelFitJobResponse)
+async def start_refit_model_job(
+    model_id: int,
+    body: ModelRefitRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    factory: Annotated[SessionFactory, Depends(get_factory)],
+    service: Annotated[ModelService, Depends(get_model_service)],
+    cohort_service: Annotated[CohortService, Depends(get_cohort_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ModelFitJobResponse:
+    """Start :func:`refit_model` in the background (ADR-0022 §7).
+
+    Write access is checked before the job starts, so a refusal is immediate.
+    """
+    model = await service.get(db, actor_user_id=current_user.id, model_id=model_id)
+    user_id = current_user.id
+
+    async def _work(job: FitJob) -> dict[str, Any]:
+        async with session_scope(factory) as session:
+            await ensure_chain_head(session)
+            result = await _run_refit(
+                session, service, cohort_service, user_id, model_id, body, job.report
+            )
+        return result.model_dump(mode="json")
+
+    return _job_response(
+        FIT_JOBS.start(
+            "refit",
+            user_id,
+            _work,
+            title=str(model.name),
+            context={**body.model_dump(mode="json"), "model_id": model_id},
+        )
+    )
+
+
+async def _run_refit(
+    db: AsyncSession,
+    service: ModelService,
+    cohort_service: CohortService,
+    user_id: int,
+    model_id: int,
+    body: ModelRefitRequest,
+    progress: Any = None,
+) -> ModelVersionResponse:
     # A refit reads its source from the latest version; if that source is a
     # cohort, refresh its lazily-materialised results first (see compare/create).
     latest = (
@@ -615,10 +831,15 @@ async def refit_model(
     )
     if latest is not None:
         await _ensure_cohort_results(
-            db, cohort_service, current_user.id, latest.source_kind, latest.source_id
+            db, cohort_service, user_id, latest.source_kind, latest.source_id
         )
     version = await service.refit(
-        db, actor_user_id=current_user.id, model_id=model_id, surrogate_kind=body.surrogate_kind
+        db,
+        actor_user_id=user_id,
+        model_id=model_id,
+        surrogate_kind=body.surrogate_kind,
+        tuning_mode=body.tuning_mode,
+        progress=progress,
     )
     return _to_version(version)
 

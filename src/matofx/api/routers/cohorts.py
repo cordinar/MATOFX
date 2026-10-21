@@ -214,7 +214,9 @@ async def _enrich_cohorts(
     )
     out: list[CohortResponse] = []
     for c in cohorts:
-        resolved = await service.resolve_members(db, actor_user_id=actor_user_id, cohort_id=c.id)
+        resolved = await service.resolve_members(
+            db, actor_user_id=actor_user_id, cohort_id=c.id, stamp=False
+        )
         # Resolve the tolerated version *ids* to their version strings,
         # newest first, for display (the raw ids are meaningless to a user).
         versions = [
@@ -471,7 +473,9 @@ async def cohort_results(
         db, actor_user_id=current_user.id, cohort_id=cohort_id
     )
     cohort = await service.get(db, actor_user_id=current_user.id, cohort_id=cohort_id)
-    resolved = await service.resolve_members(db, actor_user_id=current_user.id, cohort_id=cohort_id)
+    resolved = await service.resolve_members(
+        db, actor_user_id=current_user.id, cohort_id=cohort_id, stamp=False
+    )
     rows: list[CohortResultRow] = []
     present_keys: set[str] = set()
     present_input_keys: set[str] = set()

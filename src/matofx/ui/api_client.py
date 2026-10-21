@@ -434,9 +434,12 @@ class ApiClient:
     async def list_tool_kpis(self, alias: str, *, version_id: int | None = None) -> dict[str, Any]:
         """GET /api/tools/{alias}/kpis → catalog wrapper + ``entries``.
 
-        Backs the warehouse-page header. ``version_id`` narrows to one
-        tool_version's KPI set; absent → union of every released
-        version (the same column-set the page renders by default).
+        Backs the warehouse-page header and the job page's Headline
+        KPIs card. ``version_id`` narrows to that one tool_version's
+        declared KPIs — what a single job should be judged against.
+        Absent → the tool-wide catalog: the newest version's KPIs plus
+        any name that still has captured values (see
+        :func:`matofx.kpi.service.list_kpis_for_tool`).
         """
         params = {"version_id": version_id} if version_id is not None else None
         async with await self._client() as c:
@@ -3634,12 +3637,14 @@ class ApiClient:
         tool_specs: list[dict[str, str]],
         workflow_aliases: list[str],
         notes: str = "",
-    ) -> tuple[bytes, str]:
-        """POST /api/admin/migrate/export — returns ``(bytes, suggested_filename)``.
+        include_required: bool = False,
+    ) -> tuple[bytes, str, list[str]]:
+        """POST /api/admin/migrate/export — ``(bytes, suggested_filename, added)``.
 
         The server's ``Content-Disposition`` header carries a sensible
         default filename (``matofx-migrate-<timestamp>-<short-fp>.tar.gz``)
-        that the UI surfaces to the browser's save dialog.
+        that the UI surfaces to the browser's save dialog. ``added`` lists the
+        ``alias:version`` tools *Include required tools* pulled in.
         """
         async with await self._client() as c:
             response = await c.post(
@@ -3649,11 +3654,14 @@ class ApiClient:
                     "tool_specs": tool_specs,
                     "workflow_aliases": workflow_aliases,
                     "notes": notes,
+                    "include_required": include_required,
                 },
             )
             _raise_for_status(response)
             filename = _extract_filename(response.headers.get("content-disposition", ""))
-            return response.content, filename
+            raw_added = response.headers.get("x-matofx-included-tools", "")
+            added = [a for a in raw_added.split(",") if a]
+            return response.content, filename, added
 
     async def import_migration_bundle(
         self,
@@ -4329,6 +4337,7 @@ class ApiClient:
         field_methods: list[str] | None = None,
         output_filter: dict[str, dict[str, float | None]] | None = None,
         project_id: int | None = None,
+        tuning_mode: str = "automatic",
     ) -> dict[str, Any]:
         """POST /api/models/compare-fits → ModelCompareResponse (no persistence)."""
         body: dict[str, Any] = {
@@ -4340,11 +4349,50 @@ class ApiClient:
             "field_response_names": field_response_names or [],
             "field_methods": field_methods or [],
             "output_filter": output_filter or {},
+            "tuning_mode": tuning_mode,
         }
         if project_id is not None:
             body["project_id"] = project_id
+        return await self._post_json("/api/models/compare-fits", body)
+
+    async def start_compare_fits_job(self, **kwargs: Any) -> dict[str, Any]:
+        """POST /api/models/compare-fits/jobs → ModelFitJobResponse (ADR-0022 §7).
+
+        Takes the same keyword arguments as :meth:`compare_model_fits`; poll the
+        job with :meth:`get_fit_job`.
+        """
+        body = {
+            "tool_alias": kwargs["tool_alias"],
+            "source_kind": kwargs["source_kind"],
+            "source_id": kwargs["source_id"],
+            "response_names": kwargs["response_names"],
+            "methods": kwargs["methods"],
+            "field_response_names": kwargs.get("field_response_names") or [],
+            "field_methods": kwargs.get("field_methods") or [],
+            "output_filter": kwargs.get("output_filter") or {},
+            "tuning_mode": kwargs.get("tuning_mode", "automatic"),
+        }
+        if kwargs.get("project_id") is not None:
+            body["project_id"] = kwargs["project_id"]
+        return await self._post_json("/api/models/compare-fits/jobs", body)
+
+    async def list_fit_jobs(self) -> list[dict[str, Any]]:
+        """GET /api/models/fit-jobs → [ModelFitJobResponse] (own jobs, no results)."""
         async with await self._client() as c:
-            response = await c.post("/api/models/compare-fits", headers=self._headers(), json=body)
+            response = await c.get("/api/models/fit-jobs", headers=self._headers())
+            _raise_for_status(response)
+            return list(response.json())
+
+    async def get_fit_job(self, job_id: str) -> dict[str, Any]:
+        """GET /api/models/fit-jobs/{id} → ModelFitJobResponse."""
+        async with await self._client() as c:
+            response = await c.get(f"/api/models/fit-jobs/{job_id}", headers=self._headers())
+            _raise_for_status(response)
+            return dict(response.json())
+
+    async def _post_json(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        async with await self._client() as c:
+            response = await c.post(path, headers=self._headers(), json=body)
             _raise_for_status(response)
             return dict(response.json())
 
@@ -4364,7 +4412,7 @@ class ApiClient:
             _raise_for_status(response)
             return dict(response.json())
 
-    async def create_model(
+    def _create_model_body(
         self,
         *,
         name: str,
@@ -4381,6 +4429,9 @@ class ApiClient:
         field_auto_select: bool = False,
         field_surrogate_kind: str | None = None,
         output_filter: dict[str, dict[str, float | None]] | None = None,
+        tuning_mode: str = "automatic",
+        candidate_methods: list[str] | None = None,
+        tuning_overrides: dict[str, dict[str, str]] | None = None,
     ) -> dict[str, Any]:
         """POST /api/models → ModelResponse (fits + persists a new model)."""
         body: dict[str, Any] = {
@@ -4395,6 +4446,9 @@ class ApiClient:
             "keep_training_data": keep_training_data,
             "field_auto_select": field_auto_select,
             "output_filter": output_filter or {},
+            "tuning_mode": tuning_mode,
+            "candidate_methods": candidate_methods or [],
+            "tuning_overrides": tuning_overrides or {},
         }
         if project_id is not None:
             body["project_id"] = project_id
@@ -4402,10 +4456,18 @@ class ApiClient:
             body["surrogate_kind"] = surrogate_kind
         if field_surrogate_kind is not None:
             body["field_surrogate_kind"] = field_surrogate_kind
-        async with await self._client() as c:
-            response = await c.post("/api/models", headers=self._headers(), json=body)
-            _raise_for_status(response)
-            return dict(response.json())
+        return body
+
+    async def create_model(self, **kwargs: Any) -> dict[str, Any]:
+        """POST /api/models → ModelResponse (fits + persists a new model).
+
+        Keyword arguments as :meth:`_create_model_body`.
+        """
+        return await self._post_json("/api/models", self._create_model_body(**kwargs))
+
+    async def start_create_model_job(self, **kwargs: Any) -> dict[str, Any]:
+        """POST /api/models/jobs → ModelFitJobResponse (ADR-0022 §7)."""
+        return await self._post_json("/api/models/jobs", self._create_model_body(**kwargs))
 
     async def update_model(
         self,
@@ -4475,14 +4537,20 @@ class ApiClient:
             _raise_for_status(response)
             return dict(response.json())
 
-    async def refit_model(self, model_id: int) -> dict[str, Any]:
-        """POST /api/models/{id}/refit → ModelVersionResponse (new ordinal)."""
-        async with await self._client() as c:
-            response = await c.post(
-                f"/api/models/{model_id}/refit", headers=self._headers(), json={}
-            )
-            _raise_for_status(response)
-            return dict(response.json())
+    async def refit_model(self, model_id: int, *, tuning_mode: str | None = None) -> dict[str, Any]:
+        """POST /api/models/{id}/refit → ModelVersionResponse (new ordinal).
+
+        ``tuning_mode`` ``None`` keeps the model's setting (ADR-0022).
+        """
+        body: dict[str, Any] = {} if tuning_mode is None else {"tuning_mode": tuning_mode}
+        return await self._post_json(f"/api/models/{model_id}/refit", body)
+
+    async def start_refit_model_job(
+        self, model_id: int, *, tuning_mode: str | None = None
+    ) -> dict[str, Any]:
+        """POST /api/models/{id}/refit/jobs → ModelFitJobResponse (ADR-0022 §7)."""
+        body: dict[str, Any] = {} if tuning_mode is None else {"tuning_mode": tuning_mode}
+        return await self._post_json(f"/api/models/{model_id}/refit/jobs", body)
 
     async def set_model_scope(
         self, model_id: int, *, scope: str, project_id: int | None = None

@@ -215,7 +215,11 @@ async def _render_form(
                     "No teams configured yet — create them first under Admin Space → Teams."
                 ).style("color: #888; font-size: 0.85rem;")
 
-            approver = ui.checkbox("Eligible to be a tool approver", value=False)
+            approver = ui.checkbox("Can approve runs", value=False)
+            ui.label(
+                "Makes this person selectable as an approver on a tool; they then "
+                "sign off that tool's jobs, studies and optimisation results."
+            ).style("color: #888; font-size: 0.8rem; margin-top: -0.5rem;")
             logon_enabled = ui.checkbox(
                 "Allow this user to log in",
                 value=True,

@@ -123,7 +123,7 @@ def _render_approver_row(me: dict[str, Any]) -> None:
         )
         with ui.column().classes("gap-1"):
             if not is_approver:
-                ui.label("Not currently eligible to be a tool approver")
+                ui.label("Not currently able to approve runs")
             elif tools:
                 ui.label("Listed as an approver for these tools:")
                 with ui.row().classes("gap-2 flex-wrap"):

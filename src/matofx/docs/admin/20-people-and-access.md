@@ -86,9 +86,16 @@ their password** if they're locked out.
 
 ## Making someone an approver
 
-You can mark a user as an **approver** and list the tools they're responsible for.
-When a job for one of those tools needs sign-off, that approver is asked to review
-it. (See the *Approvals* chapter.)
+Tick **Can approve runs** on New User or Edit User to make someone available as an
+approver. The tick on its own doesn't send them anything — it makes them selectable
+in a tool's approval settings, and only users with the tick appear there. Once
+you've named them on a tool, they sign off that tool's **jobs**, its **parametric
+studies**, and the **results release** of optimisations run against it. While a
+run's results are held for release, they can also see those results.
+
+The tick doesn't cover the curator sign-offs (file library, materials, V&V,
+surrogate models) or the start of an optimisation campaign — those come from
+capabilities, below. (See the *Approvals* chapter.)
 
 ## Granting capabilities
 

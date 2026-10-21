@@ -125,6 +125,42 @@ REDACTED_VALUE: Final[str] = "***REDACTED***"
 # the process; re-resolving it per record is a waste.
 _HOSTNAME: Final[str] = socket.gethostname()
 
+_MARKER_KEPT_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "timestamp",
+        "level",
+        "logger",
+        "message",
+        "process_id",
+        "process_name",
+        "hostname",
+    }
+)
+"""Fields a truncation marker carries over verbatim; everything else is named
+in its ``truncated`` summary rather than kept."""
+
+
+def _clip(message: object, budget_bytes: int) -> str:
+    """``message`` as a string, clipped to ``budget_bytes`` UTF-8 bytes."""
+    text = message if isinstance(message, str) else str(message)
+    encoded = text.encode("utf-8")
+    if len(encoded) <= budget_bytes:
+        return text
+    # Cut on a character boundary — a blind slice can split a multi-byte
+    # sequence and produce a string json.dumps refuses to round-trip.
+    return encoded[:budget_bytes].decode("utf-8", errors="ignore") + "…"
+
+
+def _dropped_fields(payload: dict[str, Any]) -> set[str]:
+    """Names of the fields a truncation marker leaves out.
+
+    Naming them is the difference between "something was too big" and
+    "the traceback was too big": the reader learns whether the lost bytes
+    were an ``exception`` worth reproducing or bulky structured context.
+    """
+    dropped = set(payload) - _MARKER_KEPT_FIELDS
+    return dropped or {"(none)"}
+
 
 class JsonLinesFormatter(logging.Formatter):
     r"""Format log records as one JSON object per line.
@@ -226,20 +262,40 @@ class JsonLinesFormatter(logging.Formatter):
         lowered = key.lower()
         return any(pattern in lowered for pattern in self._redact_patterns)
 
+    _MARKER_MESSAGE_BUDGET = 2048
+    """Bytes of the original ``message`` the marker keeps.
+
+    Small enough that the marker itself can't breach the cap it exists to
+    enforce, large enough for any human-written log message. What blows the
+    cap in practice is an attached ``exception`` traceback, not the message.
+    """
+
     def _truncation_marker(self, payload: dict[str, Any], *, original_serialised: str) -> str:
-        """Build a small stand-in record for an over-cap log line."""
+        """Build a small stand-in record for an over-cap log line.
+
+        The original ``message`` is **kept** (clipped to
+        :data:`_MARKER_MESSAGE_BUDGET`). Replacing it with the byte count
+        alone was a false economy: an over-cap record is nearly always an
+        error with a large ``exception`` field attached, so discarding the
+        message threw away the only part that said *what* had failed and
+        left a run of identical "original was N bytes" lines that no one
+        could act on. Reported from a pilot install whose runner logged
+        three such lines in a day, all of them the same heartbeat failure.
+        """
         original_bytes = len(original_serialised.encode("utf-8"))
         marker: dict[str, Any] = {
             "timestamp": payload["timestamp"],
             "level": payload["level"],
             "logger": payload["logger"],
-            "message": (
-                f"[log line truncated; original was {original_bytes} bytes, "
-                f"cap is {self._max_line_bytes}]"
-            ),
+            "message": _clip(payload.get("message"), self._MARKER_MESSAGE_BUDGET),
             "process_id": payload.get("process_id"),
             "process_name": payload.get("process_name"),
             "truncated_bytes": original_bytes,
+            "truncated": (
+                f"Fields dropped to fit the {self._max_line_bytes}-byte cap "
+                f"(original was {original_bytes} bytes): "
+                + ", ".join(sorted(_dropped_fields(payload)))
+            ),
         }
         if "hostname" in payload:
             marker["hostname"] = payload["hostname"]

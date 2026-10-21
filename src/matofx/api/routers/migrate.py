@@ -173,6 +173,10 @@ class ExportBundleRequest(_Frozen):
     tool_specs: list[ToolSpec] = Field(default_factory=list)
     workflow_aliases: list[str] = Field(default_factory=list)
     notes: str = Field(default="", max_length=4000)
+    include_required: bool = False
+    """Also bundle workflow members and the upstream tools the selected tools
+    are wired from (ADR-0023). The additions come back in the
+    ``X-Matofx-Included-Tools`` response header as ``alias:version,...``."""
 
 
 class ProgressEventResponse(_Frozen):
@@ -236,6 +240,7 @@ class ImportResultResponse(_Frozen):
     imported_count: int
     skipped_count: int
     noop_count: int
+    link_repairs: list[dict[str, str]] = Field(default_factory=list)
 
     @classmethod
     def from_domain(cls, result: ImportResult) -> ImportResultResponse:
@@ -253,6 +258,7 @@ class ImportResultResponse(_Frozen):
             imported_count=result.imported_count,
             skipped_count=result.skipped_count,
             noop_count=result.noop_count,
+            link_repairs=list(result.link_repairs),
         )
 
 
@@ -404,12 +410,18 @@ async def export_bundle(
     """
     await _require_migrate(db, current_user.id)
     fingerprint = compute_fingerprint(key_pair.public_key)
+    selection = await export_service.resolve_selection(
+        db,
+        tool_specs=[(t.alias, t.version) for t in body.tool_specs],
+        workflow_aliases=list(body.workflow_aliases),
+        include_required=body.include_required,
+    )
     bundle_bytes = await export_service.build_bundle(
         db,
         actor_user_id=current_user.id,
         key_pair=key_pair,
         source_install_id=fingerprint,  # informational; verification rides on the FP
-        tool_specs=[(t.alias, t.version) for t in body.tool_specs],
+        tool_specs=selection.tool_specs,
         workflow_aliases=list(body.workflow_aliases),
         notes=body.notes,
         actor_label=current_user.email,
@@ -421,6 +433,7 @@ async def export_bundle(
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "X-Bundle-Fingerprint": fingerprint,
+            "X-Matofx-Included-Tools": ",".join(f"{a}:{v}" for a, v in selection.added),
         },
     )
 

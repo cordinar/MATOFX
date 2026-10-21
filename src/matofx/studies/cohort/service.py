@@ -610,7 +610,9 @@ class CohortService:
                 )
             elif not cohort.member_job_ids:
                 raise CohortConfigError(
-                    "A fixed (non-growing) cohort needs an explicit set of runs."
+                    "A fixed (non-growing) cohort needs at least one run in it. "
+                    "Widen the filters until the cohort matches something, or "
+                    "archive it to stop it gathering runs altogether."
                 )
             cohort.auto_grow = False
             # Kept, not cleared. A fixed cohort can still auto-include studies,
@@ -678,6 +680,7 @@ class CohortService:
         *,
         actor_user_id: int,
         cohort_id: int,
+        stamp: bool = True,
     ) -> ResolvedMembers:
         """Compute the cohort's membership for ``actor_user_id`` (D4).
 
@@ -686,7 +689,15 @@ class CohortService:
         ``cross_field_predicate`` filters, and drops ``excluded_job_ids``.
         For a fixed cohort: the membership is the frozen ``member_job_ids``
         set. Either way the result is intersected with the caller's
-        per-project ACL (D7). Touches ``last_resolved_at``.
+        per-project ACL (D7). Touches ``last_resolved_at`` unless ``stamp`` is
+        False.
+
+        Pass ``stamp=False`` from anything that only *reads* membership (the
+        cohort list, the results matrix, a fit's ingestion). Stamping turns a read
+        into a write: the list stamped every cohort, so two lists at once — the
+        surrogate form loads it twice when opened from a cohort — collided on the
+        same rows and one failed ("Couldn't list sources."), and on SQLite each
+        stamp also queued behind any other write in progress.
 
         Open read (D6): any authenticated caller may resolve a cohort;
         the per-project ACL intersect below is what keeps results from
@@ -732,6 +743,12 @@ class CohortService:
         job_ids = [row.id for row in members if row.pid in visible_pids]
         acl_hidden = sum(1 for row in members if row.pid not in visible_pids)
 
+        if not stamp:
+            return ResolvedMembers(
+                job_ids=job_ids,
+                acl_hidden=acl_hidden,
+                last_resolved_at=cohort.last_resolved_at or _utcnow(),
+            )
         cohort.last_resolved_at = _utcnow()
         await session.flush()
         return ResolvedMembers(
@@ -1421,7 +1438,7 @@ class CohortService:
         detects them.
         """
         members = await self.resolve_members(
-            session, actor_user_id=actor_user_id, cohort_id=cohort_id
+            session, actor_user_id=actor_user_id, cohort_id=cohort_id, stamp=False
         )
         job_ids = members.job_ids
         if not job_ids:
@@ -1501,7 +1518,7 @@ class CohortService:
         """
         cohort = await self._get(session, cohort_id)
         resolved = await self.resolve_members(
-            session, actor_user_id=actor_user_id, cohort_id=cohort_id
+            session, actor_user_id=actor_user_id, cohort_id=cohort_id, stamp=False
         )
         # **Reconcile, don't just top up.** These rows are a *projection* of
         # membership, and membership changes: a run de-selected, a study swapped

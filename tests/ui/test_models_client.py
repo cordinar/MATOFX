@@ -11,6 +11,7 @@ checks directly through the two gates.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -199,6 +200,94 @@ async def test_models_client_end_to_end(
 
     # Approvers picker excludes the caller.
     assert seeded["user_id"] not in [a["user_id"] for a in await client.model_approvers()]
+
+
+async def _finish(client: ApiClient, job: dict[str, Any]) -> dict[str, Any]:
+    """Poll a background fit to completion (it runs on the same event loop)."""
+    for _ in range(600):
+        if job["status"] != "running":
+            break
+        await asyncio.sleep(0.05)
+        job = await client.get_fit_job(job["id"])
+    assert job["status"] == "done", job.get("error")
+    return dict(job["result"])
+
+
+@pytest.mark.asyncio
+async def test_models_client_tuning_round_trip_through_background_jobs(
+    app: FastAPI,
+    api_settings: Settings,
+    api_factory: SessionFactory,
+    seeded: dict[str, Any],
+    tmp_path: Path,
+) -> None:
+    """ADR-0022 through the client the models page uses: jobs, overrides, refit."""
+    _enable(app, api_settings, tmp_path)
+    auth = await ApiClient(app).login(username=seeded["username"], password=seeded["password"])
+    client = ApiClient(app, token=str(auth["access_token"]))
+    tool = seeded["tool_alias"]
+    proj = await client.create_project(name="UITuneSrc", description="")
+    source_id = await _seed_source(api_factory, tool, seeded["user_id"], int(proj["id"]))
+
+    cmp = await _finish(
+        client,
+        await client.start_compare_fits_job(
+            tool_alias=tool,
+            source_kind="parametric",
+            source_id=source_id,
+            response_names=["y"],
+            methods=["gp", "poly"],
+        ),
+    )
+    decisions = cmp["tuning"]["y"]["decisions"]
+    assert set(decisions) == {"gp", "poly"}
+    assert cmp["tuning"]["y"]["candidates"]
+
+    created = await _finish(
+        client,
+        await client.start_create_model_job(
+            name="UI Tuned",
+            tool_alias=tool,
+            scope="personal",
+            source_kind="parametric",
+            source_id=source_id,
+            response_names=["y"],
+            surrogate_kind="gp_matern",
+            candidate_methods=["gp_matern", "poly"],
+            tuning_overrides={"y": {"method": "poly"}},
+        ),
+    )
+    mid = int(created["id"])
+    v1 = (await client.get_model(mid))["versions"][0]
+    assert v1["quality"]["y"]["method"] == "poly"
+    assert v1["quality"]["y"]["tuning"]["source"] == "user"
+
+    # Refit keeps the primary method and the user's choice; the dialog can turn tuning off.
+    await _finish(client, await client.start_refit_model_job(mid))
+    await _finish(client, await client.start_refit_model_job(mid, tuning_mode="off"))
+    versions = {v["ordinal"]: v for v in (await client.get_model(mid))["versions"]}
+    assert versions[2]["surrogate_method"] == "gp_matern"
+    assert versions[2]["quality"]["y"]["method"] == "poly"
+    assert versions[3]["quality"]["y"]["tuning"]["mode"] == "off"
+    assert versions[3]["quality"]["y"]["method"] == "poly"
+
+    # Fits in progress: own jobs, newest first, no result bodies, enough to reopen.
+    listed = await client.list_fit_jobs()
+    listed = listed[:4]  # the registry is process-wide; earlier tests may have left jobs
+    assert [j["kind"] for j in listed] == ["refit", "refit", "create", "compare"]
+    assert all(j["result"] is None and j["status"] == "done" for j in listed)
+    compare_job = listed[-1]
+    assert compare_job["title"] == "uisrc"
+    assert compare_job["context"]["source_id"] == source_id
+    assert compare_job["context"]["methods"] == ["gp", "poly"]
+    assert listed[-2]["title"] == "UI Tuned"
+    assert listed[-2]["model_id"] == mid
+    assert listed[0]["model_id"] == mid
+    reopened = await client.get_fit_job(compare_job["id"])
+    assert reopened["result"]["tuning"]["y"]["decisions"] == decisions
+
+    with pytest.raises(ApiError):
+        await client.get_fit_job("not-a-job")
 
 
 @pytest.mark.asyncio

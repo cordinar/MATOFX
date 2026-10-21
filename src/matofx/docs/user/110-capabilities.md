@@ -27,6 +27,19 @@ see an **Approvals** area, and your home page shows how many simulations are
 waiting for you. Open one, review what's being run, and approve or reject it. Once
 you approve, the job continues on its own.
 
+The queue works as a **batch**: choose *Approve* or *Deny* on each simulation
+(**Approve all** / **Deny all** set every row currently shown at once), then press
+**Submit decisions** to apply them together. A denial always needs a reason — it's
+sent to the person who asked for the run.
+
+When you submit, the **list refreshes by itself**: anything you decided drops off,
+and a short confirmation tells you how many decisions were applied. If one of them
+**couldn't** be applied — most often because another approver got there first, or
+the simulation moved on while your page sat open — that row stays in the list and
+you get a message naming the simulation and saying why. That message **stays on
+screen until you close it**, so a decision that didn't take is never mistaken for
+one that did.
+
 ## Looking after the shared file library (if you are a library curator)
 
 If you're a **file library curator**, you have a **File library** page where you

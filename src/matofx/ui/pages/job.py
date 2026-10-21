@@ -298,7 +298,7 @@ async def _render_complete(
     """Legacy-style results: meta + Inputs (left) + Outputs (right) + downloads."""
     _render_status_row(job, job_id, tool_meta)
 
-    # Auto-generated results summary (designs/auto-summaries.md).
+    # Auto-generated results summary (OUTPUTS/designs/auto-summaries.md).
     # Best-effort executive summary up top; any failure collapses silently.
     from matofx.ui._summary_card import render_summary_card  # noqa: PLC0415
 
@@ -2267,8 +2267,15 @@ async def _render_job_kpi_card(client: ApiClient, job: dict[str, Any], job_id: i
     tool_alias = job.get("tool_alias")
     if not tool_alias:
         return
+    # Pin the catalog to the version THIS job ran. Without it the card
+    # showed the tool-wide catalog, so a job whose pinned descriptor
+    # declared no KPI still drew tiles — reading "—" for a KPI the run
+    # was never asked to produce. ``GET /api/jobs/{id}`` is the one
+    # endpoint that resolves ``tool_version_id``, and this card only
+    # ever renders from that payload.
+    version_id = job.get("tool_version_id")
     try:
-        catalog = await client.list_tool_kpis(tool_alias)
+        catalog = await client.list_tool_kpis(tool_alias, version_id=version_id)
         page = await client.list_tool_results(tool_alias, job_ids=[job_id], page_size=1)
     except ApiError:
         return

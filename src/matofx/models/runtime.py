@@ -82,6 +82,12 @@ def _write_field_file(
     the field attached as a point-data array named ``name`` (so a downstream
     consumer reads it via the descriptor's ``field_node_array_name``). A bare
     ``npy`` field (or a missing mesh) is written as a plain ``.npy`` value array.
+
+    The reference mesh is a copy of a *training run's* output file, so it still
+    carries that run's solver arrays. They are cleared before the prediction is
+    attached: left in, a stale ``temperature`` array (identical whatever the
+    inputs) sat beside the real ``temperature_field`` prediction, and ParaView
+    or a downstream tool reading by name silently got the wrong field.
     """
     arr = np.asarray(field, dtype=float)
     fmt = file_format.lower().lstrip(".")
@@ -89,6 +95,7 @@ def _write_field_file(
         import pyvista  # noqa: PLC0415 - vendored alongside the field path
 
         mesh = pyvista.read(str(mesh_path))
+        mesh.clear_data()
         mesh.point_data[name] = arr
         out_path = out_dir / f"{name}.{fmt}"
         mesh.save(str(out_path))
@@ -146,11 +153,13 @@ def _support_outputs(
         threshold = edge_threshold_from(stored)
         sigma: float | None = None
         if scalar_surrs:
-            # The first response's sigma stands for the point's support: the
-            # factor space is shared, so distance-to-data is the same for all
-            # of them, and one number is what a validity rule can bound.
-            first = next(iter(scalar_surrs.values()))
-            values = relative_sigma(first, [point])
+            # The first response with a posterior sigma stands for the point's
+            # support: the factor space is shared, so distance-to-data is the same
+            # for all of them, and one number is what a validity rule can bound.
+            # Since ADR-0022 a model can mix methods, so it is the first *GP*
+            # result — a polynomial or boosted one has no sigma to give.
+            first = next((s for s in scalar_surrs.values() if s.has_variance), None)
+            values = relative_sigma(first, [point]) if first is not None else None
             sigma = float(values[0]) if values else None
         support = evaluate_support(report.envelope, point, sigma=sigma, edge_threshold=threshold)
     except Exception:  # a guard must never fail the job it is annotating

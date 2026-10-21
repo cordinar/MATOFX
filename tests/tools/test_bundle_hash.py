@@ -33,6 +33,7 @@ import pytest
 from matofx.tools.versioning import (
     EMPTY_BUNDLE_HASH,
     compute_bundle_hash,
+    compute_bundle_hash_from_files,
 )
 
 
@@ -305,3 +306,21 @@ def test_symlink_to_directory_not_descended(tmp_path: Path) -> None:
     (outside_dir / "secret.txt").write_text("modified secret\n", encoding="utf-8")
     h_after_target_modify = compute_bundle_hash(bundle)
     assert h_before == h_after_target_modify
+
+
+def test_in_memory_hash_matches_the_directory_hash(tmp_path: Path) -> None:
+    """A migration import hashes the bundle's files before they reach disk (ADR-0023).
+
+    The V&V cohort key must come out identical to what hashing the written
+    directory gives, or imported versions would never match their source.
+    """
+    files = {
+        "descriptor.json": b"{}\n",
+        "static/main.py": b"print(1)\n",
+        "static/data/mesh.bin": bytes(range(256)) * 400,
+        "z_last.txt": b"",
+    }
+    for rel, data in files.items():
+        _write(tmp_path / rel, data)
+    assert compute_bundle_hash_from_files(files) == compute_bundle_hash(tmp_path)
+    assert compute_bundle_hash_from_files({}) == EMPTY_BUNDLE_HASH

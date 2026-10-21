@@ -628,6 +628,10 @@ def _visibility_line(tool: dict[str, Any]) -> str:
     visibility is universal regardless and isn't called out here.
     """
     teams = list(tool.get("teams") or [])
+    if tool.get("teams_pending"):
+        # Imported with no resolvable teams (ADR-0023) — "no teams" here does
+        # NOT mean everyone; it can't be promoted until teams are chosen.
+        return "Visible by: no teams yet (imported) — set teams before promoting"
     if not teams or _WORLD_TEAM_NAME in teams:
         return "Visible by: Everyone (World)"
     return "Visible by: " + ", ".join(teams)

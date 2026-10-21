@@ -40,6 +40,7 @@ from matofx.ui._features import (
 from matofx.ui._holder import get_app
 from matofx.ui.api_client import ApiClient, ApiError
 from matofx.ui.format import format_job_id, format_job_state, format_user_datetime
+from matofx.ui.pages._approval_notice import render_approval_notice
 from matofx.ui.pages._chrome import render_shell, require_logged_in
 from matofx.ui.pages.compare.selection import (
     MAX_SELECTION,
@@ -47,7 +48,7 @@ from matofx.ui.pages.compare.selection import (
     detect_cross_tool,
 )
 from matofx.ui.pages.job import _TERMINAL_STATES, _render_body
-from matofx.ui.state import current_is_approver, current_token, is_admin
+from matofx.ui.state import current_token, is_admin
 
 _RECENT_ACTIVITY_LIMIT = 10
 
@@ -648,65 +649,6 @@ def _navigate(
 # --- Right-pane router ---------------------------------------------------
 
 
-_APPROVAL_NOTICES: dict[str, tuple[str, str]] = {
-    "pending_approval": (
-        "Awaiting approval",
-        "This simulation needs an approver's sign-off before it can run. "
-        "The approver(s) have been notified; you'll be emailed when it's "
-        "approved or denied.",
-    ),
-    "denied": (
-        "Denied",
-        "This simulation was denied and did not run. The approver's "
-        "reason was sent to you by email.",
-    ),
-    "pending_results": (
-        "Results awaiting approval",
-        "This simulation finished, but its results are held for an "
-        "approver to review before release. You'll be emailed when they "
-        "are released.",
-    ),
-    "results_withheld": (
-        "Results withheld",
-        "An approver reviewed this simulation and withheld its results, "
-        "so they aren't available. Contact an administrator if you "
-        "believe this is a mistake.",
-    ),
-}
-
-
-def _render_approval_notice(state: str, job: dict[str, Any] | None) -> None:
-    """Read-only notice for an approval-gated job (§16.15).
-
-    My Jobs never *acts* on these states — the dedicated ``/approvals``
-    page is the only place to decide. The requestor gets a plain
-    explanation; a user who is themselves an approver gets a shortcut
-    into the inbox.
-    """
-    title, body = _APPROVAL_NOTICES.get(
-        state, ("Awaiting approval", "This simulation is awaiting approval.")
-    )
-    job_id = int(job["id"]) if job and "id" in job else None
-    with ui.card().classes("w-full"), ui.column().classes("w-full gap-2"):
-        with ui.row().classes("items-center gap-2"):
-            ui.badge(format_job_state(state)).props("color=deep-orange")
-            if job_id is not None:
-                ui.label(format_job_id(job_id)).style("color: #888;")
-            # Name it, like every other state now does — an approval
-            # notice that only quotes an id makes the user go and look
-            # up which run it is talking about.
-            job_name = str((job or {}).get("name") or "")
-            if job_name:
-                ui.label(job_name).style("font-weight: 600;")
-        ui.label(title).style("font-size: 1.1rem; font-weight: 600;")
-        ui.label(body).style("color: #888;")
-        if current_is_approver():
-            ui.button(
-                "Go to Approvals",
-                on_click=lambda: ui.navigate.to("/approvals"),
-            ).props("color=primary")
-
-
 async def _render_right_pane(
     client: ApiClient, selection: _Selection, *, pick_tool_mode: bool
 ) -> None:
@@ -747,7 +689,7 @@ async def _render_right_pane(
             # these — the dedicated /approvals page is the only place
             # to act. Show the requestor an explanation; give an
             # approver a shortcut over to the inbox.
-            _render_approval_notice(state, selection.job)
+            render_approval_notice(state, selection.job)
             return
         # Non-draft → state-shaped body (delegates to job.py's renderer).
         # The body container is given a *named* variable here (rather
@@ -1446,10 +1388,22 @@ async def _render_submit_form(client: ApiClient, selection: _Selection) -> None:
         except ApiError as exc:
             error_banner.text = exc.detail or "Submitting the job failed."
             return
-        ui.notify(
-            "Job submitted (skip-queue priority)." if priority else "Job submitted.",
-            type="positive",
-        )
+        # Say what actually happened: a pre-gated tool parks with an
+        # approver rather than queueing, and "Job submitted" alone
+        # reads as "it's running" (§16.15).
+        # A courtesy only — ``_navigate`` below takes the notification
+        # with it. The durable signal is the approval notice the right
+        # pane lands on.
+        if str(queued.get("state") or "") == "pending_approval":
+            ui.notify(
+                "Sent for approval — this job will run once an approver signs it off.",
+                type="warning",
+            )
+        else:
+            ui.notify(
+                "Job submitted (skip-queue priority)." if priority else "Job submitted.",
+                type="positive",
+            )
         _navigate(
             proj=selection.project_id,
             scen=selection.scenario_id,

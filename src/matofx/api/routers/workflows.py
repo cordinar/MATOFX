@@ -212,6 +212,7 @@ async def _to_admin_response(
         members=members,
         archived_at=wf.archived_at,
         archive_reason=wf.archive_reason,
+        teams_pending=bool(wf.teams_pending),
         created_at=wf.created_at,
         updated_at=wf.updated_at,
         icon_filename=(

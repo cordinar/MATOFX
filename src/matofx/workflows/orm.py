@@ -159,6 +159,12 @@ class Workflow(_Base):
     admin archives a custom workflow via the inspector (then required,
     not optional)."""
 
+    teams_pending: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, default=False, server_default=sa.false()
+    )
+    """Mirror of :attr:`Tool.teams_pending` (ADR-0023): an imported workflow
+    whose teams didn't resolve here can't leave ``new`` until teams are set."""
+
     row_version: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
     """Optimistic-lock counter, matching :class:`Tool.row_version`."""
 

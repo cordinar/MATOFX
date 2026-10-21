@@ -304,7 +304,7 @@ New router `matofx/api/routers/kpi.py` mounted under `/api/tools/{alias}`. Four 
 
 | Method | Path | Body / Query | Returns |
 |---|---|---|---|
-| `GET` | `/api/tools/{alias}/kpis` | `?version_id=...` (optional; default = released set) | `ToolKpiCatalogResponse` — `[{kpi_name, kpi_label, kpi_unit, kpi_category}]` |
+| `GET` | `/api/tools/{alias}/kpis` | `?version_id=...` (optional; default = the version in force + names that still have captured values — see §7.1) | `ToolKpiCatalogResponse` — `[{kpi_name, kpi_label, kpi_unit, kpi_category}]` |
 | `GET` | `/api/tools/{alias}/results` | `?version_id=...&project_id=...&scenario_id=...&requestor_user_id=...&completed_from=...&completed_to=...&vv_status=...&kpi_range[name]=min,max&page=1&page_size=50` | `WarehousePageResponse` — `{rows: [{job_id, project_id, scenario_id, requestor, completed_at, vv_status, kpi_values: {name: value}}], page, page_size, total, hidden_by_acl}` |
 | `GET` | `/api/tools/{alias}/results/timeseries` | `?kpi_name=...` + same filters as `/results` | `TimeseriesResponse` — `[{extracted_at, value_numeric, job_id}]` |
 | `GET` | `/api/tools/{alias}/results/export.csv` | same filters as `/results`; no pagination; **optional `?job_ids=...`** comma-separated allow-list (overrides other filters when present) | `text/csv` streaming response — ACL applied, max 100k rows (hard cap; UI surfaces "result set truncated" toast). With `job_ids` present: the set is the **intersection** of (ticked IDs) ∩ (ACL-visible IDs); silently drops IDs the requester can't see (no information leak) |
@@ -314,6 +314,20 @@ New router `matofx/api/routers/kpi.py` mounted under `/api/tools/{alias}`. Four 
 ACL is applied **inside the service** (§5.2), not at the router. Routers stay thin.
 
 **Why no POST.** v1.0 has no surface to create / edit / delete KPI rows directly — the descriptor is the only authoring path. A future "user-defined derived KPI" feature would land as a separate router; orthogonal to this surface.
+
+### 7.1 Catalog semantics (corrected 2026-09-21)
+
+The catalog was first built as a **union over every `ToolVersion`**, deduped on `(kpi_name, kpi_label, kpi_unit)`. Both halves were wrong in ways that reached the UI:
+
+- The union contradicted §109 of this design ("a descriptor that has no `kpi = true` output is functionally invisible to the KPI layer"). A KPI un-ticked long ago kept its column forever, even when *no job had ever run* a version that declared it — `bracket_stress` advertised "2 KPI(s)" and drew two all-`—` columns over 650 rows.
+- The `(name, label, unit)` dedup key doubled columns on un-tick → re-tick. Un-ticking sweeps `kpi_label` (`clear_kpi_overrides`), so the re-tick's effective label falls back to the output's own `label` and the key diverges. Because every downstream surface keys on the *name* (`field: kpi__{kpi_name}`, the row pivot, the CSV header, the range filter), two entries sharing a name can only render as duplicates of one column — never as two distinct ones. The comment claiming divergent labels "surface as separate entries so the warehouse can't accidentally collide them" described an outcome the rendering layer cannot produce.
+
+**The rule now:**
+
+- `?version_id=` set → exactly that version's declared KPIs. This is the per-run answer: the job page, the auto-summaries collector and the ADR-0004 report all pin it, so a run is judged against the descriptor it actually ran.
+- No `version_id` → the **newest version's** declared KPIs, plus any `kpi_name` that still has rows in `job_kpi_value`, with each recovered name's label/unit taken from the newest version that declared it. Dedup is on `kpi_name` alone, newest-version-wins on the label.
+
+That keeps un-ticking non-destructive (captured values keep their column for as long as the jobs exist) while letting a KPI that was never captured disappear cleanly.
 
 ---
 

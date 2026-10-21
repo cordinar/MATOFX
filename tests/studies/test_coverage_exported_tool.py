@@ -251,3 +251,85 @@ def test_a_narrowed_envelope_is_what_the_exported_tool_enforces(tmp_path) -> Non
 
     assert inside["support_status"]["value"] == "inside"
     assert outside["support_status"]["value"] == "outside"
+
+
+def test_an_exported_log_scale_model_matches_the_app(tmp_path) -> None:
+    """ADR-0021: the exported tool predicts what the app does, in real units.
+
+    The bundle pickles the surrogate, so the runtime needs no change — but the
+    three numbers an unattended run records must each come from the right
+    scale: the value and its ± in the result's units, the support sigma on the
+    scale the model learned (so the coverage thresholds keep their meaning).
+    """
+    from matofx.models.bundle import write_scalar_bundle  # noqa: PLC0415
+    from matofx.studies.surrogate import fit_surrogate  # noqa: PLC0415
+
+    rows = two_factor_rows(5, 5)
+    cols = {k: [float(r[k]) for r in rows] for k in ("thickness", "heat_load")}
+    rise = [20.0 + 50.0 * r["thickness"] ** -1.1 * r["heat_load"] ** 0.8 for r in rows]
+    surrogate = fit_surrogate(cols, rise, kind="gp", output_scale="log")
+    bundle = tmp_path / "bundle"
+    sha = write_scalar_bundle(
+        bundle,
+        {"rise": surrogate},
+        factors=[{"name": n} for n in surrogate.factors],
+        responses=[{"name": "rise", "kind": "scalar", "output_scale": "log"}],
+        coverage_report=_report_json(),
+    )
+    point = {"thickness": 3.5, "heat_load": 6.5}
+
+    outputs = _run(tmp_path, bundle, sha, point)
+
+    means, sigmas = surrogate.predict([point])
+    assert sigmas is not None
+    assert outputs["rise"]["value"] == pytest.approx(means[0])
+    assert outputs["rise_std"]["value"] == pytest.approx(sigmas[0])
+    relative = surrogate.relative_sigma([point])
+    assert relative is not None
+    assert outputs["support_sigma"]["value"] == pytest.approx(relative[0])
+
+
+def test_a_mixed_method_export_takes_support_from_a_gp_result(tmp_path) -> None:
+    """ADR-0022: a version can mix methods; the guard needs a result with sigma.
+
+    With the polynomial result first, the old "first result" rule had no sigma to
+    read, so ``support_sigma`` silently disappeared from every run.
+    """
+    from matofx.models.bundle import write_scalar_bundle  # noqa: PLC0415
+    from matofx.studies.surrogate import fit_surrogate  # noqa: PLC0415
+
+    rows = two_factor_rows(5, 5)
+    cols = {k: [float(r[k]) for r in rows] for k in ("thickness", "heat_load")}
+    poly = fit_surrogate(cols, [r["thickness"] * 2.0 for r in rows], kind="poly")
+    gp = fit_surrogate(cols, [r["heat_load"] ** 1.5 for r in rows], kind="gp")
+    bundle = tmp_path / "bundle"
+    sha = write_scalar_bundle(
+        bundle,
+        {"mass": poly, "rise": gp},
+        factors=[{"name": n} for n in gp.factors],
+        responses=[
+            {"name": "mass", "kind": "scalar", "method": "poly"},
+            {"name": "rise", "kind": "scalar", "method": "gp"},
+        ],
+        coverage_report=_report_json(),
+    )
+    outputs = _run(tmp_path, bundle, sha, {"thickness": 5.0, "heat_load": 5.0})
+
+    assert "mass_std" not in outputs
+    assert "rise_std" in outputs
+    relative = gp.relative_sigma([{"thickness": 5.0, "heat_load": 5.0}])
+    assert relative is not None
+    assert outputs["support_sigma"]["value"] == pytest.approx(relative[0])
+
+
+def test_synthesised_std_outputs_follow_each_results_method() -> None:
+    descriptor = _descriptor(
+        report=_report_json(),
+        responses=[
+            {"name": "mass", "kind": "scalar", "label": "Mass", "unit": "kg", "has_std": False},
+            {"name": "rise", "kind": "scalar", "label": "Rise", "unit": "K", "has_std": True},
+        ],
+    )
+    names = {o.name for o in descriptor.outputs}
+    assert "rise_std" in names
+    assert "mass_std" not in names

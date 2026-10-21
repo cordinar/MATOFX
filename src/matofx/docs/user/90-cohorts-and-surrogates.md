@@ -70,8 +70,18 @@ You then choose how the cohort decides its membership:
 - **Auto-grow (live)** — the cohort keeps re-checking for matching runs, so new
   runs join it automatically over time. Best when you want the model to keep
   learning as more runs land.
-- **Fixed set** — turn auto-grow off, tick exactly the runs you want in the
-  preview, and the cohort is frozen to that curated set.
+- **Fixed set** — turn auto-grow off and the cohort stops taking on new runs.
+
+**The auto-grow switch applies to the whole cohort**, not to any single run in
+the list. When you turn it off, the runs the cohort currently matches appear
+underneath it, and saving freezes the cohort to exactly those. You only need to
+tick rows if you want **fewer** than all of them — ticking is how you narrow the
+set, not how you switch anything off.
+
+A cohort that matches **no runs at all** can't be frozen: there would be nothing
+in it. The form says so as soon as you move the switch. Either widen the filters
+until it matches something, or **archive** the cohort — that is the way to retire
+one you don't want gathering runs any more.
 
 Either way, runs from a study the cohort itself commissioned (see *Filling the
 gaps* below) join as they complete — a fixed cohort stays otherwise frozen, and
@@ -88,7 +98,9 @@ option. You only ever see runs from projects you have access to.)
 The **Catalogue** lists each cohort with its **tool**, how many **runs** it
 currently holds (for you — runs in projects you can't see aren't counted), and
 **who created it**. Each cohort is also marked **Auto-growing** (new matching
-runs keep joining) or **Fixed set** (a frozen, hand-picked set). Open one to
+runs keep joining), **Fixed set** (a frozen, hand-picked set), or **Fixed +
+commissioned** — frozen, *except* that runs from studies it commissioned still
+arrive as they finish, so its count can still move. Open one to
 reach its detail page: **Edit** and **Archive** sit at the top, the
 **Definition** card summarises the saved query, and the **Members & results**
 table shows one row per member run — its **input parameters** first, then its
@@ -740,20 +752,27 @@ form is grouped into three parts, separated by divider lines:
    per mode)_** — which lets MATOFX pick the best regressor for each of the
    field's patterns individually.
 
+   **Tuning per result (scalar)** decides whether MATOFX may fit each numeric
+   result its own way — a different method, or a log scale — when that is
+   clearly more accurate. It defaults to **Automatic**; see *Tuning per result*
+   below.
+
 Two buttons build the model — both produce the **same kind** of model; they only
 differ in *which* method they use:
 
-- **Fit & compare** first bakes off the chosen methods so you can keep the best,
-  then build the winner. **Scalars** are ranked by predicted-vs-actual accuracy;
-  **fields** by **Field Q²** (with a per-pattern breakdown and a mean-field
-  predicted-vs-actual plot). You keep a scalar method *and* a field method, then
-  click **Build with kept methods** in the comparison.
+- **Fit & compare** first fits every ticked method and shows the result: for
+  numbers, the fit each result will use with its accuracy (see *Tuning per result*
+  below); for **fields**, **Field Q²** with a per-pattern breakdown and a mean-field
+  predicted-vs-actual plot. Adjust anything you like, then click **Build model** at
+  the bottom of the comparison.
 - **Build model** skips the comparison and builds straight away with the first
   picked method on each side — the quickest path when you already know what you
-  want.
+  want. With tuning on **Automatic**, each result may still use another ticked
+  method or a log scale.
 
-Either way a spinner shows while it fits and the buttons disable until it's done;
-on success you land on the new model's page.
+Either way the fit runs on the server and a progress bar shows how far it has
+got — tuning can take a few minutes on a large cohort. On success you land on
+the new model's page.
 
 ### Which model type, when
 
@@ -775,6 +794,117 @@ Gaussian process for smooth behaviour or gradient boosting for jumpy behaviour,
 just like a single number). If you'd rather not choose, pick **Auto (best per
 mode)** as the field method and MATOFX selects the best-fitting regressor for each
 pattern individually.
+
+### Tuning per result
+
+A model has one **method** — the one you keep in Fit & compare, or the first one
+you ticked — but no single way of fitting suits every result. Two things vary:
+
+- **The method.** A result that simply *adds up* — a mass, a volume, a cost — is
+  often fitted almost exactly by a **polynomial**, while a Gaussian process suits
+  smooth, curved behaviour.
+- **The scale.** Many engineering results grow *multiplicatively*: a temperature
+  rise, a thermal resistance, a stress, a deflection, a power often behaves like
+  the inputs multiplied together and raised to powers. Such a result climbs
+  steeply in one corner of the design space and barely moves elsewhere, and a
+  model learning it as measured has to compromise — widening a cohort to reach
+  the steep corner can even make predictions elsewhere *worse*. Learned on a
+  **log scale** — the output, and for a Gaussian process the inputs too — the
+  same result becomes close to a flat, even surface that fits far better.
+
+**The setting** on the build form:
+
+| Tuning per result | What happens |
+|---|---|
+| **Automatic** *(default)* | Each result starts from the model's method. MATOFX also fits it with every other ticked method, with the output as measured or on a log scale, and — for the Gaussian process methods — with the inputs as measured or on a log scale. A result switches only when another combination is **clearly and consistently more accurate**: lower error in the comparison, at least 10% lower on average over three repeated checks, and better in every one of them. Otherwise it keeps the model's method. |
+| **Off** | Every result uses the model's method, as measured. The quickest to build. |
+
+Log scales are only used where they make sense: an output with any zero or
+negative run stays as measured, and an input is only put on a log scale if the
+tool declares a minimum above zero for it. Predictions, errors and plots are
+always shown in each result's own units. Fields are not affected.
+
+**In Fit & compare.** The comparison leads with what each result will use:
+
+- **Starting method** — set for you to the most accurate method *before* tuning.
+  Each result starts on it and only moves when another fit is clearly better. You
+  can change it; the table below follows.
+- **One row per result** — **Fit used** (a dropdown), its **Q²** and **RMSE**, and
+  the RMSE **Before tuning** with the starting method alone. The dropdown starts at
+  MATOFX's pick (marked *✓ Picked by MATOFX* — hover for why). Its list puts
+  MATOFX's pick first (★), then every other combination tried, **lowest error
+  first**; the before-tuning fit is marked *(before tuning)*. MATOFX's pick isn't
+  always the lowest number: a combination can win one check by luck, and MATOFX
+  only switches when the advantage holds up. Choose another fit and the Q², RMSE,
+  note **and that result's plot** follow; **Build model** uses your choice.
+- **⚠** — appears whenever your choice has a higher error than the best combination
+  tried. It's advice, not a block: you can still build.
+- **Predicted vs actual** — open underneath, two plots per row, comparing the
+  starting method before tuning (grey) with the fit used (teal). Tick **Show every
+  fit tried** to add every other combination to each plot.
+- **All methods, before tuning** — collapsed: the Q² and RMSE of every method you
+  ticked, as measured, if you want to compare methods directly.
+
+Sections that open and close have a coloured header with a short description
+underneath — click the header to expand them.
+
+Errors are the cross-validated RMSE, in each result's own units — lower is
+better. Don't be surprised if MATOFX's pick isn't the lowest number in the list:
+a combination can come out ahead on one check by luck, so MATOFX only switches
+when the advantage holds up every time.
+
+**On the model's page.** The **Scalar fits** card shows each result's **Method
+and scale**, who chose it (*picked by MATOFX*, *chosen by you* or *the model's
+method*), its error with the model's own method for comparison, any ⚠, and under
+**Why each result's method and scale** the reason for each pick. When results use
+different methods, the version is labelled **Mixed methods**.
+
+**Exported tools.** A result fitted by a Gaussian process still reports its
+**1-sigma** uncertainty; a result fitted by a polynomial or gradient boosting has
+none to report, so an exported tool only includes uncertainty outputs for the
+results that have them.
+
+**Refit** opens a short dialog. Its **Tuning per result** choice starts at **Keep
+the current setting**; pick **Automatic** or **Off** to change it for the new
+version. Either way the refit keeps the model's method and any result you chose
+a method or scale for yourself, while MATOFX's own picks are decided again on
+the current runs. Models built before tuning existed use one method, as
+measured, so *Keep the current setting* leaves them that way.
+
+**Existing models and exported tools don't change.** A built model is a fixed
+version. To tune an existing model, **Refit** it and choose **Automatic** — or
+build a new model — then export the new version as a tool.
+
+> Tuning fits each result many times — up to twelve combinations, plus repeated
+> checks for the promising ones — so building takes noticeably longer than with
+> tuning **Off**: about two minutes for six results over 70 runs with all four
+> methods ticked, and several minutes for large cohorts. Ticking fewer methods
+> makes it faster.
+
+### Fits in progress
+
+**Fit & compare**, **Build model** and **Refit** run on the server, with a
+progress window while you wait. You don't have to wait: leave the page and the
+fit carries on.
+
+Your fits from the last hour are listed under **Fits in progress** at the top of
+the **Surrogate Models** page, with their progress while they run:
+
+- **Fit & compare** — **Watch** (still running) or **Open comparison** (finished)
+  reopens the New Surrogate Model form filled in as you started it, including any
+  output filter, with the comparison below, ready to change and **Build model**.
+  A comparison saves nothing on its own, so this is the only place to get it back.
+- **Build model** and **Refit** — save the model when they finish; **Open model**
+  takes you to it. It's also in the Catalogue.
+- A fit that failed shows why.
+
+Finished fits drop off the list after an hour. **Restarting the server stops any
+fit still running and clears the list** — nothing half-built is saved; start the
+fit again.
+
+If the progress window loses touch with a fit, it says so rather than reporting a
+failure. Check **Fits in progress** or the Catalogue before starting the same fit
+again, so you don't build the same model twice.
 
 ### Reading the accuracy
 
@@ -839,7 +969,11 @@ weak, and a 3-D viewer. Everything on both cards is named the way the tool names
 it (*Peak component temperature (degC)*, *Fin height (mm)*), never by an internal
 identifier. And when you **export it as a tool** the exported tool produces the
 same numbers *and* field files (e.g. a `.vtu`) the original does — so you can
-drop it into a workflow in place of the slow solver.
+drop it into a workflow in place of the slow solver. Each field file uses the
+geometry of one of the training runs and holds **only the predicted field**,
+under the model's field name (for example `temperature_field`). None of that
+training run's own results are copied in, so when you open the file in ParaView
+or another viewer, every array in it is the prediction.
 
 Each result is learned from the runs that are valid *for it*, and the fit reports
 how many runs (if any) it left out, per the data-quality rules above.

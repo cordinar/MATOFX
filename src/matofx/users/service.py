@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.attributes import set_committed_value
 
 from matofx.audit.schema import RecordInput
 from matofx.users.errors import (
@@ -154,7 +155,7 @@ class UserService:
           (``"regular_user"``).
         - ``is_approver``: ``False`` — flip on (via this field at
           create or via :meth:`set_approver` later) when the user
-          should be eligible to be selected as a tool approver.
+          should be eligible to be selected as a run approver on a tool.
         - ``logon_granted_at``: now; ``logon_revoked_at``: ``None``.
         """
         username = _canonicalise_username(username)
@@ -1078,8 +1079,20 @@ class SessionService:
         # per-request no-op write is what keeps concurrent reads from
         # serialising into a SQLite write storm — see _ACTIVITY_WRITE_COALESCE.
         if now - last_activity >= _ACTIVITY_WRITE_COALESCE:
-            row.last_activity_at = now
-            await session.flush()
+            # A plain UPDATE, not an ORM flush: two requests on the same session
+            # can both see the marker aged and both write it. The ORM flush
+            # checks it matched exactly one row and raised StaleDataError for the
+            # loser — failing an ordinary request (a fit's progress check) over a
+            # timestamp. Last writer wins here, which is all this marker needs.
+            await session.execute(
+                update(AuthSession)
+                .where(AuthSession.id == row.id)
+                .values(last_activity_at=now)
+                .execution_options(synchronize_session=False)
+            )
+            # Mirror it on the loaded row without marking it dirty, or the next
+            # flush would issue the checked ORM UPDATE after all.
+            set_committed_value(row, "last_activity_at", now)
         return row
 
     async def revoke(self, session: AsyncSession, *, token: str, actor: str) -> None:

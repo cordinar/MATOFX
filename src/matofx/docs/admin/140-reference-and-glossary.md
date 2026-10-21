@@ -32,9 +32,11 @@ the matching capability to an account; see *People and access*):
   releases it for general use.
 - **Optimisation approver** — signs off the start of an optimisation campaign
   against a governed tool.
-- **Approver** — signs off jobs (and, where required, their results) for the
-  tools they're **listed on**. Unlike the curator capabilities, this is set per
-  tool rather than granted as a blanket right — see *Approvals*.
+- **Approver** — signs off jobs and parametric studies (and, where required,
+  their results), plus the results release of optimisations, for the tools
+  they're **listed on**. A user must first have **Can approve runs** ticked on their account to be
+  listed. Unlike the curator capabilities, this is set per tool rather than
+  granted as a blanket right — see *Approvals*.
 
 ## Feature switches reference
 
@@ -57,7 +59,10 @@ holds day-to-day site settings.)
 - **File library** — shared, approved input files.
 - **Materials database** — shared materials catalogue.
 - **Verification and Validation records** — recorded tool checks.
-- **Favourites** — let users pin the tools and workflows they use most.
+
+**Favourites** is *not* one of these. It is a day-to-day site setting on the
+General Settings page — see *Site settings and branding* — and your licence has
+no say over it.
 
 ## Glossary of terms
 

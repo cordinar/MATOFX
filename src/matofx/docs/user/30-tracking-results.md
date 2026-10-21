@@ -102,6 +102,11 @@ with the viewer that suits its kind:
 
 - **Single numbers** — shown with their **units** and label (for example
   *Peak temperature: 84.2 °C*), so headline figures read at a glance.
+- **Headline KPIs** — where the tool tracks **key numbers**, a card of large
+  tiles puts them front and centre. The tiles are the key numbers **the version
+  of the tool this job actually ran** was asked to produce, so an old run is
+  never judged against a newer tool's list — if that version tracked none, the
+  card isn't shown at all rather than offering tiles with nothing in them.
 - **Tables** — rows and columns of values shown as a neat table in the page.
 - **Charts from data** — where the tool marks a data file for plotting, MATOFX
   draws the **chart** for you (line or scatter) rather than making you open the

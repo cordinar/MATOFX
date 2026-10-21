@@ -330,6 +330,19 @@ value, and chart its trend over time. Only mark the handful that genuinely matte
 — a peak temperature, a mass, an efficiency — rather than every number the tool
 emits, or the warehouse becomes noise.
 
+Key numbers are captured **when a job finishes**, against the tool description
+that job ran. Two consequences worth knowing:
+
+- **Marking an output as a KPI doesn't reach backwards.** Jobs that finished
+  before the change have no value recorded for it, so its column stays empty for
+  them. If you need the history filled in, ask your MATOFX supplier — the values
+  can be re-read from the runs' stored results.
+- **Un-ticking a KPI stops future collection but keeps the past.** The figures
+  already captured keep their column in the warehouse for as long as those jobs
+  exist. Re-ticking the same output later picks up where it left off — it does
+  **not** create a second column. Note that un-ticking clears the KPI's display
+  name and unit overrides, so re-type them if you want them back.
+
 You can also describe how to turn result data into **charts** shown on the job
 page (for example, plotting a column of a results file against another). A guided
 wizard helps you set these up against a sample result so you can see the chart

@@ -81,7 +81,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
 
-def _build_parser() -> argparse.ArgumentParser:
+def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915 — a flat sequence of sub-command registrations.
     parser = argparse.ArgumentParser(
         prog="matofx",
         description="MATOFX SPDM administrative CLI.",
@@ -163,6 +163,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     export.add_argument(
         "--notes", default="", help="Optional free-text note recorded in the manifest."
+    )
+    export.add_argument(
+        "--include-required",
+        action="store_true",
+        help="Also bundle workflow members and the upstream tools the chosen tools are "
+        "wired from (their current versions).",
     )
     export.add_argument("--out", required=True, help="Output bundle path (.tar.gz).")
     export.add_argument("--user", required=True, help="Username acting (audit attribution).")
@@ -1020,6 +1026,7 @@ def _dispatch_migrate(parsed: argparse.Namespace) -> int:
                 notes=parsed.notes,
                 out_path=parsed.out,
                 acting_username=parsed.user,
+                include_required=parsed.include_required,
             )
         )
     if cmd == "import":
@@ -1336,6 +1343,7 @@ async def _migrate_export(
     notes: str,
     out_path: str,
     acting_username: str,
+    include_required: bool = False,
 ) -> int:
     """``matofx migrate export`` — build and write a signed bundle."""
     from pathlib import Path as _Path  # noqa: PLC0415
@@ -1371,7 +1379,7 @@ async def _migrate_export(
     key_pair = KeyPair.from_private_key(private_key)
 
     audit = make_audit_writer(settings.audit)
-    service = make_export_service(audit)
+    service = make_export_service(audit, workflow_icons_dir=settings.workflows.icons_dir)
 
     async with make_engine_scope(settings.db) as engine:
         factory = make_session_factory(engine)
@@ -1379,12 +1387,20 @@ async def _migrate_export(
             await ensure_chain_head(session)
             user_id = await _resolve_user_id(session, acting_username)
             try:
+                selection = await service.resolve_selection(
+                    session,
+                    tool_specs=tool_specs,
+                    workflow_aliases=workflow_aliases,
+                    include_required=include_required,
+                )
+                for alias, version in selection.added:
+                    print(f"  + including required tool {alias} {version}")
                 bundle_bytes = await service.build_bundle(
                     session,
                     actor_user_id=user_id,
                     key_pair=key_pair,
                     source_install_id="cli",
-                    tool_specs=tool_specs,
+                    tool_specs=selection.tool_specs,
                     workflow_aliases=workflow_aliases,
                     notes=notes,
                     actor_label=acting_username,
@@ -1429,7 +1445,10 @@ async def _migrate_import(*, bundle_path: str, dry_run: bool, acting_username: s
     audit = make_audit_writer(settings.audit)
     trust_service = make_trusted_peer_service(audit)
     import_service = make_import_service(
-        audit, trust_service=trust_service, bundle_root=settings.tools.bundles_dir
+        audit,
+        trust_service=trust_service,
+        bundle_root=settings.tools.bundles_dir,
+        workflow_icons_dir=settings.workflows.icons_dir,
     )
 
     async with make_engine_scope(settings.db) as engine:

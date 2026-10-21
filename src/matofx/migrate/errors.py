@@ -3,7 +3,7 @@
 Each error carries a plain-English ``detail`` string that is safe to
 render to admins. **These strings are part of the public surface of
 the feature** — the UI quotes them verbatim in the import status log,
-the CLI prints them to stderr, and ``MIGRATE_GUIDE.md`` §6
+the CLI prints them to stderr, and ``OUTPUTS/MIGRATE_GUIDE.md`` §6
 catalogues them. Treat any reword as a public-API change.
 
 Two unrelated error namespaces share this module:
@@ -228,11 +228,11 @@ class ApproverListEmptyError(ItemSkippedError):
 
 
 class WorkflowAliasCollisionError(ItemSkippedError):
-    """A workflow with the same alias already exists on the destination.
+    """A *custom* (personal) workflow here already uses the alias.
 
-    Workflows don't have a version axis so name collisions are a hard
-    skip — the admin must rename one side. Wording matches
-    MIGRATE_GUIDE.md §6.5.
+    An existing admin workflow with the alias is updated instead (ADR-0023);
+    only a user's own custom workflow blocks the import, because an admin
+    bundle must never overwrite someone's personal workflow.
     """
 
     def __init__(self, alias: str) -> None:
@@ -242,10 +242,9 @@ class WorkflowAliasCollisionError(ItemSkippedError):
             alias=alias,
             version=None,
             detail=(
-                f"Workflow {alias!r} already exists on this install. "
-                "Rename the workflow on the source (or remove the "
-                "existing one here, if it really is obsolete) and "
-                "re-import."
+                f"Workflow {alias!r}: a user's personal (custom) workflow on this "
+                "install already uses that alias, and an imported workflow can't "
+                "replace it. Rename the workflow on the source and re-import."
             ),
         )
 
@@ -273,6 +272,24 @@ class WorkflowDependencyMissingError(ItemSkippedError):
             ),
         )
         self.tool_alias = tool_alias
+
+
+class SurrogateToolNotExportableError(MigrateError):
+    """The export picked a surrogate tool (ADR-0023 decision 3).
+
+    A surrogate tool runs a fitted model this install holds, identified by a
+    database id that means nothing — or something else — on another install.
+    Until surrogate models themselves can be migrated, they are refused.
+    """
+
+    def __init__(self, alias: str) -> None:
+        """Construct for the refused tool."""
+        super().__init__(
+            f"Tool {alias!r} is a surrogate tool: it runs a fitted model held on this "
+            "install, which can't be moved to another install yet. Leave it out of the "
+            "bundle and re-create the surrogate on the destination instead."
+        )
+        self.alias = alias
 
 
 class ToolNotFoundForExportError(MigrateError):

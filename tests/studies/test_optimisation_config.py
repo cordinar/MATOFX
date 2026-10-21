@@ -279,6 +279,19 @@ def test_seed_n_zero_rejected() -> None:
     _assert_rejects(cfg, "seed batch size")
 
 
+def test_cohort_seed_needs_no_n() -> None:
+    """A cohort seed imports prior runs, so it carries no batch size."""
+    cfg = _good_config()
+    cfg["seed"] = {"kind": "cohort", "cohort_id": 1}
+    validate_config(cfg, _descriptor())
+
+
+def test_cohort_seed_missing_cohort_id_rejected() -> None:
+    cfg = _good_config()
+    cfg["seed"] = {"kind": "cohort"}
+    _assert_rejects(cfg, "cohort_id")
+
+
 def test_seeded_strategy_missing_seed_rejected() -> None:
     cfg = _good_config()
     del cfg["seed"]

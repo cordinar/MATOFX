@@ -70,6 +70,24 @@ class InvalidPromotionError(ToolError):
         self.target = target
 
 
+class TeamsPendingError(ToolError):
+    """Promotion refused: the tool was imported and none of its teams exist here.
+
+    An imported tool whose teams all failed to match lands with no teams
+    (ADR-0023). No teams means "everyone", so it stays in ``new`` until an
+    admin picks its teams on the Edit Tool page.
+    """
+
+    def __init__(self, alias: str) -> None:
+        """Construct for ``alias``."""
+        super().__init__(
+            f"The tool {alias!r} was imported without teams (none of its teams exist on "
+            "this install). Set at least one team on its Edit Tool page first — choose "
+            "World to make it available to everyone."
+        )
+        self.alias = alias
+
+
 class ToolArchivedError(ToolError):
     """Operation rejected because the tool is archived.
 

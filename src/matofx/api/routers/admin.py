@@ -1110,6 +1110,7 @@ async def get_admin_tool(
         run_cap=tool.run_cap,
         python_env_id=tool.python_env_id,
         tool_version_id=tool_version_id,
+        teams_pending=bool(tool.teams_pending),
     )
 
 
@@ -2080,6 +2081,9 @@ def _tool_to_admin_response(tool: Tool) -> AdminToolResponse:
         teams=teams,
         approvals_policy=approvals_policy,
         downstream_tools=downstream_tools,
+        teams_pending=bool(tool.teams_pending),
+        is_surrogate=isinstance(tool.descriptor, dict)
+        and tool.descriptor.get("surrogate_model_version_id") is not None,
     )
 
 

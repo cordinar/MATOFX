@@ -30,6 +30,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Final
 
@@ -122,6 +123,17 @@ def _parse(version: str) -> tuple[int, int, int]:
 
 def _format(triple: tuple[int, int, int]) -> str:
     return f"{triple[0]}.{triple[1]}.{triple[2]}"
+
+
+def compare_versions(a: str, b: str) -> int:
+    """``-1`` / ``0`` / ``1`` as ``a`` is older than / equal to / newer than ``b``.
+
+    Compares the ``(major, minor, patch)`` triples :func:`_parse` yields, so
+    pre-release / build suffixes are ignored. A cross-install import uses it
+    to refuse downgrades (ADR-0023).
+    """
+    pa, pb = _parse(a), _parse(b)
+    return (pa > pb) - (pa < pb)
 
 
 def bump_patch(current: str) -> str:
@@ -334,5 +346,25 @@ def compute_bundle_hash(bundle_dir: Path) -> str:
                     if not chunk:
                         break
                     sha.update(chunk)
+        sha.update(b"\n")
+    return sha.hexdigest()
+
+
+def compute_bundle_hash_from_files(files: Mapping[str, bytes]) -> str:
+    """:func:`compute_bundle_hash` over in-memory files, byte-for-byte identical.
+
+    ``files`` maps POSIX-style relative paths to contents — the shape a
+    migration bundle carries. A cross-install import writes the files to disk
+    only *after* its database savepoint commits (ADR-0023), so the snapshot's
+    V&V cohort key has to be computed from the bundle itself. Regular files
+    only (bundles never carry symlinks), so every leaf is kind ``F``; an empty
+    mapping gives :data:`EMPTY_BUNDLE_HASH`, exactly as an empty directory does.
+    """
+    sha = hashlib.sha256()
+    for rel in sorted(files):
+        sha.update(rel.encode("utf-8"))
+        sha.update(b"\x00")
+        sha.update(b"F")
+        sha.update(files[rel])
         sha.update(b"\n")
     return sha.hexdigest()

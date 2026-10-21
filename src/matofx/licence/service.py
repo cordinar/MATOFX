@@ -95,10 +95,23 @@ def resolve_licence(settings: Settings, *, now: _dt.datetime | None = None) -> L
     """
     now = now or _dt.datetime.now(tz=_dt.UTC)
     if settings.licence.file is None:
+        # Say which of the two things this actually means. `_licence_enforced`
+        # in api/readonly.py exempts an install that has *never* configured
+        # [licence].file unless it is production, so on a dev / test / staging
+        # box the old unconditional "the site runs read-only" was simply
+        # untrue — and it is logged as a warning on every re-check, so an
+        # administrator reads it repeatedly while the site works fine. A
+        # warning that cries wolf is worse than none: it trains people to
+        # ignore the one install where it is real.
+        enforced = settings.environment == "prod"
         return LicenceResolution(
             problem=(
-                "No licence is configured ([licence].file). The site runs read-only until "
-                "one is installed."
+                "No licence is configured ([licence].file). The site runs read-only "
+                "until one is installed."
+                if enforced
+                else "No licence is configured ([licence].file). This install is "
+                f"{settings.environment!r}, not 'prod', so it keeps running normally; "
+                "a production install would be read-only until one was installed."
             ),
             fail_closed=False,
         )

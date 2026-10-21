@@ -159,6 +159,32 @@ async def _render_your_cohorts(client: ApiClient) -> None:
             _render_cohort_row(cohort)
 
 
+def membership_badge(cohort: dict[str, Any]) -> tuple[str, str]:
+    """The membership chip + its tooltip for one cohort row.
+
+    Three states, not two. A cohort that is *not* auto-growing but has
+    commissioned studies attached still unions in their completed runs at
+    resolve time (ADR-0020 §11.5 / migration 0096), so a bare "Fixed set"
+    is a promise the resolver does not keep — the run count moves after
+    the curator was told it wouldn't. The detail page already explains
+    this; the list row used to flatten it away.
+    """
+    if bool(cohort.get("auto_grow", True)):
+        return (
+            "Auto-growing",
+            "Live membership — new completed runs that match join automatically.",
+        )
+    commissioned = len(cohort.get("auto_include_study_ids") or [])
+    if commissioned:
+        return (
+            "Fixed + commissioned",
+            "Frozen to a picked set of runs, plus the completed runs of "
+            f"{commissioned} study(ies) this cohort commissioned — those still "
+            "arrive as they finish.",
+        )
+    return ("Fixed set", "Fixed membership — a frozen, hand-picked set of runs.")
+
+
 def _render_cohort_row(cohort: dict[str, Any]) -> None:
     cid = int(cohort.get("id") or 0)
     name = str(cohort.get("name") or f"Cohort #{cid}")
@@ -166,13 +192,7 @@ def _render_cohort_row(cohort: dict[str, Any]) -> None:
     # to the alias only if the label didn't resolve.
     tool = str(cohort.get("tool_name") or cohort.get("tool_alias") or "")
     state = str(cohort.get("state") or "active")
-    auto_grow = bool(cohort.get("auto_grow", True))
-    grow_label = "Auto-growing" if auto_grow else "Fixed set"
-    grow_tip = (
-        "Live membership — new completed runs that match join automatically."
-        if auto_grow
-        else "Fixed membership — a frozen, hand-picked set of runs."
-    )
+    grow_label, grow_tip = membership_badge(cohort)
     count = cohort.get("member_count")
     creator = str(cohort.get("created_by_name") or "")
     with (
@@ -259,6 +279,7 @@ class _CohortBuilder:
         self.meta_box: Any = None
         self.preview_box: Any = None
         self.preview_timer: Any = None
+        self.grow_hint: Any = None
         self.previewed: bool = False
         """Set once the user has asked for a preview. Until then a filter
         change refreshes nothing — running a query nobody requested is its
@@ -285,11 +306,19 @@ class _CohortBuilder:
         self.auto_grow = ui.switch(
             "Keep including new matching runs (auto-grow)",
             value=bool(ex.get("auto_grow", True)) if ex else True,
+            on_change=self._on_auto_grow_change,
         )
-        ui.label(
-            "On: the cohort re-checks for matches every time it's read — new runs join "
-            "automatically. Off: it's frozen to the runs you tick below."
-        ).style("color: #888; font-size: 0.8rem;")
+        ui.label("This applies to the whole cohort, not to any one run.").style(
+            "color: #888; font-size: 0.8rem;"
+        )
+        # What turning the switch off will actually do, spelled out and kept
+        # true as the switch moves. The old static line said the cohort was
+        # "frozen to the runs you tick below" — but nothing was below until
+        # you separately pressed Preview, and the requirement to tick only
+        # surfaced as a toast *after* Save, which read as though the tick
+        # itself were the thing being switched off.
+        self.grow_hint = ui.label("").style("color: #888; font-size: 0.8rem;")
+        self._refresh_grow_hint()
         self.preview_box = ui.column().classes("w-full gap-2")
         with ui.row().classes("gap-2"):
             ui.button("Preview matching runs", on_click=self._preview).props("outline")
@@ -298,6 +327,11 @@ class _CohortBuilder:
             )
         if self.tool_alias:
             await self._load_meta(self.tool_alias)
+        # An already-fixed cohort opens with its runs on screen: the list is
+        # its membership, not a suggestion, and editing it blind is how a
+        # curator loses a curated set without noticing.
+        if ex and not bool(self.auto_grow.value) and self.tool_alias:
+            await self._preview()
 
     async def _on_tool_change(self, event: Any) -> None:
         self.tool_alias = str(event.value) if event.value else None
@@ -540,6 +574,72 @@ class _CohortBuilder:
         self._refresh_source_visibility()
         await self._filters_changed()
 
+    def _refresh_grow_hint(self) -> None:
+        """Keep the under-switch explanation true to the switch's position."""
+        if self.grow_hint is None:
+            return
+        ex = self.existing
+        if bool(self.auto_grow.value):
+            self.grow_hint.text = (
+                "On — the cohort re-checks for matches every time it's read, so new "
+                "runs join on their own."
+            )
+            return
+        if ex and ex.get("member_job_ids"):
+            self.grow_hint.text = (
+                "Off — the cohort stays frozen to the runs it already holds. Tick rows "
+                "below to replace that set with a different one."
+            )
+            return
+        self.grow_hint.text = (
+            "Off — on save the cohort freezes to the runs listed below and stops "
+            "taking on new ones. Tick rows only if you want fewer than all of them."
+        )
+
+    async def _on_auto_grow_change(self, _event: Any = None) -> None:
+        """React to the auto-grow switch moving.
+
+        Turning it **off** runs the preview, because that list is what the
+        cohort is about to be frozen to — deciding to freeze without being
+        shown what you are freezing is the whole complaint. It also makes a
+        no-match query visible *now* rather than as a refusal after Save.
+        """
+        self._refresh_grow_hint()
+        if not bool(self.auto_grow.value) and self.tool_alias:
+            await self._preview()
+
+    async def _current_match_ids(self) -> list[int] | None:
+        """The job ids this query matches right now, or ``None`` on failure.
+
+        Used to freeze a cohort that is being switched off auto-grow without
+        any rows ticked: "off" means "keep what you have", so the honest
+        snapshot is everything the *current form* resolves to — not an error
+        telling the curator to go and tick things by hand.
+        """
+        if not self.tool_alias:
+            return []
+        try:
+            data = await self.client.preview_cohort_candidates(
+                tool_alias=self.tool_alias,
+                tolerated_version_bands=self._selected_bands() or None,
+                **self._gather_filters(),
+            )
+        except ApiError as exc:
+            ui.notify(f"Couldn't work out which runs to freeze: {exc.detail}", type="negative")
+            return None
+        rows = list(data.get("rows") or [])
+        hidden = int(data.get("acl_hidden") or 0)
+        if hidden:
+            # A live cohort resolves per reader; a frozen one is fixed by
+            # whoever froze it. Runs this curator can't see would be dropped
+            # silently, so say so rather than quietly shrinking the cohort.
+            ui.notify(
+                f"{hidden} matching run(s) aren't visible to you and won't be included "
+                "in the frozen set.",
+                type="warning",
+            )
+        return [int(r["job_id"]) for r in rows]
+
     async def _filters_changed(self, _event: Any = None) -> None:
         """Re-run the preview whenever a filter moves (debounced).
 
@@ -664,17 +764,30 @@ class _CohortBuilder:
             return
         rows = list(data.get("rows") or [])
         hidden = int(data.get("acl_hidden") or 0)
+        live = bool(self.auto_grow.value) if self.auto_grow is not None else True
         with self.preview_box:
             if not rows:
                 ui.label("No completed runs match this query yet.").style("color: #888;")
+                if not live:
+                    # Surface the dead end here, not as a refusal after Save.
+                    ui.label(
+                        "There is nothing to freeze, so auto-grow can't be turned off "
+                        "yet. Widen the filters until the cohort matches something — or "
+                        "archive it if you want it to stop gathering runs altogether."
+                    ).style("color: #9a7d0a; font-size: 0.8rem;")
                 return
             note = f"{len(rows)} matching run(s)."
             if hidden:
                 note += f" ({hidden} more hidden by access controls.)"
             ui.label(note).style("color: #888; font-size: 0.85rem;")
             ui.label(
-                "Tick the runs to include if you turn auto-grow off. "
-                "This list updates as you change the filters above."
+                (
+                    f"With auto-grow off, saving freezes the cohort to these "
+                    f"{len(rows)} run(s). Tick rows only to keep fewer than all of them."
+                    if not live
+                    else "Tick rows to pick an explicit set, if you turn auto-grow off."
+                )
+                + " This list updates as you change the filters above."
             ).style("color: #888; font-size: 0.8rem;")
             table_rows = [
                 {
@@ -711,8 +824,26 @@ class _CohortBuilder:
         selected = list(self.table.selected) if self.table is not None else []
         member_ids: list[int] | None = [int(r["job_id"]) for r in selected] if selected else None
         if not live and member_ids is None and not (ex and ex.get("member_job_ids")):
-            ui.notify("Preview and tick at least one run, or turn auto-grow on.", type="warning")
-            return
+            # Nothing ticked and nothing already frozen. "Stop growing" means
+            # "keep what you have", so freeze everything the query matches
+            # right now — ticking is for keeping *fewer* than that. Demanding
+            # a manual tick here is what made the switch look per-row.
+            member_ids = await self._current_match_ids()
+            if member_ids is None:
+                return  # the lookup itself failed; it already said so
+            if not member_ids:
+                # A fixed cohort with nothing in it is refused by the service
+                # too — say why here rather than letting the save round-trip
+                # to a raw config error, and name the way out.
+                ui.notify(
+                    "This cohort matches no runs, so there is nothing to freeze. "
+                    "Widen the filters until it matches something, or archive the "
+                    "cohort if you want it to stop gathering runs altogether.",
+                    type="warning",
+                    close_button=True,
+                    timeout=None,
+                )
+                return
         bands = self._selected_bands() or None
         filters = self._gather_filters()
         try:

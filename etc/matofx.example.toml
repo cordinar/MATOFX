@@ -398,6 +398,14 @@ public_url = "http://localhost:8000"
 # that introduces it.
 #
 # Default: empty list — no non-essential features are turned on.
+#
+# A feature that is off is *absent*, not greyed out: no nav entry, no
+# card, and its API routes return 404. So "the upgrade didn't bring the
+# new panel" is usually a missing slug here rather than a bad install.
+# `matofx licence show` prints what this site is really running with.
+#
+# The list below is the complete catalog. Keep it in step with
+# matofx.features.Feature — every slug there should appear here.
 
 [features]
 enabled = [
@@ -407,4 +415,16 @@ enabled = [
     # "file_library",
     # "vv_tracking",
     # "kpi_extraction",
+
+    # Job Cohorts, surrogate models, field surrogates, model registry.
+    # "surrogate_family",
+
+    # Adaptive design-space optimisation studies. The `surrogate` and
+    # `surrogate_assisted_real` run modes also need "surrogate_family".
+    # "optimisation_framework",
+
+    # "Is this fit to learn from?" — the coverage panel on a cohort and
+    # on model detail, the gap-filling run suggestions, and the
+    # `support` block on predictions. Needs "surrogate_family" too.
+    # "design_space_coverage",
 ]

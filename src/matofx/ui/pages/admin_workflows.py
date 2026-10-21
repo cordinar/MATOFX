@@ -260,7 +260,12 @@ def _render_workflow_card(
 
                 with ui.row().classes("items-center gap-2 flex-wrap"):
                     ui.label("Visible to:").style("color: #888; font-size: 0.85rem;")
-                    if not teams or "World" in teams:
+                    if wf.get("teams_pending"):
+                        ui.chip(
+                            "No teams yet (imported) — set teams before promoting",
+                            icon="group_off",
+                        ).props("color=warning text-color=white dense")
+                    elif not teams or "World" in teams:
                         ui.chip("Everyone (World)", icon="public").props("outline dense")
                     else:
                         for team in teams:
@@ -634,6 +639,11 @@ def _open_workflow_dialog(
                 name_input.value = str(wf.get("name") or "")
                 description_input.value = str(wf.get("description") or "")
                 teams_select.value = list(wf.get("teams") or [])
+                if wf.get("teams_pending"):
+                    teams_select.props(
+                        'error error-message="Imported without teams — choose '
+                        'at least one (World for everyone) before promoting."'
+                    )
                 state["tool_aliases"] = [str(m.get("tool_alias")) for m in wf.get("members") or []]
                 current_icon = wf.get("icon_filename")
                 state["icon"]["current"] = current_icon

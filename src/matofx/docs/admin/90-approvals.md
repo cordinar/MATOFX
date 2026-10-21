@@ -81,7 +81,9 @@ optimisation approver.
 ## Choosing approvers
 
 You nominate which users are **approvers** and which tools each is responsible for
-(see *People and access*). When a job needs sign-off, the right approver is asked.
+(see *People and access*). First tick **Can approve runs** on the person's account,
+then pick them in the tool's approval settings. When a job, study or optimisation
+results release needs sign-off, the right approver is asked.
 Approvers see what's waiting for them on their home page.
 
 ## Email notifications for approvers and curators

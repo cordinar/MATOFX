@@ -62,8 +62,17 @@ _DRIVE_PREFIX_LEN = 3
 _SHA256_HEX_LEN = 64
 """A SHA-256 digest is 64 hex characters."""
 
-BUNDLE_VERSION: Final[int] = 1
-"""Schema version of the manifest. Bumped on any incompatible change."""
+BUNDLE_VERSION: Final[int] = 2
+"""Schema version of the manifest. Bumped on any incompatible change.
+
+* **1** — original layout.
+* **2** (ADR-0023) — :class:`WorkflowManifestEntry` gained ``icon``; tool
+  ``settings`` and workflow ``definition`` carry more keys (opaque here).
+  A v1 bundle still imports; a newer-than-known bundle is refused plainly."""
+
+MAX_WORKFLOW_ICON_BYTES: Final[int] = 1024 * 1024
+"""Cap on an inlined workflow icon (decoded). Icons are small PNGs; the cap
+keeps a hostile manifest from smuggling a large blob past the size checks."""
 
 MANIFEST_MEMBER: Final[str] = "manifest.json"
 SIGNATURE_MEMBER: Final[str] = "manifest.sig"
@@ -151,12 +160,24 @@ class WorkflowManifestEntry(BaseModel):
     definition: dict[str, Any] = Field(default_factory=dict)
     approvers: list[str] = Field(default_factory=list)
     state_on_source: str | None = Field(default=None, max_length=32)
+    icon_png_b64: str | None = Field(default=None)
+    """The workflow's icon PNG, base64-encoded (bundle v2). Inlined for the
+    same reason as the definition — it is signed with the manifest, so there
+    is no unhashed tarball member to tamper with. ``None`` = no icon."""
 
     @field_validator("alias")
     @classmethod
     def _safe_alias(cls, value: str) -> str:
         if not _PATH_COMPONENT_RE.match(value):
             raise ValueError("must contain only letters, digits, dot, underscore, plus, and hyphen")
+        return value
+
+    @field_validator("icon_png_b64")
+    @classmethod
+    def _icon_size_capped(cls, value: str | None) -> str | None:
+        # base64 inflates by 4/3; reject before anyone decodes it.
+        if value is not None and len(value) > (MAX_WORKFLOW_ICON_BYTES * 4) // 3 + 4:
+            raise ValueError(f"workflow icon exceeds {MAX_WORKFLOW_ICON_BYTES} bytes")
         return value
 
 
@@ -390,6 +411,15 @@ def unpack_bundle(
             "The bundle is corrupted or was produced by a different "
             "tool."
         ) from exc
+
+    declared = (
+        manifest_payload.get("bundle_version") if isinstance(manifest_payload, dict) else None
+    )
+    if isinstance(declared, int) and declared > BUNDLE_VERSION:
+        raise BundleError(
+            f"This bundle was made by a newer version of MATOFX (bundle format {declared}; "
+            f"this install reads up to {BUNDLE_VERSION}). Upgrade this install, then import it."
+        )
 
     try:
         manifest = BundleManifest.model_validate(manifest_payload)

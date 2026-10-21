@@ -92,7 +92,7 @@ class CurrentUserResponse(_Frozen):
     email_notifications_enabled: bool
     summary_enrichment_enabled: bool = True
     """Per-user opt-in for AI-enriched result summaries
-    (``designs/auto-summaries.md``). ``False`` always shows the
+    (``OUTPUTS/designs/auto-summaries.md``). ``False`` always shows the
     templated baseline for this user."""
     theme_preference: Literal["light", "dark"]
     locale_preference: str = "auto"
@@ -1324,6 +1324,9 @@ class AdminToolDetailResponse(_Frozen):
     V&V cohort key (ADR-0011 §6.5). ``None`` when no snapshot row
     matches (only in tests where a Tool was constructed without a
     bump); production installs always have one."""
+    teams_pending: bool = False
+    """Imported with no resolvable teams (ADR-0023): the Edit Tool page asks
+    for teams, and promotion out of ``new`` is refused until they are set."""
 
 
 class ToolRunCapRequest(_Frozen):
@@ -1447,6 +1450,10 @@ class AdminToolResponse(_Frozen):
     teams: list[str] = Field(default_factory=list)
     approvals_policy: str = "none"
     downstream_tools: list[str] = Field(default_factory=list)
+    teams_pending: bool = False
+    """Imported with no resolvable teams — can't leave ``new`` until teams are set."""
+    is_surrogate: bool = False
+    """A surrogate tool (pins a fitted model) — not exportable (ADR-0023)."""
 
 
 class AdminPromoteRequest(_Frozen):
@@ -2099,6 +2106,8 @@ class AdminWorkflowResponse(_Frozen):
     members: list[AdminWorkflowMemberEntry]
     archived_at: _dt.datetime | None
     archive_reason: str | None
+    teams_pending: bool = False
+    """Imported with no resolvable teams (ADR-0023) — can't leave ``new`` yet."""
     created_at: _dt.datetime
     updated_at: _dt.datetime
     icon_filename: str | None = None
@@ -3496,6 +3505,14 @@ class StudyResultsResponse(_Frozen):
 # --- surrogate Model registry (ADR-0008 §5 / §11.2) ----------------------
 
 
+class ModelTuningChoice(_Frozen):
+    """One result's fitting configuration (ADR-0022)."""
+
+    method: Literal["gp", "gp_matern", "poly", "gbm"]
+    output_scale: Literal["as_measured", "log"] = "as_measured"
+    input_scale: Literal["as_measured", "log"] = "as_measured"
+
+
 class ModelCreateRequest(_Frozen):
     """``POST /api/models`` body — fit + persist a new surrogate model.
 
@@ -3528,6 +3545,17 @@ class ModelCreateRequest(_Frozen):
     """On-the-fly run filter: fit only on runs whose named scalar outputs fall in
     ``{output: {min, max}}``. Excludes outlier runs that skew the fit **without**
     changing the tool's descriptor validity bounds (applies to scalar + field)."""
+    tuning_mode: Literal["automatic", "off"] = "automatic"
+    """Per-result tuning (ADR-0022). *automatic* lets each scalar result leave
+    ``surrogate_kind`` (the primary method) for another method / output scale /
+    input scale when that is clearly and consistently better; *off* fits every
+    result with ``surrogate_kind``, as measured. Fields are unaffected."""
+    candidate_methods: list[Literal["gp", "gp_matern", "poly", "gbm"]] = Field(default_factory=list)
+    """Methods automatic tuning may choose from (the form's *Methods to try*);
+    ``surrogate_kind`` is always included."""
+    tuning_overrides: dict[str, ModelTuningChoice] = Field(default_factory=dict)
+    """Per-result choices from the Fit & compare table (``{result: choice}``).
+    Each must name a scalar result being fitted and a method in the candidates."""
 
 
 class ModelUpdateRequest(_Frozen):
@@ -3548,7 +3576,15 @@ class ModelScopeRequest(_Frozen):
 class ModelRefitRequest(_Frozen):
     """``POST /api/models/{model_id}/refit`` body."""
 
-    surrogate_kind: Literal["gp", "poly"] = "gp"
+    surrogate_kind: Literal["gp", "gp_matern", "poly", "gbm"] | None = None
+    """Change the scalar fitting method; ``None`` keeps the latest version's.
+
+    This defaulted to ``"gp"``, and the service treats any value as an explicit
+    choice — so the Refit button, which sends an empty body, silently turned a
+    Matérn, polynomial or gradient-boosting model into a smooth Gaussian process."""
+    tuning_mode: Literal["automatic", "off"] | None = None
+    """Change the per-result tuning setting (ADR-0022); ``None`` keeps the latest
+    version's (*off* for a version fitted before tuning existed)."""
 
 
 class ModelExportRequest(_Frozen):
@@ -3676,6 +3712,8 @@ class ModelCompareRequest(_Frozen):
     output_filter: dict[str, dict[str, float | None]] = Field(default_factory=dict)
     """On-the-fly run filter (same as ModelCreateRequest): compare only on runs
     whose named scalar outputs fall in ``{output: {min, max}}``."""
+    tuning_mode: Literal["automatic", "off"] = "automatic"
+    """Per-result tuning (ADR-0022); see ModelCreateRequest."""
     project_id: int | None = None
 
     @model_validator(mode="after")
@@ -3699,7 +3737,13 @@ class ModelMethodFit(_Frozen):
     message: str | None = None
     mean_q2: float | None = None
     quality: dict[str, Any] = Field(default_factory=dict)
-    """``{response: {q2, rmse_cv, n, cv_actual, cv_predicted}}`` (empty when unfitted)."""
+    """``{response: {q2, rmse_cv, n, cv_actual, cv_predicted, method, output_scale,
+    input_scale, log_factors}}`` (empty when unfitted): what keeping this method
+    gives, each result after ADR-0022 tuning (identical to the baseline when tuning
+    is off)."""
+    baseline_quality: dict[str, Any] = Field(default_factory=dict)
+    """The same rows before tuning: the method exactly as measured."""
+    baseline_mean_q2: float | None = None
 
 
 class ModelFieldMethodFit(_Frozen):
@@ -3726,6 +3770,34 @@ class ModelCompareResponse(_Frozen):
     best_field_overall: str | None = None
     excluded: SurrogateExclusionSummary = Field(default_factory=SurrogateExclusionSummary)
     """Runs left out of every method's fit for output-validity reasons (ADR-0017)."""
+    tuning: dict[str, Any] = Field(default_factory=dict)
+    """ADR-0022 ``{result: {candidates: [...], decisions: {method: decision}}}`` —
+    every configuration evaluated and MATOFX's pick for each possible primary
+    method, so the page can follow the kept method without refitting."""
+
+
+class ModelFitJobResponse(_Frozen):
+    """A background surrogate fit (ADR-0022 §7) — poll until ``status`` isn't running."""
+
+    id: str
+    kind: Literal["compare", "create", "refit"]
+    status: Literal["running", "done", "failed"]
+    done: int = 0
+    total: int = 0
+    message: str = ""
+    error: str | None = None
+    result: dict[str, Any] | None = None
+    """The same body the synchronous endpoint returns, once ``status == "done"``."""
+    title: str = ""
+    """What the fit is of, for the *Fits in progress* list: the model's name, or the
+    source's for a comparison."""
+    context: dict[str, Any] = Field(default_factory=dict)
+    """What the fit was started with (the request body, plus ``model_id`` for a
+    refit), so a comparison can be reopened with the form filled in."""
+    model_id: int | None = None
+    """The model built or refitted, once known."""
+    started_at: _dt.datetime | None = None
+    finished_at: _dt.datetime | None = None
 
 
 class ModelCoverageFactor(_Frozen):

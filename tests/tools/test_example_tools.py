@@ -474,20 +474,33 @@ async def test_finned_plate_runs_end_to_end(tmp_path: Path) -> None:
             assert (staged.working_dir / emitted).is_file(), f"{output.name} not written"
 
 
-# --- standalone showcase tools: no workflow wiring -------------------
+# --- showcase chain: wired, yet each tool still runs alone ------------
 
 
-def test_showcase_tools_have_no_workflow_wiring() -> None:
-    """The three showcase tools ship as **stand-alone** tools.
+def test_showcase_tools_ship_wired_and_still_run_alone() -> None:
+    """The composite chain ships pre-wired: Laminate → Soak → Stress.
 
-    Workflow wiring (``downstream_input`` / ``downstream_tools``) is left for
-    the operator to add when they build their own workflow, so the descriptors
-    must carry none — every input is a plain, defaulted entry that runs alone.
+    A fresh install gets the coupled workflow without hand-wiring. Each link
+    must be consistent on both sides — the upstream lists the downstream in
+    ``downstream_tools`` and the wired output really exists upstream — and
+    every wired input keeps a default, so each tool still runs stand-alone
+    (the single-tool run form ignores the wiring).
     """
-    for alias in ("composite_laminate", "thermal_soak", "bracket_stress"):
-        desc = load_descriptor(_BUNDLES_DIR / alias)
-        assert not desc.downstream_tools, f"{alias} declares downstream_tools"
-        assert not any(f.downstream_input for f in desc.inputs), f"{alias} has wired inputs"
+    aliases = ("composite_laminate", "thermal_soak", "bracket_stress")
+    descs = {alias: load_descriptor(_BUNDLES_DIR / alias) for alias in aliases}
+    assert descs["composite_laminate"].downstream_tools == ["thermal_soak", "bracket_stress"]
+    assert descs["thermal_soak"].downstream_tools == ["bracket_stress"]
+    wired_counts = {}
+    for alias, desc in descs.items():
+        wired = [f for f in desc.inputs if f.downstream_input]
+        wired_counts[alias] = len(wired)
+        for f in wired:
+            upstream = descs[f.upstream_tool]
+            assert alias in upstream.downstream_tools, f"{f.upstream_tool} doesn't list {alias}"
+            assert f.upstream_output in {o.name for o in upstream.outputs}, (alias, f.name)
+            if f.type != "file":
+                assert f.default is not None, f"{alias}.{f.name} has no stand-alone default"
+    assert wired_counts == {"composite_laminate": 0, "thermal_soak": 6, "bracket_stress": 16}
 
 
 # --- descriptor-only tests (no run) ----------------------------------

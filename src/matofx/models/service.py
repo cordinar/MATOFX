@@ -20,7 +20,7 @@ from __future__ import annotations
 import asyncio
 import datetime as _dt
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -43,9 +43,9 @@ from matofx.models.bundle import (
     write_field_bundle,
     write_scalar_bundle,
 )
-from matofx.models.errors import ModelConfigError, ModelError, ModelStateError
+from matofx.models.errors import ModelConfigError, ModelStateError
 from matofx.models.orm import SurrogateModel, SurrogateModelVersion
-from matofx.studies.surrogate import Surrogate, fit_surrogate
+from matofx.studies.surrogate import Surrogate
 from matofx.studies.surrogate.field import (
     FieldSurrogate,
     FieldSurrogateError,
@@ -58,6 +58,14 @@ from matofx.studies.surrogate.ingest import (
     collect_field_training_data,
     collect_training_data,
 )
+from matofx.studies.surrogate.tuning import (
+    METHODS,
+    TUNING_MODES,
+    Config,
+    ResultTuner,
+    TuningDecision,
+    log_eligible_factors,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,6 +75,31 @@ if TYPE_CHECKING:
 
 _MIN_FIELD_RUNS = 2
 """A POD field surrogate needs at least two runs to find any field variation."""
+
+
+Progress = Callable[[int, int, str], None]
+"""``(done, total, message)`` — a background fit job's progress (ADR-0022 §7)."""
+
+
+@dataclass(slots=True)
+class _Tuned:
+    """One scalar result's training data and its evaluated candidates."""
+
+    response: str
+    data: Any
+    tuner: ResultTuner
+
+
+@dataclass(frozen=True, slots=True)
+class _ScalarFits:
+    """The scalar half of a fit: one surrogate and tuning decision per response."""
+
+    surrogates: dict[str, Surrogate]
+    n_points: int
+    constants: dict[str, Any]
+    excluded: dict[str, Any]
+    training: Any
+    decisions: dict[str, TuningDecision]
 
 
 @dataclass(frozen=True, slots=True)
@@ -387,6 +420,10 @@ class ModelService:
         field_specs: Sequence[FieldSpec] | None = None,
         field_auto_select: bool = False,
         field_surrogate_kind: str | None = None,
+        tuning_mode: str = "off",
+        candidate_methods: Sequence[str] | None = None,
+        tuning_overrides: Mapping[str, Mapping[str, str]] | None = None,
+        progress: Progress | None = None,
     ) -> tuple[SurrogateModel, SurrogateModelVersion, dict[str, Any]]:
         """Fit + persist a new model (ordinal 1). Returns (model, version, excluded).
 
@@ -402,6 +439,13 @@ class ModelService:
         ``combined`` version that predicts numbers **and** fields. ``field_spec``
         (singular) is a back-compat shim for the single-field caller. Each
         output trains on its own valid subset (ADR-0017).
+
+        ``tuning_mode`` (``automatic`` / ``off``), the ``candidate_methods`` and
+        the per-result ``tuning_overrides`` (``{result: {method, output_scale,
+        input_scale}}``) decide how each scalar result is fitted (ADR-0022);
+        ``surrogate_kind`` is the primary method every result starts from. The
+        choice and its evidence are recorded on the version's ``responses`` and
+        ``quality``.
         """
         cleaned_name = name.strip()
         if not cleaned_name:
@@ -431,6 +475,11 @@ class ModelService:
             surrogate_kind=surrogate_kind,
             field_auto_select=field_auto_select,
             field_surrogate_kind=field_surrogate_kind,
+            tool_alias=tool_alias,
+            tuning_mode=tuning_mode,
+            candidate_methods=candidate_methods,
+            tuning_overrides=tuning_overrides,
+            progress=progress,
         )
         tv_ids = [await self._latest_tool_version_id(session, tool_alias)]
 
@@ -483,6 +532,7 @@ class ModelService:
                 "version_id": version.id,
                 "responses": list(response_names),
                 "excluded": excluded,
+                "tuning": _tuning_audit(fit.responses),
             },
         )
         return model, version, excluded
@@ -495,13 +545,17 @@ class ModelService:
         model_id: int,
         factor_filter: FactorFilter | None = None,
         surrogate_kind: str | None = None,
+        tuning_mode: str | None = None,
+        progress: Progress | None = None,
     ) -> SurrogateModelVersion:
         """Re-fit on the source's current data → a new version (§8).
 
         Re-runs the ingestion + fit with the same response set + source as
         the latest version, mints the next ordinal, and (personal /
         project) republishes to it. The fitting method is inherited from the
-        latest version unless ``surrogate_kind`` overrides it.
+        latest version unless ``surrogate_kind`` overrides it; the per-result
+        tuning setting likewise unless ``tuning_mode`` does (ADR-0022). The
+        user's own per-result choices are kept; MATOFX's picks are re-decided.
         """
         model = await self._get_with_access(session, model_id, actor_user_id, write=True)
         latest = await self._latest_version(session, model_id)
@@ -528,6 +582,8 @@ class ModelService:
         field_auto_select = any(
             r.get("kind") == "field" and r.get("auto_select") for r in (latest.responses or [])
         )
+        recorded = _recorded_tuning(latest.responses or [], method)
+        tuning_mode = tuning_mode or recorded.mode
 
         fit = await self._fit_all(
             session,
@@ -539,6 +595,11 @@ class ModelService:
             surrogate_kind=method,
             field_auto_select=field_auto_select,
             field_surrogate_kind=field_surrogate_kind,
+            tool_alias=model.tool_alias,
+            tuning_mode=tuning_mode,
+            candidate_methods=recorded.methods,
+            tuning_overrides=recorded.overrides,
+            progress=progress,
         )
         version = await self._add_version(
             session,
@@ -571,6 +632,7 @@ class ModelService:
                 "version_id": version.id,
                 "ordinal": version.ordinal,
                 "n_points": fit.n_points,
+                "tuning": _tuning_audit(fit.responses),
             },
         )
         return version
@@ -1115,66 +1177,136 @@ class ModelService:
         response_names: Sequence[str],
         methods: Sequence[str],
         factor_filter: FactorFilter | None = None,
-    ) -> tuple[list[dict[str, Any]], str | None, dict[str, str], dict[str, Any]]:
+        tool_alias: str | None = None,
+        tuning_mode: str = "off",
+        progress: Progress | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None, dict[str, str], dict[str, Any], dict[str, Any]]:
         """Fit each method over the same data, persisting nothing (the bake-off).
 
-        Returns ``(per_method, best_overall, best_per_response, excluded)`` where
+        Returns ``(per_method, best_overall, best_per_response, excluded, tuning)``.
         ``excluded`` is the ADR-0017 ``{n_excluded, reason_counts}`` summary
         (identical across methods — validity is row-level). ``per_method``
         carries each method's cross-validated quality + held-out ``cv_actual`` /
         ``cv_predicted`` pairs (so the UI can overlay parity plots) and a
-        ``mean_q2`` aggregate. ``best_overall`` is the method with the highest
-        mean Q² (Q² is unitless, so it aggregates across responses; RMSE does
-        not). A method that fails to fit (e.g. an under-determined polynomial)
-        is reported ``fitted=False`` with a message rather than aborting the
-        whole comparison. No scope/persistence — the caller creates the model
-        with the chosen method afterwards.
+        ``mean_q2`` aggregate for what **starting from that method** gives — each
+        result after tuning (ADR-0022) — with the before-tuning figures (the method
+        exactly as measured) in ``baseline_quality`` / ``baseline_mean_q2``.
+        ``best_overall`` — the suggested starting method — is the one with the
+        highest **before-tuning** mean Q² (Q² is unitless, so it aggregates across
+        responses; RMSE does not). A method
+        that fails to fit (e.g. an under-determined polynomial) is reported
+        ``fitted=False`` with a message
+        rather than aborting the whole comparison. No scope/persistence — the
+        caller creates the model with the chosen method afterwards.
+
+        ``tuning`` (ADR-0022) is ``{result: {"candidates": [...], "decisions":
+        {method: decision}}}`` — every evaluated configuration and what MATOFX
+        would pick for each possible primary method, so the page can re-render
+        when the user changes the kept method without refitting. Candidates are
+        evaluated once per result and shared by every method's decision.
         """
         del actor_user_id  # read of the source mirrors create_model (no extra ACL)
-        per_method: list[dict[str, Any]] = []
+        methods = _validated_methods(methods)
+        minimums = await self._declared_minimums(session, tool_alias) if tool_alias else None
+        labels = await self._output_labels(session, tool_alias) if tool_alias else {}
+        tuned = await self._tune_responses(
+            session,
+            source_kind,
+            source_id,
+            response_names,
+            factor_filter,
+            methods=methods,
+            tuning_mode=tuning_mode,
+            minimums=minimums,
+            labels=labels,
+            progress=progress,
+        )
         excluded: dict[str, Any] = {"n_excluded": 0, "reason_counts": {}}
+        for t in tuned:
+            excluded = _larger_exclusion(excluded, t.data)
+
+        if progress is not None and tuned:
+            n_fits = sum(len(t.tuner.planned()) for t in tuned)
+            progress(n_fits, n_fits, "Checking which combinations hold up in repeated tests")
+
+        def _decide_all() -> tuple[
+            dict[str, dict[str, Any]], dict[str, dict[str, Any]], dict[str, Any]
+        ]:
+            by_method: dict[str, dict[str, Any]] = {m: {} for m in methods}
+            tuned_by_method: dict[str, dict[str, Any]] = {m: {} for m in methods}
+            tuning: dict[str, Any] = {}
+            for t in tuned:
+                decisions = {}
+                for m in methods:
+                    baseline, _ = t.tuner.baseline(m)  # type: ignore[arg-type]
+                    base_fit = t.tuner.fit(baseline)
+                    by_method[m][t.response] = base_fit
+                    tuned_by_method[m][t.response] = base_fit
+                    if base_fit.fitted:
+                        chosen, decision = t.tuner.decide(m)  # type: ignore[arg-type]
+                        tuned_by_method[m][t.response] = chosen
+                        decisions[m] = decision.to_json()
+                tuning[t.response] = {
+                    # Held-out predictions ride along so the page can plot every
+                    # fit tried, not only the one used (compare only — not stored).
+                    "candidates": [
+                        c.to_json() | _cv_pairs(t.tuner.fit(c.config)) for c in t.tuner.scores()
+                    ],
+                    "decisions": decisions,
+                }
+            return by_method, tuned_by_method, tuning
+
+        by_method, tuned_by_method, tuning = await asyncio.to_thread(_decide_all)
+        per_method: list[dict[str, Any]] = []
         for method in methods:
-            try:
-                surrogates, _n, _consts, method_excluded, _training = await self._fit_responses(
-                    session, source_kind, source_id, response_names, factor_filter, method
-                )
-                if int(method_excluded["n_excluded"]) > int(excluded["n_excluded"]):
-                    excluded = method_excluded
-            except ModelError as exc:
+            fits = by_method[method]
+            failed = next((r for r, f in fits.items() if not f.fitted), None)
+            if failed is not None:
                 per_method.append(
-                    {"method": method, "fitted": False, "message": str(exc), "quality": {}}
+                    {
+                        "method": method,
+                        "fitted": False,
+                        "message": f"Couldn't fit a surrogate for '{failed}': "
+                        f"{fits[failed].quality.message or 'not enough complete runs'}",
+                        "quality": {},
+                    }
                 )
                 continue
-            quality = {
-                r: {
-                    "q2": s.quality.q2,
-                    "rmse_cv": s.quality.rmse_cv,
-                    "n": s.quality.n,
-                    "cv_actual": [float(v) for v in s.quality.actual],
-                    "cv_predicted": [float(v) for v in s.quality.predicted],
-                }
-                for r, s in surrogates.items()
-            }
-            q2s = [s.quality.q2 for s in surrogates.values() if s.quality.q2 is not None]
-            mean_q2 = sum(q2s) / len(q2s) if q2s else None
+            # What the page ranks methods on is what keeping that method would
+            # actually give — each result after tuning (ADR-0022). The pre-tuning
+            # figures ride along, so the page can show "before" beside "after";
+            # ranking on them made a method that tunes well look second best.
+            tuned_fits = tuned_by_method[method]
             per_method.append(
-                {"method": method, "fitted": True, "message": None, "quality": quality}
-                | {"mean_q2": mean_q2}
+                {
+                    "method": method,
+                    "fitted": True,
+                    "message": None,
+                    "quality": {r: _quality_row(f, None) for r, f in tuned_fits.items()},
+                    "mean_q2": _mean_q2(tuned_fits.values()),
+                    "baseline_quality": {r: _quality_row(f, None) for r, f in fits.items()},
+                    "baseline_mean_q2": _mean_q2(fits.values()),
+                }
             )
 
-        fitted = [m for m in per_method if m["fitted"] and m.get("mean_q2") is not None]
-        best_overall = max(fitted, key=lambda m: m["mean_q2"])["method"] if fitted else None
+        # The suggested starting method is ranked **before** tuning. Ranked after
+        # it, every method whose results all moved elsewhere tied at the top — a
+        # "best" polynomial none of whose results was fitted by a polynomial.
+        fitted = [m for m in per_method if m["fitted"] and m.get("baseline_mean_q2") is not None]
+        best_overall = (
+            max(fitted, key=lambda m: m["baseline_mean_q2"])["method"] if fitted else None
+        )
         best_per_response: dict[str, str] = {}
         for resp in response_names:
             scored = [
-                (m["method"], m["quality"].get(resp, {}).get("q2"))
+                (m["method"], m["baseline_quality"].get(resp, {}).get("q2"))
                 for m in per_method
                 if m["fitted"]
             ]
             scored = [(name, q2) for name, q2 in scored if q2 is not None]
             if scored:
                 best_per_response[str(resp)] = max(scored, key=lambda c: c[1])[0]
-        return per_method, best_overall, best_per_response, excluded
+        return per_method, best_overall, best_per_response, excluded, tuning
 
     async def compare_field_fits(
         self,
@@ -1285,6 +1417,11 @@ class ModelService:
         surrogate_kind: str,
         field_auto_select: bool = False,
         field_surrogate_kind: str | None = None,
+        tool_alias: str | None = None,
+        tuning_mode: str = "off",
+        candidate_methods: Sequence[str] | None = None,
+        tuning_overrides: Mapping[str, Mapping[str, str]] | None = None,
+        progress: Progress | None = None,
     ) -> _FitResult:
         """Fit the scalar responses + every field spec from one source (ADR-0018).
 
@@ -1306,13 +1443,25 @@ class ModelService:
         excluded: dict[str, Any] = {"n_excluded": 0, "reason_counts": {}}
 
         training: Any = None
+        decisions: dict[str, TuningDecision] = {}
         if response_names:
-            surrogates, n_s, sc_consts, sc_excl, training = await self._fit_responses(
-                session, source_kind, source_id, response_names, factor_filter, surrogate_kind
+            scalar = await self._fit_responses(
+                session,
+                source_kind,
+                source_id,
+                response_names,
+                factor_filter,
+                surrogate_kind,
+                tool_alias=tool_alias,
+                tuning_mode=tuning_mode,
+                candidate_methods=candidate_methods,
+                tuning_overrides=tuning_overrides,
+                progress=progress,
             )
-            n_points = max(n_points, n_s)
-            constants.update(sc_consts)
-            excluded = _merge_excluded(excluded, sc_excl)
+            surrogates, training, decisions = scalar.surrogates, scalar.training, scalar.decisions
+            n_points = max(n_points, scalar.n_points)
+            constants.update(scalar.constants)
+            excluded = _merge_excluded(excluded, scalar.excluded)
 
         for fspec in field_specs:
             fsurr, n_f, f_consts, ref, f_excl = await self._fit_field_response(
@@ -1335,6 +1484,7 @@ class ModelService:
             field_results,
             field_auto_select=(field_kind == "auto"),
             field_method=field_kind,
+            decisions=decisions,
         )
         constants = _constants_without_factors(constants, factors)
         return _FitResult(
@@ -1359,13 +1509,99 @@ class ModelService:
         response_names: Sequence[str],
         factor_filter: FactorFilter | None,
         surrogate_kind: str,
-    ) -> tuple[dict[str, Surrogate], int, dict[str, Any], dict[str, Any], Any]:
+        *,
+        tool_alias: str | None = None,
+        tuning_mode: str = "off",
+        candidate_methods: Sequence[str] | None = None,
+        tuning_overrides: Mapping[str, Mapping[str, str]] | None = None,
+        progress: Progress | None = None,
+    ) -> _ScalarFits:
+        """Fit every scalar result with its ADR-0022 configuration."""
+        primary = _validated_methods([surrogate_kind])[0]
+        methods = _validated_methods([primary, *(candidate_methods or [])])
+        overrides = _validated_overrides(tuning_overrides, response_names, methods)
+        minimums = await self._declared_minimums(session, tool_alias) if tool_alias else None
+        labels = await self._output_labels(session, tool_alias) if tool_alias else {}
+        tuned = await self._tune_responses(
+            session,
+            source_kind,
+            source_id,
+            response_names,
+            factor_filter,
+            methods=methods,
+            tuning_mode=tuning_mode,
+            minimums=minimums,
+            labels=labels,
+            progress=progress,
+            extra=overrides,
+        )
         surrogates: dict[str, Surrogate] = {}
+        decisions: dict[str, TuningDecision] = {}
         n_points = 0
         constants: dict[str, Any] = {}
         excluded: dict[str, Any] = {"n_excluded": 0, "reason_counts": {}}
         training: Any = None
-        for response in response_names:
+        if progress is not None and tuned:
+            n_fits = sum(len(t.tuner.planned()) for t in tuned)
+            progress(n_fits, n_fits, "Checking which combinations hold up in repeated tests")
+        for t in tuned:
+            surrogate, decision = await asyncio.to_thread(
+                t.tuner.decide,
+                primary,  # type: ignore[arg-type]
+                overrides.get(t.response),
+            )
+            if not surrogate.fitted:
+                raise ModelConfigError(
+                    f"Couldn't fit a surrogate for '{t.response}': "
+                    f"{surrogate.quality.message or 'not enough complete runs'}"
+                )
+            surrogates[t.response] = surrogate
+            decisions[t.response] = decision
+            # The factor columns are the same across responses (only the
+            # response column differs), so the last one describes the design.
+            training = t.data
+            n_points = max(n_points, t.data.n_complete)
+            # Source-level, identical across responses — last wins.
+            constants = dict(t.data.input_constants)
+            # Validity exclusion is row-level, so identical across responses;
+            # keep the largest count seen (ADR-0017 reporting).
+            excluded = _larger_exclusion(excluded, t.data)
+        return _ScalarFits(surrogates, n_points, constants, excluded, training, decisions)
+
+    async def _tune_responses(
+        self,
+        session: AsyncSession,
+        source_kind: str,
+        source_id: int,
+        response_names: Sequence[str],
+        factor_filter: FactorFilter | None,
+        *,
+        methods: Sequence[str],
+        tuning_mode: str,
+        minimums: Mapping[str, float | None] | None,
+        labels: Mapping[str, str] | None = None,
+        progress: Progress | None = None,
+        extra: Mapping[str, Config] | None = None,
+    ) -> list[_Tuned]:
+        """Collect each result's training data and fit its candidates (ADR-0022).
+
+        Offloads the CPU-bound sklearn fits (GP cross-validation is O(n^3) per
+        fold) to a worker thread. The UI and API share one event loop; fitting
+        inline blocks NiceGUI's websocket heartbeat for the whole comparison, so
+        the browser disconnects mid-fit and the page "breaks and refreshes".
+        Tuning is many fits per result, so this matters more than ever.
+
+        Log inputs are offered only where the tool declares a minimum above zero
+        (``minimums``); without a readable descriptor nothing is logged, so an
+        exported tool can never be handed a 0 it cannot take the log of.
+        """
+        if tuning_mode not in TUNING_MODES:
+            raise ModelConfigError(f"Unknown tuning setting '{tuning_mode}'.")
+        tuned: list[_Tuned] = []
+        # Live counters the worker-thread progress callback reads: how many fits
+        # are done, and the largest candidate count seen so far per result.
+        counts = {"done": 0, "per_result": 0}
+        for index, response in enumerate(response_names):
             data = await collect_training_data(
                 session,
                 source_kind=source_kind,
@@ -1373,45 +1609,60 @@ class ModelService:
                 response_spec=ResponseSpec(kind="scalar", name=response),
                 factor_filter=factor_filter,
             )
-            # Offload the CPU-bound sklearn fit (GP cross-validation is
-            # O(n^3) per fold) to a worker thread. The UI and API share one
-            # event loop; fitting inline blocks NiceGUI's websocket heartbeat
-            # for the whole comparison, so the browser disconnects mid-fit and
-            # the page "breaks and refreshes". Mirrors the to_thread offload
-            # already used for field-bundle loading / geometry extraction.
-            surrogate = await asyncio.to_thread(
-                fit_surrogate,
+            eligible = (
+                log_eligible_factors(data.factor_columns, minimums) if minimums is not None else ()
+            )
+            # The tool's label, never the internal output name (the progress dialog
+            # is user-facing).
+            shown = (labels or {}).get(response) or response
+            label = f"Fitting '{shown}' ({index + 1} of {len(response_names)})"
+
+            def _tick(label: str = label) -> None:
+                counts["done"] += 1
+                if progress is not None:
+                    total = max(counts["done"], counts["per_result"] * len(response_names))
+                    progress(counts["done"], total, label)
+
+            tuner = ResultTuner(
                 data.factor_columns,
                 data.response,
-                kind=surrogate_kind,  # type: ignore[arg-type]
-                source_ref=data.source_ref,
+                methods=list(methods),  # type: ignore[arg-type]
+                mode=tuning_mode,  # type: ignore[arg-type]
+                log_eligible=eligible,
                 # A varied categorical is a real axis. Dropped, two runs with
                 # identical numbers and different materials became one point
                 # with two answers, and the fit carried that as irreducible
                 # error — so widening a cohort to a second material made the
                 # model *worse* and returned one blended prediction for both.
                 categorical_columns=data.categorical_columns,
+                source_ref=data.source_ref,
+                progress=_tick,
             )
-            if not surrogate.fitted:
-                raise ModelConfigError(
-                    f"Couldn't fit a surrogate for '{response}': "
-                    f"{surrogate.quality.message or 'not enough complete runs'}"
-                )
-            surrogates[response] = surrogate
-            # The factor columns are the same across responses (only the
-            # response column differs), so the last one describes the design.
-            training = data
-            n_points = max(n_points, data.n_complete)
-            # Source-level, identical across responses — last wins.
-            constants = dict(data.input_constants)
-            # Validity exclusion is row-level, so identical across responses;
-            # keep the largest count seen (ADR-0017 reporting).
-            if data.n_excluded_invalid > int(excluded["n_excluded"]):
-                excluded = {
-                    "n_excluded": data.n_excluded_invalid,
-                    "reason_counts": dict(data.excluded_reason_counts),
-                }
-        return surrogates, n_points, constants, excluded, training
+            counts["per_result"] = max(counts["per_result"], len(tuner.planned()))
+            override = (extra or {}).get(response)
+            await asyncio.to_thread(tuner.evaluate, [override] if override is not None else [])
+            tuned.append(_Tuned(response, data, tuner))
+        return tuned
+
+    async def _output_labels(self, session: AsyncSession, tool_alias: str) -> dict[str, str]:
+        """``{output name: label}`` from the source tool's descriptor (``{}`` if unreadable)."""
+        descriptor = await self._latest_descriptor(session, tool_alias)
+        if descriptor is None:
+            return {}
+        return {str(o.name): str(o.label or o.name) for o in descriptor.outputs}
+
+    async def _declared_minimums(
+        self, session: AsyncSession, tool_alias: str
+    ) -> dict[str, float | None] | None:
+        """The source tool's declared minimum per numeric input, or ``None``."""
+        descriptor = await self._latest_descriptor(session, tool_alias)
+        if descriptor is None:
+            return None
+        return {
+            str(i.name): (float(i.minimum) if i.minimum is not None else None)
+            for i in descriptor.inputs
+            if i.type in ("integer", "float")
+        }
 
     async def _fit_field_response(
         self,
@@ -1767,7 +2018,9 @@ def _changed_fields(
 
 
 def _describe_fit(
-    surrogates: dict[str, Surrogate], response_names: Sequence[str]
+    surrogates: dict[str, Surrogate],
+    response_names: Sequence[str],
+    decisions: Mapping[str, TuningDecision] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     """Frozen factors + responses + quality summary from the fitted surrogates.
 
@@ -1783,18 +2036,162 @@ def _describe_fit(
     factors += [
         {"name": name, "levels": list(levels)} for name, levels in first.categorical_levels.items()
     ]
-    responses = [{"name": r, "kind": "scalar"} for r in response_names]
-    quality = {
-        r: {
-            "q2": s.quality.q2,
-            "rmse_cv": s.quality.rmse_cv,
-            "n": s.quality.n,
-            "cv_actual": [float(v) for v in s.quality.actual],
-            "cv_predicted": [float(v) for v in s.quality.predicted],
-        }
-        for r, s in surrogates.items()
-    }
+    decisions = decisions or {}
+    responses = []
+    for r in response_names:
+        row: dict[str, Any] = {"name": r, "kind": "scalar"}
+        decision = decisions.get(r)
+        if decision is not None:
+            # What a refit needs to reproduce the choice (ADR-0022), and what the
+            # exporter needs to declare `_std` outputs per result.
+            row |= {
+                "method": decision.config.method,
+                "output_scale": decision.config.output_scale,
+                "input_scale": decision.config.input_scale,
+                "log_factors": list(decision.log_factors),
+                "tuning_source": decision.source,
+                "tuning_mode": decision.mode,
+                "tuning_methods": sorted(
+                    {c.config.method for c in decision.candidates} | {decision.primary_method}
+                ),
+            }
+        responses.append(row)
+    quality = {r: _quality_row(s, decisions.get(r)) for r, s in surrogates.items()}
     return factors, responses, quality
+
+
+def _quality_row(surrogate: Surrogate, decision: TuningDecision | None) -> dict[str, Any]:
+    """One scalar result's quality: CV metrics plus the ADR-0022 tuning evidence."""
+    q = surrogate.quality
+    row: dict[str, Any] = {
+        "q2": q.q2,
+        "rmse_cv": q.rmse_cv,
+        "n": q.n,
+        "cv_actual": [float(v) for v in q.actual],
+        "cv_predicted": [float(v) for v in q.predicted],
+        "method": surrogate.kind,
+        "output_scale": surrogate.output_scale,
+        "input_scale": "log" if surrogate.log_factors else "as_measured",
+        "log_factors": list(surrogate.log_factors),
+    }
+    if decision is not None:
+        row["tuning"] = decision.to_json()
+    return row
+
+
+def _cv_pairs(surrogate: Surrogate) -> dict[str, list[float]]:
+    q = surrogate.quality
+    if not surrogate.fitted:
+        return {"cv_actual": [], "cv_predicted": []}
+    return {
+        "cv_actual": [float(v) for v in q.actual],
+        "cv_predicted": [float(v) for v in q.predicted],
+    }
+
+
+def _mean_q2(fits: Any) -> float | None:
+    q2s = [f.quality.q2 for f in fits if f.quality.q2 is not None]
+    return sum(q2s) / len(q2s) if q2s else None
+
+
+def _tuning_audit(responses: Sequence[Mapping[str, Any]]) -> dict[str, str]:
+    """``{result: "method|output|inputs (source)"}`` for the audit payload."""
+    return {
+        str(r["name"]): (
+            f"{r['method']}|{r.get('output_scale')}|{r.get('input_scale')} "
+            f"({r.get('tuning_source')})"
+        )
+        for r in responses
+        if r.get("method")
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class _RecordedTuning:
+    mode: str
+    methods: list[str]
+    overrides: dict[str, dict[str, str]]
+
+
+def _recorded_tuning(responses: Sequence[Mapping[str, Any]], primary: str) -> _RecordedTuning:
+    """How a version was tuned, for a refit to reproduce (ADR-0022 §9).
+
+    Reads ADR-0022 rows directly. An ADR-0021 row (``output_scale_mode``) maps
+    ``both``/``log`` to *automatic* and keeps a user's output-scale choice on the
+    primary method; a version fitted before either is *off*, so it refits
+    exactly as it was fitted.
+    """
+    rows = [r for r in responses if r.get("kind") != "field"]
+    mode = next((str(r["tuning_mode"]) for r in rows if r.get("tuning_mode")), None)
+    methods: set[str] = {primary}
+    overrides: dict[str, dict[str, str]] = {}
+    if mode is not None:
+        for r in rows:
+            methods.update(str(m) for m in r.get("tuning_methods") or [])
+            if r.get("tuning_source") == "user" and r.get("method"):
+                overrides[str(r["name"])] = {
+                    "method": str(r["method"]),
+                    "output_scale": str(r.get("output_scale") or "as_measured"),
+                    "input_scale": str(r.get("input_scale") or "as_measured"),
+                }
+        return _RecordedTuning(mode, sorted(methods), overrides)
+    legacy = next((str(r["output_scale_mode"]) for r in rows if r.get("output_scale_mode")), None)
+    for r in rows:
+        if r.get("output_scale_source") == "user" and r.get("output_scale"):
+            overrides[str(r["name"])] = {
+                "method": primary,
+                "output_scale": str(r["output_scale"]),
+                "input_scale": "as_measured",
+            }
+    mode = "automatic" if legacy in ("both", "log") else "off"
+    return _RecordedTuning(mode, sorted(methods), overrides)
+
+
+def _validated_methods(methods: Sequence[str]) -> list[str]:
+    out: list[str] = []
+    for m in methods:
+        if m not in METHODS:
+            raise ModelConfigError(f"Unknown fitting method '{m}'.")
+        if m not in out:
+            out.append(m)
+    if not out:
+        raise ModelConfigError("Pick at least one fitting method.")
+    return out
+
+
+def _validated_overrides(
+    overrides: Mapping[str, Mapping[str, str]] | None,
+    response_names: Sequence[str],
+    methods: Sequence[str],
+) -> dict[str, Config]:
+    out: dict[str, Config] = {}
+    for name, choice in (overrides or {}).items():
+        if name not in response_names:
+            raise ModelConfigError(
+                f"A fitting choice was given for a result that isn't being fitted: {name}."
+            )
+        method = str(choice.get("method") or "")
+        output_scale = str(choice.get("output_scale") or "as_measured")
+        input_scale = str(choice.get("input_scale") or "as_measured")
+        if method not in METHODS:
+            raise ModelConfigError(f"Unknown fitting method '{method}' for {name}.")
+        if output_scale not in ("as_measured", "log") or input_scale not in ("as_measured", "log"):
+            raise ModelConfigError(f"Unknown scale for {name}.")
+        if method not in methods:
+            raise ModelConfigError(
+                f"{name} was set to a method that isn't among the methods tried: {method}."
+            )
+        out[name] = Config(method, output_scale, input_scale)  # type: ignore[arg-type]
+    return out
+
+
+def _larger_exclusion(current: dict[str, Any], data: Any) -> dict[str, Any]:
+    if data.n_excluded_invalid > int(current["n_excluded"]):
+        return {
+            "n_excluded": data.n_excluded_invalid,
+            "reason_counts": dict(data.excluded_reason_counts),
+        }
+    return current
 
 
 def _describe_field_fit(
@@ -1914,6 +2311,7 @@ def _describe_combined(
     *,
     field_auto_select: bool = False,
     field_method: str = "gp",
+    decisions: Mapping[str, TuningDecision] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     """Merge scalar + field describes into one (factors, responses, quality).
 
@@ -1926,7 +2324,7 @@ def _describe_combined(
     responses: list[dict[str, Any]] = []
     quality: dict[str, Any] = {}
     if surrogates:
-        f, r, q = _describe_fit(surrogates, response_names)
+        f, r, q = _describe_fit(surrogates, response_names, decisions)
         factor_lists.append(f)
         responses.extend(r)
         quality.update(q)

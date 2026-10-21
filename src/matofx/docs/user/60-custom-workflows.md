@@ -82,11 +82,29 @@ Once the whole run finishes, a short **plain-language summary** appears at the t
 — whether every step succeeded, the order they ran in, and how long the run took.
 If a step failed, the summary names the first step that didn't complete.
 
+## When a step needs approval
+
+If one of the tools in the workflow is set up to need an **approver's sign-off**,
+its tab tells you so before you submit it, and offers a **Justification** box
+that goes to the approver. Once you submit, that tab reads **Pending approval**
+and explains what happens next — it doesn't show the form again, because the run
+is already with the approver and there's nothing more for you to fill in. The
+steps after it stay locked meanwhile.
+
+You don't need to watch it or refresh anything: the tab updates by itself the
+moment the approval comes through, and the workflow carries on from there. See
+*Running a tool* for the full picture on approvals.
+
 ## When one tool in a workflow fails
 
 If a step fails, the steps that depend on it can't continue, and the workflow is
 marked as failed. Open the failed step's **log** to see what went wrong, fix the
 inputs, and run it again.
+
+The same applies to a step that was **denied** at approval, or whose results were
+**withheld** — those are final for that run. Any step depending on one says
+plainly that it can't run, rather than sitting on "waiting" for something that
+will never finish. Start a new run once the underlying issue is resolved.
 
 ## Sharing a workflow with named colleagues
 

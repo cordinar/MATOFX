@@ -2885,7 +2885,7 @@ async def _render_live(
                 "completes. An eligible approver releases them from the Approvals area."
             ).style("color: #8a5a00;")
 
-    # Auto-generated results summary (designs/auto-summaries.md).
+    # Auto-generated results summary (OUTPUTS/designs/auto-summaries.md).
     # Renders only once the study is terminal (the card 404s while running);
     # best-effort, so a failure here never blocks the live trace below.
     from matofx.ui._summary_card import render_summary_card  # noqa: PLC0415
