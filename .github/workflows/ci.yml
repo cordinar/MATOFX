@@ -127,13 +127,13 @@ jobs:
       - name: Generate CycloneDX SBOM
         # cyclonedx-py reads the installed environment (`environment` mode)
         # to capture every transitive dep with its real resolved version.
-        # Schema 1.5 is the current stable; downgrade only if a customer
+        # Spec 1.5 is the current stable; downgrade only if a customer
         # tool refuses to parse it.
         run: |
           cyclonedx-py environment \
             --output-format json \
-            --schema-version 1.5 \
-            --outfile dist/sbom.cdx.json
+            --spec-version 1.5 \
+            --output-file dist/sbom.cdx.json
       - name: Upload artefacts
         uses: actions/upload-artifact@v4
         with:

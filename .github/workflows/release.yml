@@ -76,8 +76,8 @@ jobs:
         run: |
           cyclonedx-py environment \
             --output-format json \
-            --schema-version 1.5 \
-            --outfile dist/sbom.cdx.json
+            --spec-version 1.5 \
+            --output-file dist/sbom.cdx.json
 
       - name: Attest build provenance for wheel + sdist
         uses: actions/attest-build-provenance@v2

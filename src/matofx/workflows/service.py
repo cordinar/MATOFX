@@ -1252,10 +1252,14 @@ class WorkflowService:
         if owner_id is not None:
             stmt = stmt.where(Workflow.owner_id == owner_id)
         if contains_tool_alias is not None:
-            stmt = (
-                stmt.join(WorkflowMember, WorkflowMember.workflow_id == Workflow.id)
-                .where(WorkflowMember.tool_alias == contains_tool_alias)
-                .distinct()
+            # IN, not JOIN + DISTINCT: Postgres cannot DISTINCT over the
+            # ``json`` descriptor column.
+            stmt = stmt.where(
+                Workflow.id.in_(
+                    select(WorkflowMember.workflow_id).where(
+                        WorkflowMember.tool_alias == contains_tool_alias
+                    )
+                )
             )
         if search and (term := search.strip()):
             pattern = f"%{term}%"
@@ -1300,14 +1304,13 @@ async def cascade_archive_for_tool(
     by this cascade so the caller can include the count in its
     response / log line.
     """
-    stmt = (
-        select(Workflow)
-        .join(WorkflowMember, WorkflowMember.workflow_id == Workflow.id)
-        .where(
-            WorkflowMember.tool_alias == tool_alias,
-            Workflow.archived_at.is_(None),
-        )
-        .distinct()
+    # IN, not JOIN + DISTINCT: Postgres cannot DISTINCT over the ``json``
+    # descriptor column.
+    stmt = select(Workflow).where(
+        Workflow.id.in_(
+            select(WorkflowMember.workflow_id).where(WorkflowMember.tool_alias == tool_alias)
+        ),
+        Workflow.archived_at.is_(None),
     )
     affected = list((await session.execute(stmt)).scalars())
     archived_aliases: list[str] = []

@@ -20,8 +20,12 @@ matter are preserved:
 
 **Postgres is deliberately untouched.** There is no cheap file copy for
 a server database, and those runs are skipped unless
-``MATOFX_TEST_POSTGRES_URL`` is set, so the per-test migrate/downgrade
-path stays exactly as it was. Only the SQLite path changes.
+``MATOFX_TEST_POSTGRES_URL`` is set, so each Postgres test still migrates
+from empty. It is reset by dropping the schema rather than by
+``downgrade base``: a downgrade can rightly refuse to run over the data a
+test left behind (0092 will not invent a customer name), and a refusal
+there used to leave the database half-migrated for every test after it.
+The downgrade chain is tested on its own, in ``tests/db/test_alembic.py``.
 
 Usage in a conftest::
 
@@ -37,15 +41,18 @@ Usage in a conftest::
 
 from __future__ import annotations
 
+import asyncio
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+import sqlalchemy as sa
 from alembic import command
 from alembic.config import Config
 
 from matofx.config import DbSettings
+from matofx.db import make_engine
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -115,11 +122,32 @@ def copy_template_to(template: Path, destination: Path) -> None:
             shutil.copyfile(source, destination.with_name(destination.name + suffix))
 
 
+def reset_postgres_schema(settings: DbSettings) -> None:
+    """Drop everything in ``public`` — tables, types, Alembic's version row.
+
+    Through the app's own async engine: asyncpg is the only Postgres driver
+    installed (``psycopg2`` is LGPL-3, see ``migrations/env.py``).
+    """
+
+    async def _reset() -> None:
+        engine = make_engine(settings)
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+                await conn.execute(sa.text("CREATE SCHEMA public"))
+        finally:
+            await engine.dispose()
+
+    asyncio.run(_reset())
+
+
 def postgres_db_settings() -> Iterator[DbSettings]:
-    """Per-test migrate / downgrade against a real Postgres, unchanged.
+    """Per-test migrate from empty against a real Postgres.
 
     Skips when ``MATOFX_TEST_POSTGRES_URL`` is unset, which is the normal
-    case on a developer box.
+    case on a developer box. The schema is reset on the way in as well as
+    on the way out, so a test whose teardown failed cannot leave its rows
+    to the next one.
     """
     import os  # noqa: PLC0415
 
@@ -127,9 +155,9 @@ def postgres_db_settings() -> Iterator[DbSettings]:
     if not pg_url:
         pytest.skip("MATOFX_TEST_POSTGRES_URL not set")
     settings = DbSettings.from_url(pg_url, dialect="postgres")
-    cfg = alembic_config(sync_url(settings))
-    command.upgrade(cfg, "head")
+    reset_postgres_schema(settings)
+    command.upgrade(alembic_config(sync_url(settings)), "head")
     try:
         yield settings
     finally:
-        command.downgrade(cfg, "base")
+        reset_postgres_schema(settings)
