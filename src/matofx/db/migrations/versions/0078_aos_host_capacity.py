@@ -23,6 +23,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0078"
 down_revision: str | None = "0077"
 branch_labels: str | None = None
@@ -31,7 +33,7 @@ depends_on: str | None = None
 
 def upgrade() -> None:
     """Add the three capacity columns + their CHECK constraints to ``aos_host``."""
-    with op.batch_alter_table("aos_host", recreate="always") as batch:
+    with op.batch_alter_table("aos_host", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(
             sa.Column("max_concurrency", sa.Integer(), nullable=False, server_default="1")
         )
@@ -44,7 +46,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop the capacity columns + constraints."""
-    with op.batch_alter_table("aos_host", recreate="always") as batch:
+    with op.batch_alter_table("aos_host", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("aos_host_memory_mb", type_="check")
         batch.drop_constraint("aos_host_cpu_cores", type_="check")
         batch.drop_constraint("aos_host_max_concurrency", type_="check")

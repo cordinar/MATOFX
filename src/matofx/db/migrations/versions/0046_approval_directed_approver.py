@@ -35,6 +35,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0046"
 down_revision: str | None = "0045"
 branch_labels: str | None = None
@@ -53,7 +55,7 @@ _TARGET_XOR_TWO = "(job_id IS NOT NULL) <> (parametric_study_id IS NOT NULL)"
 
 def upgrade() -> None:
     """Add the directed approver + library target; widen the target CHECK."""
-    with op.batch_alter_table("approval_request", recreate="always") as batch:
+    with op.batch_alter_table("approval_request", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(sa.Column("library_file_version_id", _BIGINT, nullable=True))
         batch.add_column(sa.Column("designated_approver_user_id", _BIGINT, nullable=True))
         batch.alter_column("tool_alias", existing_type=sa.String(length=64), nullable=True)
@@ -100,7 +102,7 @@ def downgrade() -> None:
     """
     op.execute("DELETE FROM approval_request WHERE library_file_version_id IS NOT NULL")
     op.drop_index("uq_approval_request_pending_library_kind", table_name="approval_request")
-    with op.batch_alter_table("approval_request", recreate="always") as batch:
+    with op.batch_alter_table("approval_request", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_approval_request_exactly_one_target", type_="check")
         batch.create_check_constraint("ck_approval_request_exactly_one_target", _TARGET_XOR_TWO)
         batch.drop_index("ix_approval_request_library_file_version_id")

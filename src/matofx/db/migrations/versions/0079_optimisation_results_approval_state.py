@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0079"
 down_revision: str | None = "0078"
 branch_labels: str | None = None
@@ -54,13 +56,13 @@ def upgrade() -> None:
     # ``op.f`` marks the name as final so the metadata naming convention
     # (``ck_%(table_name)s_%(constraint_name)s``) isn't re-applied — the
     # constraint was minted with ``op.f`` in migration 0066.
-    with op.batch_alter_table("optimisation_study", recreate="always") as batch:
+    with op.batch_alter_table("optimisation_study", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint(op.f("ck_optimisation_study_state"), type_="check")
         batch.create_check_constraint(op.f("ck_optimisation_study_state"), _check(_NEW_STATES))
 
 
 def downgrade() -> None:
     """Restore the narrower CHECK (assumes no row sits in the new state)."""
-    with op.batch_alter_table("optimisation_study", recreate="always") as batch:
+    with op.batch_alter_table("optimisation_study", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint(op.f("ck_optimisation_study_state"), type_="check")
         batch.create_check_constraint(op.f("ck_optimisation_study_state"), _check(_OLD_STATES))

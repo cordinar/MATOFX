@@ -30,6 +30,8 @@ import re
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0050"
 down_revision: str | None = "0049"
 branch_labels: str | None = None
@@ -90,19 +92,19 @@ def upgrade() -> None:
     # 3. Make NOT NULL + add UNIQUE per group. SQLite can't ALTER an
     #    existing column to NOT NULL or add a UNIQUE in place, so a
     #    recreate-style batch is used (mirrors migration 0049's pattern).
-    with op.batch_alter_table("material_class_property", recreate="always") as batch:
+    with op.batch_alter_table("material_class_property", recreate=recreate_on_sqlite()) as batch:
         batch.alter_column("slug", existing_type=sa.String(length=64), nullable=False)
         batch.create_unique_constraint("uq_material_class_property_slug", ["class_id", "slug"])
-    with op.batch_alter_table("material_property", recreate="always") as batch:
+    with op.batch_alter_table("material_property", recreate=recreate_on_sqlite()) as batch:
         batch.alter_column("slug", existing_type=sa.String(length=64), nullable=False)
         batch.create_unique_constraint("uq_material_property_slug", ["material_version_id", "slug"])
 
 
 def downgrade() -> None:
     """Drop the slug columns + the UNIQUE constraints they back."""
-    with op.batch_alter_table("material_property", recreate="always") as batch:
+    with op.batch_alter_table("material_property", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("uq_material_property_slug", type_="unique")
         batch.drop_column("slug")
-    with op.batch_alter_table("material_class_property", recreate="always") as batch:
+    with op.batch_alter_table("material_class_property", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("uq_material_class_property_slug", type_="unique")
         batch.drop_column("slug")

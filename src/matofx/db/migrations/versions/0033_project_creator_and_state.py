@@ -37,6 +37,8 @@ from typing import Any
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0033"
 down_revision: str | None = "0032"
 branch_labels: str | None = None
@@ -50,7 +52,7 @@ def _bigint() -> sa.types.TypeEngine[Any]:
 
 
 def _add_state_trio(table: str) -> None:
-    with op.batch_alter_table(table, recreate="always") as batch:
+    with op.batch_alter_table(table, recreate=recreate_on_sqlite()) as batch:
         batch.add_column(
             sa.Column("state", sa.String(length=16), nullable=False, server_default="active")
         )
@@ -75,14 +77,14 @@ def upgrade() -> None:
     # 2a. project: rename owner_user_id → creator_user_id (rename-only
     #     batch — drop the old name-scoped unique + FK with it).
     op.drop_index(op.f("ix_project_owner_user_id"), table_name="project")
-    with op.batch_alter_table("project", recreate="always") as batch:
+    with op.batch_alter_table("project", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("uq_project_owner_name", type_="unique")
         batch.drop_constraint("fk_project_owner_user_id_user", type_="foreignkey")
         batch.alter_column("owner_user_id", new_column_name="creator_user_id")
 
     # 2b. project: now that the column is creator_user_id, add the state
     #     trio + the creator FK/unique/index that reference it.
-    with op.batch_alter_table("project", recreate="always") as batch:
+    with op.batch_alter_table("project", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(
             sa.Column("state", sa.String(length=16), nullable=False, server_default="active")
         )
@@ -112,7 +114,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Reverse: drop the state trio, rename back, recreate project_team."""
-    with op.batch_alter_table("scenario", recreate="always") as batch:
+    with op.batch_alter_table("scenario", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_scenario_state", type_="check")
         batch.drop_constraint("fk_scenario_state_changed_by_user_id_user", type_="foreignkey")
         batch.drop_column("state_changed_by_user_id")
@@ -120,7 +122,7 @@ def downgrade() -> None:
         batch.drop_column("state")
 
     op.drop_index(op.f("ix_project_creator_user_id"), table_name="project")
-    with op.batch_alter_table("project", recreate="always") as batch:
+    with op.batch_alter_table("project", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_project_state", type_="check")
         batch.drop_constraint("uq_project_creator_name", type_="unique")
         batch.drop_constraint("fk_project_state_changed_by_user_id_user", type_="foreignkey")
@@ -128,7 +130,7 @@ def downgrade() -> None:
         batch.drop_column("state_changed_by_user_id")
         batch.drop_column("state_changed_at")
         batch.drop_column("state")
-    with op.batch_alter_table("project", recreate="always") as batch:
+    with op.batch_alter_table("project", recreate=recreate_on_sqlite()) as batch:
         batch.alter_column("creator_user_id", new_column_name="owner_user_id")
         batch.create_foreign_key(
             "fk_project_owner_user_id_user",

@@ -260,7 +260,7 @@ class AuthSession(_Base):
         sa.DateTime(timezone=True), nullable=True
     )
     breakglass: Mapped[bool] = mapped_column(
-        sa.Boolean(), nullable=False, default=False, server_default=sa.text("0")
+        sa.Boolean(), nullable=False, default=False, server_default=sa.false()
     )
     """Admitted *over* the licence cap as a Super User (ADR-0019 §C13).
 

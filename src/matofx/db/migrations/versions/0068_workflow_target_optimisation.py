@@ -31,6 +31,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0068"
 down_revision: str | None = "0067"
 branch_labels: str | None = None
@@ -42,7 +44,7 @@ _MANUAL_RUN_PREDICATE = "optimisation_study_id IS NULL"
 
 def upgrade() -> None:
     """Add the study scenario FK + relax workflow_run uniqueness to manual runs."""
-    with op.batch_alter_table("optimisation_study", recreate="always") as batch:
+    with op.batch_alter_table("optimisation_study", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(sa.Column("scenario_id", _BIGINT, nullable=True))
         batch.create_foreign_key(
             op.f("fk_optimisation_study_scenario_id_scenario"),
@@ -55,7 +57,7 @@ def upgrade() -> None:
     # Swap the table-level unique constraint for a partial unique index so
     # only manual runs are one-per-workflow-per-scenario; optimisation
     # candidate runs share the study's dedicated scenario.
-    with op.batch_alter_table("workflow_run", recreate="always") as batch:
+    with op.batch_alter_table("workflow_run", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("uq_workflow_run_scenario_workflow", type_="unique")
     op.create_index(
         "uq_workflow_run_scenario_workflow",
@@ -70,12 +72,12 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Restore the full unique constraint + drop the study scenario FK."""
     op.drop_index("uq_workflow_run_scenario_workflow", table_name="workflow_run")
-    with op.batch_alter_table("workflow_run", recreate="always") as batch:
+    with op.batch_alter_table("workflow_run", recreate=recreate_on_sqlite()) as batch:
         batch.create_unique_constraint(
             "uq_workflow_run_scenario_workflow", ["scenario_id", "workflow_id"]
         )
 
-    with op.batch_alter_table("optimisation_study", recreate="always") as batch:
+    with op.batch_alter_table("optimisation_study", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint(
             op.f("fk_optimisation_study_scenario_id_scenario"), type_="foreignkey"
         )

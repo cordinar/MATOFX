@@ -49,6 +49,8 @@ import json
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0012"
 down_revision: str | None = "0011"
 branch_labels: str | None = None
@@ -264,11 +266,11 @@ def _create_runtime_setting() -> None:
 def _extend_tool() -> None:
     """Add execution-target columns + cross-target CHECK constraints to ``tool``.
 
-    Uses ``recreate="always"`` so SQLite picks up the new
+    Rebuilds the table on SQLite (``recreate_on_sqlite``) so it picks up the new
     multi-column CHECK constraints (it can't add them to an existing
-    table otherwise). On Postgres the recreate is a no-op rewrite.
+    table otherwise). Postgres adds them with ``ALTER TABLE``.
     """
-    with op.batch_alter_table("tool", recreate="always") as batch:
+    with op.batch_alter_table("tool", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(
             sa.Column(
                 "execution_target",
@@ -348,7 +350,7 @@ def _extend_tool() -> None:
 
 def _extend_job() -> None:
     """Add execution-tracking columns to ``job`` (all nullable, all set at runtime)."""
-    with op.batch_alter_table("job", recreate="always") as batch:
+    with op.batch_alter_table("job", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(
             sa.Column(
                 "storage_location_id",
@@ -478,7 +480,7 @@ def _shrink_tool() -> None:
     # under ``batch_alter_table``, so the bare user-supplied label (the same
     # one given to ``create_check_constraint`` / ``op.f`` on the way up) is
     # what we pass here, not the convention-expanded full name.
-    with op.batch_alter_table("tool", recreate="always") as batch:
+    with op.batch_alter_table("tool", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("execution_target_hpc", type_="check")
         batch.drop_constraint("execution_target_aos", type_="check")
         batch.drop_constraint("execution_target_local", type_="check")
@@ -504,7 +506,7 @@ def _shrink_tool() -> None:
 
 
 def _shrink_job() -> None:
-    with op.batch_alter_table("job", recreate="always") as batch:
+    with op.batch_alter_table("job", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("heartbeat_state", type_="check")
         batch.drop_constraint(
             op.f("fk_job_cancel_requested_by_user_id_user"),

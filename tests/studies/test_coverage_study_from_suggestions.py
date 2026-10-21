@@ -19,7 +19,7 @@ from matofx.audit import AuditWriter, ensure_chain_head
 from matofx.db import make_session_factory, session_scope
 from matofx.hierarchy import make_scenario_service
 from matofx.hierarchy.errors import AccessDeniedError
-from matofx.hierarchy.orm import Job
+from matofx.hierarchy.orm import Job, ProjectAcl
 from matofx.studies.cohort import CohortService
 from matofx.studies.orm import ParametricStudy, StudyResult
 from matofx.users import make_password_hasher, make_user_service
@@ -336,6 +336,17 @@ async def test_a_user_without_the_study_permission_cannot_commit_runs(
             full_name="Plain User",
             role=role.name,
         )
+        # They can see the cohort's project. Without this the runs are hidden
+        # from them (D7), the cohort is empty, and there is nothing to suggest.
+        session.add(
+            ProjectAcl(
+                project_id=basics.project_id,
+                user_id=plain.id,
+                role="viewer",
+                granted_by_user_id=basics.user_id,
+            )
+        )
+        await session.flush()
 
         # The read-only analysis stays available to them...
         batch = await _service().coverage_suggest(

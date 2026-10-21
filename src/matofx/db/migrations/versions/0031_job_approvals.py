@@ -35,6 +35,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0031"
 down_revision: str | None = "0030"
 branch_labels: str | None = None
@@ -54,7 +56,7 @@ def upgrade() -> None:
     # Recreate-style batch so SQLite picks up the replacement CHECK
     # (it can't ALTER a CHECK on an existing table). Postgres takes
     # the drop+create path through the same batch API.
-    with op.batch_alter_table("job", recreate="always") as batch:
+    with op.batch_alter_table("job", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_job_state", type_="check")
         batch.create_check_constraint("ck_job_state", _NEW_STATE_CHECK)
 
@@ -211,6 +213,6 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_approval_request_job_id"), table_name="approval_request")
     op.drop_table("approval_request")
 
-    with op.batch_alter_table("job", recreate="always") as batch:
+    with op.batch_alter_table("job", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_job_state", type_="check")
         batch.create_check_constraint("ck_job_state", _OLD_STATE_CHECK)

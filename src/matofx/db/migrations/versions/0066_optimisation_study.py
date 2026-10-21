@@ -49,6 +49,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0066"
 down_revision: str | None = "0065"
 branch_labels: str | None = None
@@ -173,7 +175,7 @@ def upgrade() -> None:
     # column + the CHECK swap (it can't ALTER either in place). Postgres
     # takes the same batch API. The partial unique indexes and all other
     # constraints are preserved by the reflection-based recreate.
-    with op.batch_alter_table("job", recreate="always") as batch:
+    with op.batch_alter_table("job", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(sa.Column("optimisation_study_id", _BIGINT, nullable=True))
         batch.add_column(sa.Column("optimisation_metadata_json", sa.JSON(), nullable=True))
         batch.create_foreign_key(
@@ -211,7 +213,7 @@ def downgrade() -> None:
 
     op.execute("DELETE FROM job WHERE optimisation_study_id IS NOT NULL")
 
-    with op.batch_alter_table("job", recreate="always") as batch:
+    with op.batch_alter_table("job", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_job_exactly_one_home", type_="check")
         batch.create_check_constraint("ck_job_exactly_one_home", _JOB_HOME_CHECK_2)
         batch.drop_index("ix_job_optimisation_study_id")

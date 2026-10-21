@@ -27,6 +27,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0063"
 down_revision: str | None = "0062"
 branch_labels: str | None = None
@@ -56,7 +58,7 @@ _TARGET_ONE_OF_SIX = (
 
 def upgrade() -> None:
     """Add the surrogate-model approval target; widen the exactly-one CHECK."""
-    with op.batch_alter_table("approval_request", recreate="always") as batch:
+    with op.batch_alter_table("approval_request", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(sa.Column("surrogate_model_version_id", _BIGINT, nullable=True))
         batch.create_foreign_key(
             op.f("fk_approval_request_surrogate_model_version_id_surrogate_model_version"),
@@ -87,7 +89,7 @@ def downgrade() -> None:
     """Reverse — one-way lossy for surrogate-target rows (greenfield: none)."""
     op.execute("DELETE FROM approval_request WHERE surrogate_model_version_id IS NOT NULL")
     op.drop_index("uq_approval_request_pending_surrogate_kind", table_name="approval_request")
-    with op.batch_alter_table("approval_request", recreate="always") as batch:
+    with op.batch_alter_table("approval_request", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_approval_request_exactly_one_target", type_="check")
         batch.create_check_constraint("ck_approval_request_exactly_one_target", _TARGET_ONE_OF_SIX)
         batch.drop_index("ix_approval_request_surrogate_model_version_id")

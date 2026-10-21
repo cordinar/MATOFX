@@ -33,6 +33,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0038"
 down_revision: str | None = "0037"
 branch_labels: str | None = None
@@ -44,7 +46,7 @@ _TARGET_XOR = "(job_id IS NOT NULL) <> (parametric_study_id IS NOT NULL)"
 
 def upgrade() -> None:
     """Add parametric_study_id, relax job_id, add the XOR + study index."""
-    with op.batch_alter_table("approval_request", recreate="always") as batch:
+    with op.batch_alter_table("approval_request", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(sa.Column("parametric_study_id", _BIGINT, nullable=True))
         batch.alter_column("job_id", existing_type=_BIGINT, nullable=True)
         batch.create_foreign_key(
@@ -77,7 +79,7 @@ def downgrade() -> None:
     """
     op.execute("DELETE FROM approval_request WHERE parametric_study_id IS NOT NULL")
     op.drop_index("uq_approval_request_pending_study_kind", table_name="approval_request")
-    with op.batch_alter_table("approval_request", recreate="always") as batch:
+    with op.batch_alter_table("approval_request", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_approval_request_exactly_one_target", type_="check")
         batch.drop_index("ix_approval_request_parametric_study_id")
         batch.drop_constraint(

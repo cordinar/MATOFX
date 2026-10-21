@@ -58,7 +58,7 @@ def upgrade() -> None:
                 "self_generated",
                 sa.Boolean(),
                 nullable=False,
-                server_default=sa.text("0"),
+                server_default=sa.false(),
             )
         )
 

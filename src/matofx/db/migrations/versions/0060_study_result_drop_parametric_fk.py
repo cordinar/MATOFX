@@ -38,6 +38,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0060"
 down_revision: str | None = "0059"
 branch_labels: str | None = None
@@ -53,7 +55,7 @@ _UQ_SOURCE = "uq_study_result_source_job"
 
 def upgrade() -> None:
     """Drop ``parametric_study_id``; widen the per-job UNIQUE to per-source."""
-    with op.batch_alter_table("study_result", recreate="always") as batch:
+    with op.batch_alter_table("study_result", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint(_UQ_JOB, type_="unique")
         batch.drop_index(_IX_NAME)
         batch.drop_constraint(_FK_NAME, type_="foreignkey")
@@ -72,11 +74,11 @@ def downgrade() -> None:
     0049 use for added-target rows.
     """
     op.execute("DELETE FROM study_result WHERE source_kind <> 'parametric'")
-    with op.batch_alter_table("study_result", recreate="always") as batch:
+    with op.batch_alter_table("study_result", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint(_UQ_SOURCE, type_="unique")
         batch.add_column(sa.Column("parametric_study_id", _BIGINT, nullable=True))
     op.execute("UPDATE study_result SET parametric_study_id = source_id")
-    with op.batch_alter_table("study_result", recreate="always") as batch:
+    with op.batch_alter_table("study_result", recreate=recreate_on_sqlite()) as batch:
         batch.alter_column("parametric_study_id", existing_type=_BIGINT, nullable=False)
         batch.create_foreign_key(
             _FK_NAME,

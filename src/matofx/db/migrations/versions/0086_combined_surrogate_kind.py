@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0086"
 down_revision: str | None = "0085"
 branch_labels: str | None = None
@@ -31,7 +33,7 @@ def _check(kinds: tuple[str, ...]) -> str:
 
 def upgrade() -> None:
     """Widen the kind CHECK to admit ``combined``."""
-    with op.batch_alter_table("surrogate_model_version", recreate="always") as batch:
+    with op.batch_alter_table("surrogate_model_version", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint(op.f("ck_surrogate_model_version_kind"), type_="check")
         batch.create_check_constraint(op.f("ck_surrogate_model_version_kind"), _check(_NEW_KINDS))
 
@@ -44,6 +46,6 @@ def downgrade() -> None:
     batch table-rebuild's row-copy would violate the re-narrowed CHECK.
     """
     op.execute("DELETE FROM surrogate_model_version WHERE kind = 'combined'")
-    with op.batch_alter_table("surrogate_model_version", recreate="always") as batch:
+    with op.batch_alter_table("surrogate_model_version", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint(op.f("ck_surrogate_model_version_kind"), type_="check")
         batch.create_check_constraint(op.f("ck_surrogate_model_version_kind"), _check(_OLD_KINDS))

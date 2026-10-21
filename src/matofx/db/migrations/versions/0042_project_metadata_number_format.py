@@ -27,6 +27,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0042"
 down_revision: str | None = "0041"
 branch_labels: str | None = None
@@ -57,7 +59,7 @@ def upgrade() -> None:
         "project_metadata_field",
         sa.Column("format_mask", sa.String(length=64), nullable=True),
     )
-    with op.batch_alter_table("project_metadata", recreate="always") as batch:
+    with op.batch_alter_table("project_metadata", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(sa.Column("value_text", sa.String(length=255), nullable=True))
         batch.drop_constraint("ck_project_metadata_exactly_one_value", type_="check")
         batch.create_check_constraint("ck_project_metadata_exactly_one_value", _NEW_VALUE_CHECK)
@@ -71,7 +73,7 @@ def downgrade() -> None:
     downgrade that drops the column necessarily drops its data).
     """
     op.execute("DELETE FROM project_metadata WHERE value_text IS NOT NULL")
-    with op.batch_alter_table("project_metadata", recreate="always") as batch:
+    with op.batch_alter_table("project_metadata", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_project_metadata_exactly_one_value", type_="check")
         batch.create_check_constraint("ck_project_metadata_exactly_one_value", _OLD_VALUE_CHECK)
         batch.drop_column("value_text")

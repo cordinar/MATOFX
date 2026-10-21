@@ -86,7 +86,7 @@ def upgrade() -> None:
         sa.text(
             "INSERT INTO user_logon_event (user_id, event, at, actor_user_id, reason) "
             "SELECT id, 'granted', logon_granted_at, NULL, NULL "
-            "FROM user "
+            'FROM "user" '
             "WHERE logon_granted_at IS NOT NULL"
         )
     )
@@ -96,7 +96,7 @@ def upgrade() -> None:
         sa.text(
             "INSERT INTO user_logon_event (user_id, event, at, actor_user_id, reason) "
             "SELECT id, 'revoked', logon_revoked_at, NULL, NULL "
-            "FROM user "
+            'FROM "user" '
             "WHERE logon_revoked_at IS NOT NULL"
         )
     )
