@@ -184,7 +184,7 @@ dev = [
     "pytest-timeout>=2.3",
     # Linter and type checker pinned exactly: an unpinned upgrade brings new
     # rules and fails CI on unchanged code. Dependabot proposes the bumps.
-    "ruff==0.15.12",
+    "ruff==0.17.1",
     "mypy==1.20.2",
     # PyYAML stubs for `mypy --strict` (PyYAML itself is in the runtime deps).
     "types-PyYAML>=6.0",
