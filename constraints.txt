@@ -110,7 +110,7 @@ pandas==3.0.2
 path==17.1.1
 pathspec==1.1.1
 patsy==1.0.2
-pillow==12.3.0
+pillow==13.0.0
 pip-requirements-parser==32.0.1
 pip-tools==7.5.3
 platformdirs==4.10.0
