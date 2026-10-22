@@ -29,6 +29,12 @@ from matofx.vv import JobVVRecord, ToolVVRecord
 from .conftest import Basics
 
 
+async def _enforce_fks(session: sa.ext.asyncio.AsyncSession) -> None:
+    """SQLite enforces foreign keys only when asked, per connection; Postgres always does."""
+    if session.bind.dialect.name == "sqlite":
+        await session.execute(sa.text("PRAGMA foreign_keys=ON"))
+
+
 def _utcnow() -> _dt.datetime:
     return _dt.datetime.now(tz=_dt.UTC)
 
@@ -349,8 +355,7 @@ async def test_tool_vv_record_delete_cascades_to_approval(
         )
 
     async with session_scope(factory) as session:
-        # Enforce FK constraints for SQLite.
-        await session.execute(sa.text("PRAGMA foreign_keys=ON"))
+        await _enforce_fks(session)
         await session.execute(
             sa.text("DELETE FROM tool_vv_record WHERE id = :rid").bindparams(rid=record_id)
         )

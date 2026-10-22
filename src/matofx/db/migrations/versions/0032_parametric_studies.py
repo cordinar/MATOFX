@@ -46,6 +46,8 @@ import datetime as _dt
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0032"
 down_revision: str | None = "0031"
 branch_labels: str | None = None
@@ -171,7 +173,7 @@ def upgrade() -> None:
     # (uq_job_scenario_tool_standalone / uq_job_workflow_run_tool) and
     # all other constraints are preserved by the reflection-based
     # recreate, exactly as in migrations 0010 / 0031.
-    with op.batch_alter_table("job", recreate="always") as batch:
+    with op.batch_alter_table("job", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(sa.Column("parametric_study_id", _BIGINT, nullable=True))
         batch.alter_column("scenario_id", existing_type=_BIGINT, nullable=True)
         batch.create_foreign_key(
@@ -252,7 +254,7 @@ def downgrade() -> None:
 
     op.execute("DELETE FROM job WHERE parametric_study_id IS NOT NULL")
 
-    with op.batch_alter_table("job", recreate="always") as batch:
+    with op.batch_alter_table("job", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_job_exactly_one_home", type_="check")
         batch.drop_index("ix_job_parametric_study_id")
         batch.drop_constraint(

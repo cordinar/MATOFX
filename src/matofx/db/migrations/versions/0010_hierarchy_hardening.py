@@ -33,6 +33,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0010"
 down_revision: str | None = "0009"
 branch_labels: str | None = None
@@ -95,7 +97,7 @@ def upgrade() -> None:
     # Job: version + tool FK + timestamp CHECKs in one batch rewrite.
     # Use a recreate-style batch_alter_table so SQLite picks up the new
     # constraints (it can't ADD a CHECK to an existing table otherwise).
-    with op.batch_alter_table("job", recreate="always") as batch:
+    with op.batch_alter_table("job", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(sa.Column("version", sa.Integer(), nullable=False, server_default="1"))
         batch.alter_column("tool_alias", type_=sa.String(length=64))
         batch.create_foreign_key(
@@ -123,7 +125,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Reverse the schema additions."""
-    with op.batch_alter_table("job", recreate="always") as batch:
+    with op.batch_alter_table("job", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_job_completed_after_started", type_="check")
         batch.drop_constraint("ck_job_started_after_created", type_="check")
         batch.drop_index("ix_job_tool_alias")

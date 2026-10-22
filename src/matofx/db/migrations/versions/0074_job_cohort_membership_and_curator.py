@@ -64,7 +64,7 @@ def upgrade() -> None:
     op.add_column("job_cohort", sa.Column("excluded_job_ids", sa.JSON(), nullable=True))
 
     # Every existing cohort is a live saved query.
-    op.execute("UPDATE job_cohort SET auto_grow = 1")
+    op.execute("UPDATE job_cohort SET auto_grow = TRUE")
 
     with op.batch_alter_table("job_cohort") as batch:
         batch.alter_column(

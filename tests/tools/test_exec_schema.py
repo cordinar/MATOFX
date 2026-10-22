@@ -38,15 +38,13 @@ async def test_storage_location_round_trip(tools_engine: AsyncEngine) -> None:
             sa.text(
                 "INSERT INTO storage_location "
                 "(name, mount_path, is_active, row_version, created_at, updated_at) "
-                "VALUES (:n, :p, :a, :v, :c, :u)"
+                "VALUES (:n, :p, :a, :v, '2026-05-04T00:00:00+00:00', '2026-05-04T00:00:00+00:00')"
             ),
             {
                 "n": "fsxdrv1",
                 "p": r"\\fsxdrv1\matofx",
                 "a": True,
                 "v": 1,
-                "c": "2026-05-04T00:00:00+00:00",
-                "u": "2026-05-04T00:00:00+00:00",
             },
         )
         rows = (
@@ -64,15 +62,13 @@ async def test_python_env_round_trip(tools_engine: AsyncEngine) -> None:
             sa.text(
                 "INSERT INTO python_env "
                 "(name, interpreter_path, is_active, row_version, created_at, updated_at) "
-                "VALUES (:n, :p, :a, :v, :c, :u)"
+                "VALUES (:n, :p, :a, :v, '2026-05-04T00:00:00+00:00', '2026-05-04T00:00:00+00:00')"
             ),
             {
                 "n": "matofx_core",
                 "p": r"envs\matofx_core\Scripts\python.exe",
                 "a": True,
                 "v": 1,
-                "c": "2026-05-04T00:00:00+00:00",
-                "u": "2026-05-04T00:00:00+00:00",
             },
         )
         rows = (await session.execute(sa.text("SELECT name FROM python_env"))).fetchall()
@@ -93,7 +89,8 @@ async def test_aos_host_accepts_linux_ssh(tools_engine: AsyncEngine) -> None:
                 "INSERT INTO aos_host "
                 "(name, hostname, os, transport, port, username, secret_ref, is_active, "
                 "row_version, created_at, updated_at) "
-                "VALUES (:n, :h, :os, :t, :p, :u, :s, :a, :v, :c, :upd)"
+                "VALUES (:n, :h, :os, :t, :p, :u, :s, :a, :v, "
+                "'2026-05-04T00:00:00+00:00', '2026-05-04T00:00:00+00:00')"
             ),
             {
                 "n": "aos1",
@@ -105,8 +102,6 @@ async def test_aos_host_accepts_linux_ssh(tools_engine: AsyncEngine) -> None:
                 "s": "secrets://aos1-key",
                 "a": True,
                 "v": 1,
-                "c": "2026-05-04T00:00:00+00:00",
-                "upd": "2026-05-04T00:00:00+00:00",
             },
         )
 
@@ -115,7 +110,7 @@ _INSERT_AOS_HOST = sa.text(
     "INSERT INTO aos_host "
     "(name, hostname, os, transport, port, username, secret_ref, is_active, "
     "row_version, created_at, updated_at) "
-    "VALUES (:n,'h',:os,:t,:p,'u','s',1,1,"
+    "VALUES (:n,'h',:os,:t,:p,'u','s',TRUE,1,"
     "'2026-05-04T00:00:00+00:00','2026-05-04T00:00:00+00:00')"
 )
 
@@ -165,7 +160,7 @@ async def test_hpc_cluster_accepts_slurm_ssh(tools_engine: AsyncEngine) -> None:
                 "(name, scheduler, head_node, transport, port, username, secret_ref, "
                 "is_active, row_version, created_at, updated_at) "
                 "VALUES ('cluster1','slurm','login1.hpc',"
-                "'ssh',22,'matofx','secrets://hpc1',1,1,"
+                "'ssh',22,'matofx','secrets://hpc1',TRUE,1,"
                 "'2026-05-04T00:00:00+00:00','2026-05-04T00:00:00+00:00')"
             )
         )
@@ -178,7 +173,7 @@ async def test_hpc_cluster_rejects_slurm_winrm(tools_engine: AsyncEngine) -> Non
         "INSERT INTO hpc_cluster "
         "(name, scheduler, head_node, transport, port, username, secret_ref, "
         "is_active, row_version, created_at, updated_at) "
-        "VALUES ('c2','slurm','h','winrm',5985,'u','s',1,1,"
+        "VALUES ('c2','slurm','h','winrm',5985,'u','s',TRUE,1,"
         "'2026-05-04T00:00:00+00:00','2026-05-04T00:00:00+00:00')"
     )
     async with session_scope(factory) as session:
@@ -202,7 +197,7 @@ async def _seed_aos_and_hpc(session, user_id: int) -> tuple[int, int, int]:
             "INSERT INTO aos_host "
             "(name, hostname, os, transport, port, username, secret_ref, is_active, "
             "row_version, created_at, updated_at) "
-            "VALUES ('a','h','linux','ssh',22,'u','s',1,1,"
+            "VALUES ('a','h','linux','ssh',22,'u','s',TRUE,1,"
             "'2026-05-04T00:00:00+00:00','2026-05-04T00:00:00+00:00')"
         )
     )
@@ -212,7 +207,7 @@ async def _seed_aos_and_hpc(session, user_id: int) -> tuple[int, int, int]:
             "INSERT INTO hpc_cluster "
             "(name, scheduler, head_node, transport, port, username, secret_ref, "
             "is_active, row_version, created_at, updated_at) "
-            "VALUES ('c','slurm','h','ssh',22,'u','s',1,1,"
+            "VALUES ('c','slurm','h','ssh',22,'u','s',TRUE,1,"
             "'2026-05-04T00:00:00+00:00','2026-05-04T00:00:00+00:00')"
         )
     )
@@ -229,7 +224,7 @@ def _insert_tool_sql() -> str:
         "installed_by_user_id, execution_target, aos_host_id, hpc_cluster_id, "
         "python_env_id, requires_gpu, row_version, created_at, updated_at) "
         "VALUES (:alias, :alias, '1.0.0', 'new', :desc, '/tmp/x', :uid, "
-        ":target, :aos, :hpc, NULL, 0, 1, "
+        ":target, :aos, :hpc, NULL, FALSE, 1, "
         "'2026-05-04T00:00:00+00:00','2026-05-04T00:00:00+00:00')"
     )
 

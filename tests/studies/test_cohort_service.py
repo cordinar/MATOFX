@@ -1629,9 +1629,9 @@ async def test_populate_backfills_retained_files_for_an_ad_hoc_member(
     async with session_scope(factory) as session:
         await ensure_chain_head(session)
 
-        # The lookup this regression is about, asserted directly: the alias is
-        # not the primary key, so a get() by alias finds nothing.
-        assert await session.get(Tool, basics.tool_alias) is None
+        # The lookup this regression is about: the alias is a separate unique
+        # column, not the primary key. (A get() by alias finds nothing on
+        # SQLite and is refused outright by Postgres, so it isn't asserted.)
         tool = (
             await session.execute(select(Tool).where(Tool.alias == basics.tool_alias))
         ).scalar_one_or_none()

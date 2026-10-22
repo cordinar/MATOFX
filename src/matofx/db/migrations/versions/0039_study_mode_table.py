@@ -30,6 +30,8 @@ from __future__ import annotations
 
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0039"
 down_revision: str | None = "0038"
 branch_labels: str | None = None
@@ -59,7 +61,7 @@ def upgrade() -> None:
     # plain string here would be re-conventionalised to
     # ``ck_parametric_study_ck_parametric_study_mode`` and the drop
     # would not match the reflected constraint.
-    with op.batch_alter_table("parametric_study", recreate="always") as batch:
+    with op.batch_alter_table("parametric_study", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint(op.f("ck_parametric_study_mode"), type_="check")
         batch.create_check_constraint(op.f("ck_parametric_study_mode"), _MODE_CHECK_WITH_TABLE)
 
@@ -78,6 +80,6 @@ def downgrade() -> None:
     op.execute("DELETE FROM parametric_study WHERE mode = 'table'")
     # ``op.f(...)`` — see the upgrade() note: keep the name final so the
     # convention is not doubled onto it.
-    with op.batch_alter_table("parametric_study", recreate="always") as batch:
+    with op.batch_alter_table("parametric_study", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint(op.f("ck_parametric_study_mode"), type_="check")
         batch.create_check_constraint(op.f("ck_parametric_study_mode"), _MODE_CHECK_0032)

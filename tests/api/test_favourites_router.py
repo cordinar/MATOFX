@@ -245,7 +245,7 @@ async def test_user_delete_cascades_favourites(
     # Raw DELETE — the API delete-user route is admin-only; this test
     # asserts the DB-level cascade in isolation.
     async with session_scope(api_factory) as session:
-        await session.execute(text("DELETE FROM user WHERE id = :id").bindparams(id=user_id))
+        await session.execute(text('DELETE FROM "user" WHERE id = :id').bindparams(id=user_id))
 
     async with session_scope(api_factory) as session:
         rows = (await session.execute(select(UserFavourite))).scalars().all()

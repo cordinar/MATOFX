@@ -126,7 +126,7 @@ def upgrade() -> None:
     bind = op.get_bind()
 
     # Backfill first_name / last_name from full_name (split on first space).
-    rows = bind.execute(sa.text("SELECT id, full_name FROM user")).fetchall()
+    rows = bind.execute(sa.text('SELECT id, full_name FROM "user"')).fetchall()
     for row in rows:
         user_id = row[0]
         full = (row[1] or "").strip()
@@ -138,13 +138,13 @@ def upgrade() -> None:
             first, last = full, ""
         bind.execute(
             sa.text(
-                "UPDATE user SET first_name = :first, last_name = :last WHERE id = :id"
+                'UPDATE "user" SET first_name = :first, last_name = :last WHERE id = :id'
             ).bindparams(first=first, last=last, id=user_id)
         )
 
     # Backfill logon_granted_at from created_at for existing rows.
     bind.execute(
-        sa.text("UPDATE user SET logon_granted_at = created_at WHERE logon_granted_at IS NULL")
+        sa.text('UPDATE "user" SET logon_granted_at = created_at WHERE logon_granted_at IS NULL')
     )
 
     # logon_granted_at is now NOT NULL going forward.

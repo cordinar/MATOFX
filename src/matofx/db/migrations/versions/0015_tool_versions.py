@@ -126,14 +126,15 @@ def upgrade() -> None:
                 "VALUES (:alias, :version, :snapshot, :bundle, :created_at, "
                 "        :user_id, :summary, :changes)"
             ).bindparams(
+                # Typed as JSON: Postgres won't store a bare string in a json column.
+                sa.bindparam("snapshot", descriptor, type_=sa.JSON),
+                sa.bindparam("changes", {}, type_=sa.JSON),
                 alias=alias,
                 version=str(version),
-                snapshot=json.dumps(descriptor),
                 bundle=str(bundle_path),
                 created_at=now,
                 user_id=int(installed_by_user_id),
                 summary=_BACKFILL_SUMMARY,
-                changes=json.dumps({}),
             )
         )
 

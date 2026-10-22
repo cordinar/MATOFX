@@ -93,15 +93,19 @@ def test_the_batch_is_attributed_to_the_design_not_a_response() -> None:
 # --- §5.1 the invariants still hold --------------------------------------
 
 
-def _integer_setup(present, lo=1, hi=5):
+def _integer_setup(present, lo=1, hi=5, *, with_thickness=True):
     rows = [
         {"ply_count": float(n), "thickness": 1.0 + n * 0.7 + j * 0.4}
         for n in present
         for j in range(3)
     ]
+    factors = [integer("ply_count", lo, hi), num("thickness", 0.0, 12.0)]
+    if not with_thickness:
+        rows = [{"ply_count": r["ply_count"]} for r in rows]
+        factors = factors[:1]
     return _prepared(
         rows,
-        descriptor=descriptor(integer("ply_count", lo, hi), num("thickness", 0.0, 12.0)),
+        descriptor=descriptor(*factors),
         overrides={"ply_count": FactorOverride(lo=float(lo), hi=float(hi))},
     )
 
@@ -112,15 +116,20 @@ def test_every_suggested_integer_value_is_integral() -> None:
         assert float(point["ply_count"]).is_integer(), point
 
 
+# The two below hold only when the integer axis is the whole design. With a
+# continuous axis beside it, repeating an integer value is a new point, and
+# re-using one is allowed (test_coverage_lattice_dedup.py).
+
+
 def test_already_run_lattice_points_are_never_proposed() -> None:
-    points, envelope = _integer_setup([1, 2, 5], lo=1, hi=8)
+    points, envelope = _integer_setup([1, 2, 5], lo=1, hi=8, with_thickness=False)
     already = {int(v) for v in points.values("ply_count")}
     batch = suggest_design_points(points, envelope, n=3, seed=3)
     assert not (already & {int(p["ply_count"]) for p in batch.points})
 
 
 def test_a_batch_larger_than_the_remaining_lattice_shrinks_with_a_warning() -> None:
-    points, envelope = _integer_setup([1, 2], lo=1, hi=3)
+    points, envelope = _integer_setup([1, 2], lo=1, hi=3, with_thickness=False)
     batch = suggest_design_points(points, envelope, n=8, seed=3)
 
     assert len(batch.points) <= 1

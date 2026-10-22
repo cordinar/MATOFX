@@ -30,7 +30,7 @@ def upgrade() -> None:
     op.create_table(
         "integrity_state",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=False),
-        sa.Column("chain_ok", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+        sa.Column("chain_ok", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("checked_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("records_checked", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column("failed_at", sa.DateTime(timezone=True), nullable=True),

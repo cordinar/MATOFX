@@ -31,6 +31,7 @@ from matofx.db import make_engine, make_session_factory, session_scope
 from matofx.tools.exec_orm import RuntimeSetting
 from matofx.users import effective_lockout_policy, effective_session_policy
 from matofx.users.passwords import validate_password_complexity
+from tests._migrated_db import reset_postgres_schema
 
 # ---- DB fixtures (mirror tests/config/test_general_settings.py) --------
 
@@ -69,12 +70,15 @@ def overlay_db_settings(request: pytest.FixtureRequest, tmp_path: Path) -> Itera
         if not pg_url:
             pytest.skip("MATOFX_TEST_POSTGRES_URL not set")
         settings = DbSettings.from_url(pg_url, dialect="postgres")
-    cfg = _alembic_config(_sync_url(settings))
-    command.upgrade(cfg, "head")
+    if dialect == "postgres":
+        reset_postgres_schema(settings)
+    command.upgrade(_alembic_config(_sync_url(settings)), "head")
     try:
         yield settings
     finally:
-        command.downgrade(cfg, "base")
+        if dialect == "postgres":
+            # Not `downgrade base`: see tests/_migrated_db.py.
+            reset_postgres_schema(settings)
 
 
 @pytest.fixture

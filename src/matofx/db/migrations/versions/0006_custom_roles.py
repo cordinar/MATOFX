@@ -179,7 +179,7 @@ def upgrade() -> None:
     # Backfill role_id from the existing role string.
     for name, rid in name_to_id.items():
         bind.execute(
-            sa.text("UPDATE user SET role_id = :rid WHERE role = :name").bindparams(
+            sa.text('UPDATE "user" SET role_id = :rid WHERE role = :name').bindparams(
                 rid=rid, name=name
             )
         )
@@ -216,12 +216,12 @@ def downgrade() -> None:
     ).fetchall()
     for rid, name in built_in:
         bind.execute(
-            sa.text("UPDATE user SET role = :name WHERE role_id = :rid").bindparams(
+            sa.text('UPDATE "user" SET role = :name WHERE role_id = :rid').bindparams(
                 rid=rid, name=name
             )
         )
     # Coerce any users still on a custom role to regular_user.
-    bind.execute(sa.text("UPDATE user SET role = 'regular_user' WHERE role IS NULL"))
+    bind.execute(sa.text("UPDATE \"user\" SET role = 'regular_user' WHERE role IS NULL"))
 
     with op.batch_alter_table("user") as batch:
         batch.drop_constraint("fk_user_role_id_role", type_="foreignkey")

@@ -15,7 +15,7 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: /the repository root
+    directory: /
     schedule:
       interval: weekly
       day: monday
@@ -30,7 +30,7 @@ updates:
       include: scope
 
   - package-ecosystem: pip
-    directory: /the repository root
+    directory: /
     schedule:
       interval: weekly
       day: monday

@@ -35,6 +35,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0067"
 down_revision: str | None = "0066"
 branch_labels: str | None = None
@@ -45,7 +47,7 @@ _BIGINT = sa.BigInteger().with_variant(sa.Integer(), "sqlite")
 
 def upgrade() -> None:
     """Add the three headless-orchestration columns to ``workflow_run``."""
-    with op.batch_alter_table("workflow_run", recreate="always") as batch:
+    with op.batch_alter_table("workflow_run", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(
             sa.Column(
                 "auto_advance",
@@ -68,7 +70,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop the headless-orchestration columns + their FK/index."""
-    with op.batch_alter_table("workflow_run", recreate="always") as batch:
+    with op.batch_alter_table("workflow_run", recreate=recreate_on_sqlite()) as batch:
         batch.drop_index("ix_workflow_run_optimisation_study_id")
         batch.drop_constraint(
             op.f("fk_workflow_run_optimisation_study_id_optimisation_study"),

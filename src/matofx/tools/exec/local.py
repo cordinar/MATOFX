@@ -114,7 +114,9 @@ class LocalTarget:
         # descriptor and goes on writing to it.
         launcher_log_handle = launcher_log_path.open("ab", buffering=0)
         try:
-            if platform.system() == "Windows":
+            # `sys.platform`, not `platform.system()`: mypy only narrows on the
+            # former, and these flags exist only in Windows' subprocess module.
+            if sys.platform == "win32":
                 creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
                 proc = await asyncio.create_subprocess_exec(
                     self._python_executable,

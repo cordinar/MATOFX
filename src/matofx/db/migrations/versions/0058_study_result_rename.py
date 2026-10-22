@@ -43,6 +43,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0058"
 down_revision: str | None = "0057"
 branch_labels: str | None = None
@@ -67,7 +69,7 @@ def upgrade() -> None:
         "UPDATE study_result SET source_kind = 'parametric', source_id = parametric_study_id"
     )
 
-    with op.batch_alter_table("study_result", recreate="always") as batch:
+    with op.batch_alter_table("study_result", recreate=recreate_on_sqlite()) as batch:
         batch.alter_column("source_kind", existing_type=sa.String(16), nullable=False)
         batch.alter_column("source_id", existing_type=_BIGINT, nullable=False)
         batch.create_check_constraint("ck_study_result_source_kind", _SOURCE_KIND_CHECK)
@@ -88,7 +90,7 @@ def downgrade() -> None:
     leaves the original ``parametric_study_result`` shape with no orphan.
     """
     op.drop_index("ix_study_result_source_kind_source_id", table_name="study_result")
-    with op.batch_alter_table("study_result", recreate="always") as batch:
+    with op.batch_alter_table("study_result", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_study_result_source_kind", type_="check")
         batch.drop_column("source_id")
         batch.drop_column("source_kind")

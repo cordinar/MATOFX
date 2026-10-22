@@ -26,7 +26,7 @@ Also adds the composite index ``ix_tool_version_alias_bundle_hash``
 on ``(alias, bundle_hash)`` — the V&V badge query joins on this exact
 key, so the index pays for itself on the first read.
 
-No ``batch_alter_table(recreate="always")``: we're adding a column +
+No ``batch_alter_table(recreate=recreate_on_sqlite())``: we're adding a column +
 index, not changing CHECKs or column nullability of an existing column.
 A plain ``add_column`` + ``create_index`` works on both SQLite and
 Postgres — matches the technique of migration ``0051``.

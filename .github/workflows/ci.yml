@@ -12,7 +12,7 @@ concurrency:
 
 defaults:
   run:
-    working-directory: the repository root
+    working-directory: .
 
 # Actions are pinned to commit SHAs (not tags) per the OpenSSF Scorecard
 # guidance — tags can be moved by upstream; SHAs cannot. Dependabot
@@ -32,7 +32,7 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -c constraints.txt -e ".[dev]"
       - name: Ruff format check
         run: ruff format --check .
       - name: Ruff lint
@@ -57,7 +57,7 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -c constraints.txt -e ".[dev]"
       - name: Pytest
         run: pytest -m "not postgres"
 
@@ -95,7 +95,7 @@ jobs:
           # for sync Alembic; we now run async migrations via SQLAlchemy 2.x's
           # AsyncEngine, which lets us drop psycopg2 (LGPL-3) entirely. This
           # matters for procurement reviews that blanket-reject LGPL.
-          pip install -e ".[dev,postgres]"
+          pip install -c constraints.txt -e ".[dev,postgres]"
       - name: Pytest
         env:
           MATOFX_TEST_POSTGRES_URL: postgres://matofx:matofx@localhost:5432/matofx_test
@@ -119,7 +119,7 @@ jobs:
       - name: Install build + SBOM tools
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[supply-chain]"
+          pip install -c constraints.txt -e ".[supply-chain]"
       - name: Build wheel + sdist
         run: |
           rm -rf dist
@@ -127,13 +127,13 @@ jobs:
       - name: Generate CycloneDX SBOM
         # cyclonedx-py reads the installed environment (`environment` mode)
         # to capture every transitive dep with its real resolved version.
-        # Schema 1.5 is the current stable; downgrade only if a customer
+        # Spec 1.5 is the current stable; downgrade only if a customer
         # tool refuses to parse it.
         run: |
           cyclonedx-py environment \
             --output-format json \
-            --schema-version 1.5 \
-            --outfile dist/sbom.cdx.json
+            --spec-version 1.5 \
+            --output-file dist/sbom.cdx.json
       - name: Upload artefacts
         uses: actions/upload-artifact@v4
         with:

@@ -23,7 +23,10 @@ from matofx.cli import main as cli_main
 from matofx.cli.main import main
 from matofx.licence.errors import LicenceInvalidError
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[2]
+#: The vendor-side issuer. Funis keeps it in its own workspace; the product
+#: repo doesn't ship it.
+ISSUE_LICENCE = REPO_ROOT / "scripts" / "issue_licence.py"
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +94,7 @@ def test_licence_error_prints_the_message_not_a_traceback(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(not ISSUE_LICENCE.exists(), reason="the licence issuer isn't in this repo")
 def test_issuing_script_output_survives_a_cp1252_console() -> None:
     """``scripts/issue_licence.py`` writes the licence and saves the
     registry *before* printing its summary. A ``UnicodeEncodeError`` in
@@ -101,7 +105,7 @@ def test_issuing_script_output_survives_a_cp1252_console() -> None:
     A single ``→`` in one f-string did exactly that. Windows
     consoles are cp1252, and Funis issues from one.
     """
-    source = (REPO_ROOT / "scripts" / "issue_licence.py").read_text(encoding="utf-8")
+    source = ISSUE_LICENCE.read_text(encoding="utf-8")
 
     offenders = sorted(
         {char for char in source if not _encodable(char)},

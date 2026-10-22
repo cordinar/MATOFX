@@ -35,6 +35,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
+from matofx.db.migrations._batch import recreate_on_sqlite
+
 revision: str = "0026"
 down_revision: str | None = "0025"
 branch_labels: str | None = None
@@ -46,7 +48,7 @@ _KNOWN_DOMAINS: tuple[str, ...] = ("runner", "general")
 
 def upgrade() -> None:
     """Add ``domain`` column and reshape the PK to ``(domain, key)``."""
-    with op.batch_alter_table("runtime_setting", recreate="always") as batch:
+    with op.batch_alter_table("runtime_setting", recreate=recreate_on_sqlite()) as batch:
         batch.add_column(
             sa.Column(
                 "domain",
@@ -77,7 +79,7 @@ def downgrade() -> None:
     bind = op.get_bind()
     bind.execute(sa.text("DELETE FROM runtime_setting WHERE domain <> :d").bindparams(d="runner"))
 
-    with op.batch_alter_table("runtime_setting", recreate="always") as batch:
+    with op.batch_alter_table("runtime_setting", recreate=recreate_on_sqlite()) as batch:
         batch.drop_constraint("ck_runtime_setting_domain", type_="check")
         batch.drop_constraint(op.f("pk_runtime_setting"), type_="primary")
         batch.create_primary_key(op.f("pk_runtime_setting"), ["key"])

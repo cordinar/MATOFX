@@ -71,7 +71,9 @@ def upgrade() -> None:
         descriptor["teams"] = descriptor.pop("categories")
         bind.execute(
             sa.text("UPDATE tool SET descriptor = :d WHERE id = :id").bindparams(
-                d=json.dumps(descriptor), id=tool_id
+                # Typed as JSON: Postgres won't store a bare string in a json column.
+                sa.bindparam("d", descriptor, type_=sa.JSON),
+                id=tool_id,
             )
         )
 
@@ -90,7 +92,9 @@ def downgrade() -> None:
         descriptor["categories"] = descriptor.pop("teams")
         bind.execute(
             sa.text("UPDATE tool SET descriptor = :d WHERE id = :id").bindparams(
-                d=json.dumps(descriptor), id=tool_id
+                # Typed as JSON: Postgres won't store a bare string in a json column.
+                sa.bindparam("d", descriptor, type_=sa.JSON),
+                id=tool_id,
             )
         )
 

@@ -13,6 +13,11 @@ from matofx.db import make_session_factory, session_scope
 from matofx.runner import DEFAULT_RUNTIME_SETTINGS, load_runtime_settings
 from matofx.runner.settings import RUNTIME_SETTINGS_CATALOG
 
+# Typed, so ``updated_at`` binds as a timestamp on Postgres, not a string.
+_UPDATE_SETTING = sa.text(
+    "UPDATE runtime_setting SET value_json = :v, updated_at = :u WHERE key = :k"
+).bindparams(sa.bindparam("u", type_=sa.DateTime(timezone=True)))
+
 
 def test_study_concurrency_cap_in_catalog_and_defaults() -> None:
     spec = RUNTIME_SETTINGS_CATALOG["study_concurrency_cap"]
@@ -28,10 +33,10 @@ async def test_study_concurrency_cap_load_and_override(runner_engine: AsyncEngin
     async with session_scope(factory) as session:
         settings = await load_runtime_settings(session)
     assert settings.study_concurrency_cap == 10  # seeded by migration 0037
-    now = _dt.datetime.now(tz=_dt.UTC).isoformat()
+    now = _dt.datetime.now(tz=_dt.UTC)
     async with session_scope(factory) as session:
         await session.execute(
-            sa.text("UPDATE runtime_setting SET value_json = :v, updated_at = :u WHERE key = :k"),
+            _UPDATE_SETTING,
             {"v": json.dumps(3), "u": now, "k": "study_concurrency_cap"},
         )
     async with session_scope(factory) as session:
@@ -66,10 +71,10 @@ async def test_gpu_concurrency_load_and_override(runner_engine: AsyncEngine) -> 
     async with session_scope(factory) as session:
         settings = await load_runtime_settings(session)
     assert settings.gpu_concurrency == 1  # seeded by migration 0077
-    now = _dt.datetime.now(tz=_dt.UTC).isoformat()
+    now = _dt.datetime.now(tz=_dt.UTC)
     async with session_scope(factory) as session:
         await session.execute(
-            sa.text("UPDATE runtime_setting SET value_json = :v, updated_at = :u WHERE key = :k"),
+            _UPDATE_SETTING,
             {"v": json.dumps(3), "u": now, "k": "gpu_concurrency"},
         )
     async with session_scope(factory) as session:
@@ -88,10 +93,10 @@ async def test_load_returns_seeded_defaults(runner_engine: AsyncEngine) -> None:
 @pytest.mark.asyncio
 async def test_load_picks_up_admin_changes(runner_engine: AsyncEngine) -> None:
     factory = make_session_factory(runner_engine)
-    now = _dt.datetime.now(tz=_dt.UTC).isoformat()
+    now = _dt.datetime.now(tz=_dt.UTC)
     async with session_scope(factory) as session:
         await session.execute(
-            sa.text("UPDATE runtime_setting SET value_json = :v, updated_at = :u WHERE key = :k"),
+            _UPDATE_SETTING,
             {"v": json.dumps(7), "u": now, "k": "local_concurrency"},
         )
     async with session_scope(factory) as session:
@@ -104,10 +109,10 @@ async def test_load_picks_up_admin_changes(runner_engine: AsyncEngine) -> None:
 @pytest.mark.asyncio
 async def test_load_clamps_out_of_range(runner_engine: AsyncEngine) -> None:
     factory = make_session_factory(runner_engine)
-    now = _dt.datetime.now(tz=_dt.UTC).isoformat()
+    now = _dt.datetime.now(tz=_dt.UTC)
     async with session_scope(factory) as session:
         await session.execute(
-            sa.text("UPDATE runtime_setting SET value_json = :v, updated_at = :u WHERE key = :k"),
+            _UPDATE_SETTING,
             {"v": json.dumps(99_999), "u": now, "k": "local_concurrency"},
         )
     async with session_scope(factory) as session:
@@ -119,10 +124,10 @@ async def test_load_clamps_out_of_range(runner_engine: AsyncEngine) -> None:
 @pytest.mark.asyncio
 async def test_load_falls_back_on_garbage_json(runner_engine: AsyncEngine) -> None:
     factory = make_session_factory(runner_engine)
-    now = _dt.datetime.now(tz=_dt.UTC).isoformat()
+    now = _dt.datetime.now(tz=_dt.UTC)
     async with session_scope(factory) as session:
         await session.execute(
-            sa.text("UPDATE runtime_setting SET value_json = :v, updated_at = :u WHERE key = :k"),
+            _UPDATE_SETTING,
             {"v": "not-json", "u": now, "k": "cancel_grace_s"},
         )
     async with session_scope(factory) as session:

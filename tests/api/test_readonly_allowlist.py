@@ -20,6 +20,9 @@ with a diff naming exactly what it just gained.
 
 from __future__ import annotations
 
+from typing import Protocol
+
+import fastapi.routing
 import pytest
 from fastapi.routing import APIRoute
 
@@ -60,17 +63,34 @@ EXPECTED_EXEMPT: frozenset[tuple[str, str]] = frozenset(
 )
 
 
+class _Route(Protocol):
+    path: str
+    methods: set[str] | None
+
+
 @pytest.fixture(scope="module")
-def app_routes() -> list[APIRoute]:
+def app_routes() -> list[_Route]:
     app = make_app(Settings(environment="dev"))
-    return [route for route in app.routes if isinstance(route, APIRoute)]
+    # Newer FastAPI keeps each included router nested in `app.routes` rather
+    # than flattening its routes in; its public helper walks them with their
+    # full paths. Older FastAPI has no helper and a flat list.
+    iter_route_contexts = getattr(fastapi.routing, "iter_route_contexts", None)
+    if iter_route_contexts is None:
+        routes: list[_Route] = [r for r in app.routes if isinstance(r, APIRoute)]
+    else:
+        routes = [
+            c for c in iter_route_contexts(app.routes) if isinstance(c.original_route, APIRoute)
+        ]
+    # With no routes found, every check below would pass without checking anything.
+    assert routes, "Found no API routes on the app."
+    return routes
 
 
 def _exempt(path: str) -> bool:
     return any(path.startswith(prefix) for prefix in _ALLOWED_PREFIXES)
 
 
-def test_exempt_routes_are_exactly_the_expected_set(app_routes: list[APIRoute]) -> None:
+def test_exempt_routes_are_exactly_the_expected_set(app_routes: list[_Route]) -> None:
     """A new route under an exempt prefix must not slip through unnoticed."""
     actual = {
         (method, route.path)
@@ -96,7 +116,7 @@ def test_exempt_routes_are_exactly_the_expected_set(app_routes: list[APIRoute]) 
     )
 
 
-def test_no_allow_list_prefix_is_dead(app_routes: list[APIRoute]) -> None:
+def test_no_allow_list_prefix_is_dead(app_routes: list[_Route]) -> None:
     """A prefix that exempts nothing is a trap for the next route added."""
     dead = [
         prefix
@@ -113,7 +133,7 @@ def test_no_allow_list_prefix_is_dead(app_routes: list[APIRoute]) -> None:
     )
 
 
-def test_no_mutating_work_hides_behind_a_get(app_routes: list[APIRoute]) -> None:
+def test_no_mutating_work_hides_behind_a_get(app_routes: list[_Route]) -> None:
     """The middleware gates by HTTP method, so a state-changing GET would slip past.
 
     There should not be any. Nothing checked that before, which is

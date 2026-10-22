@@ -141,7 +141,7 @@ def upgrade() -> None:
             int(r[0])
             for r in bind.execute(
                 sa.text(
-                    "SELECT u.id FROM user u "
+                    'SELECT u.id FROM "user" u '
                     "JOIN role_permission rp ON rp.role_id = u.role_id "
                     "WHERE rp.permission = :p"
                 ).bindparams(p=_RECLASSIFIED_PERMISSION)
