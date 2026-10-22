@@ -177,7 +177,7 @@ trame-vtk==2.11.8
 trame-vuetify==3.2.2
 trame==3.13.1
 trimesh==4.12.2
-types-PyYAML==6.0.12.20260408
+types-PyYAML==6.0.12.20260906
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2026.2
