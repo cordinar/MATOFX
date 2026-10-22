@@ -80,7 +80,7 @@ jobs:
             --output-file dist/sbom.cdx.json
 
       - name: Attest build provenance for wheel + sdist
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           # Glob covers the wheel, the sdist, and the SBOM — every
           # artefact we ship gets its own attestation in the bundle.
