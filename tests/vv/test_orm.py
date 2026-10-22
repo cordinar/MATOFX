@@ -32,6 +32,12 @@ from matofx.vv import (
 from .conftest import Basics
 
 
+async def _enforce_fks(session: sa.ext.asyncio.AsyncSession) -> None:
+    """SQLite enforces foreign keys only when asked, per connection; Postgres always does."""
+    if session.bind.dialect.name == "sqlite":
+        await session.execute(sa.text("PRAGMA foreign_keys=ON"))
+
+
 def _utcnow() -> _dt.datetime:
     return _dt.datetime.now(tz=_dt.UTC)
 
@@ -282,8 +288,7 @@ async def test_tool_version_restrict_blocks_delete_with_records(
     # SQLite fires this on the DELETE itself, not on the subsequent flush.
     factory2 = make_session_factory(vv_engine)
     async with session_scope(factory2) as session:
-        # Enforce FK constraints for SQLite (PRAGMA per-connection).
-        await session.execute(sa.text("PRAGMA foreign_keys=ON"))
+        await _enforce_fks(session)
         with pytest.raises(IntegrityError):
             await session.execute(
                 sa.text("DELETE FROM tool_version WHERE id = :tv").bindparams(
@@ -310,7 +315,7 @@ async def test_job_cascade_deletes_job_vv_records(vv_engine: AsyncEngine, basics
 
     factory2 = make_session_factory(vv_engine)
     async with session_scope(factory2) as session:
-        await session.execute(sa.text("PRAGMA foreign_keys=ON"))
+        await _enforce_fks(session)
         await session.execute(sa.text("DELETE FROM job WHERE id = :j").bindparams(j=basics.job_id))
         await session.flush()
 
@@ -338,7 +343,7 @@ async def test_evidence_file_version_restrict_blocks_delete(
 
     factory2 = make_session_factory(vv_engine)
     async with session_scope(factory2) as session:
-        await session.execute(sa.text("PRAGMA foreign_keys=ON"))
+        await _enforce_fks(session)
         with pytest.raises(IntegrityError):
             await session.execute(
                 sa.text("DELETE FROM library_file_version WHERE id = :lfv").bindparams(
@@ -446,16 +451,10 @@ async def test_composite_index_exists(vv_engine: AsyncEngine) -> None:
     migration drops it without replacement, the query silently
     table-scans — this test makes that regression noisy.
     """
-    factory = make_session_factory(vv_engine)
-    async with session_scope(factory) as session:
-        rows = await session.execute(
-            sa.text(
-                "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='tool_vv_record'"
-            )
+    async with vv_engine.connect() as conn:
+        names = await conn.run_sync(
+            lambda c: {ix["name"] for ix in sa.inspect(c).get_indexes("tool_vv_record")}
         )
-        names = {r[0] for r in rows.fetchall()}
-    if not names:
-        pytest.skip("Index introspection skipped on non-sqlite backends")
     assert "ix_tool_vv_record_tv_state_kind" in names
     assert "ix_tool_vv_record_state" in names
     assert "ix_tool_vv_record_tool_version_id" in names

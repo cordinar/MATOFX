@@ -119,6 +119,25 @@ async def _seed_aos_host(
         return int(host.id)
 
 
+async def _force_delete_tool(engine: AsyncEngine, alias: str) -> None:
+    """Delete a tool past its RESTRICT foreign keys, as a corrupted DB would.
+
+    SQLite: ``PRAGMA foreign_keys`` only takes effect outside a transaction,
+    hence the autocommit connection. Postgres: replica mode skips the FK
+    triggers for this session (the test role is a superuser).
+    """
+    off, on = (
+        ("PRAGMA foreign_keys = OFF", "PRAGMA foreign_keys = ON")
+        if engine.dialect.name == "sqlite"
+        else ("SET session_replication_role = replica", "SET session_replication_role = DEFAULT")
+    )
+    async with engine.connect() as conn:
+        ac = await conn.execution_options(isolation_level="AUTOCOMMIT")
+        await ac.execute(sa.text(off))
+        await ac.execute(sa.text("DELETE FROM tool WHERE alias = :a"), {"a": alias})
+        await ac.execute(sa.text(on))
+
+
 async def _seed_tool(
     factory,
     *,
@@ -309,10 +328,8 @@ async def test_supervisor_marks_failed_when_tool_missing(
     storage_id = await _seed_storage_location(factory, tmp_path)
     # Seed the tool first so the job FK validates, then pull the tool
     # out from under the job. The FK is RESTRICT, so the delete needs
-    # PRAGMA foreign_keys = OFF to simulate a corrupted-DB scenario
-    # the supervisor's None-guard exists to handle. The PRAGMA only
-    # takes effect outside a transaction, so we run it on a raw
-    # connection with autocommit.
+    # foreign keys off to simulate a corrupted-DB scenario the
+    # supervisor's None-guard exists to handle (see _force_delete_tool).
     tool_version_id = await _seed_tool(factory, alias="ghost", user_id=user_id)
     job_id = await _seed_project_scenario_job(
         factory,
@@ -322,11 +339,7 @@ async def test_supervisor_marks_failed_when_tool_missing(
         tool_version_id=tool_version_id,
         working_dir_relative="jobs/missing",
     )
-    async with runner_engine.connect() as conn:
-        ac = await conn.execution_options(isolation_level="AUTOCOMMIT")
-        await ac.execute(sa.text("PRAGMA foreign_keys = OFF"))
-        await ac.execute(sa.text("DELETE FROM tool WHERE alias='ghost'"))
-        await ac.execute(sa.text("PRAGMA foreign_keys = ON"))
+    await _force_delete_tool(runner_engine, "ghost")
 
     # Sanity check the delete actually landed.
     async with session_scope(factory) as session:
@@ -745,12 +758,7 @@ async def test_cancel_job_with_missing_tool_marks_failed(
         tool_alias="ghosted",
         tool_version_id=tool_version_id,
     )
-    # Force-delete the tool with FK off.
-    async with runner_engine.connect() as conn:
-        ac = await conn.execution_options(isolation_level="AUTOCOMMIT")
-        await ac.execute(sa.text("PRAGMA foreign_keys = OFF"))
-        await ac.execute(sa.text("DELETE FROM tool WHERE alias='ghosted'"))
-        await ac.execute(sa.text("PRAGMA foreign_keys = ON"))
+    await _force_delete_tool(runner_engine, "ghosted")
 
     supervisor = RunnerSupervisor(factory=factory, audit=runner_audit)
 

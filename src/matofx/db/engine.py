@@ -18,6 +18,8 @@ on shutdown — or use :func:`make_engine_scope` which guarantees disposal.
 
 from __future__ import annotations
 
+import json
+import math
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
@@ -79,6 +81,8 @@ def make_engine(settings: DbSettings) -> AsyncEngine:
         kwargs["max_overflow"] = settings.max_overflow
         kwargs["pool_recycle"] = settings.pool_recycle_seconds
         kwargs["pool_pre_ping"] = True
+        kwargs["json_serializer"] = _pg_json_dumps
+        kwargs["json_deserializer"] = _pg_json_loads
 
     engine = create_async_engine(async_url, **kwargs)
 
@@ -88,6 +92,43 @@ def make_engine(settings: DbSettings) -> AsyncEngine:
         _install_postgres_setup(engine, statement_timeout_ms=settings.statement_timeout_ms)
 
     return engine
+
+
+#: Postgres' ``json`` type is strict RFC 8259 and rejects ``Infinity`` and
+#: ``NaN``, which Python's ``json`` writes and SQLite stores verbatim. A
+#: solver output can legitimately be non-finite (ADR-0017
+#: ``allow_non_finite``), so on Postgres such a float is written as
+#: ``{"$nonfinite": "inf"}`` and read back as the float, matching SQLite.
+_NON_FINITE_KEY = "$nonfinite"
+
+
+def _tag_non_finite(value: Any) -> Any:
+    if isinstance(value, float) and not math.isfinite(value):
+        return {_NON_FINITE_KEY: repr(value)}  # 'inf', '-inf' or 'nan'
+    if isinstance(value, dict):
+        return {k: _tag_non_finite(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_tag_non_finite(v) for v in value]
+    return value
+
+
+def _pg_json_dumps(value: Any) -> str:
+    try:
+        return json.dumps(value, allow_nan=False)
+    except ValueError:
+        return json.dumps(_tag_non_finite(value), allow_nan=False)
+
+
+def _untag_non_finite(obj: dict[str, Any]) -> Any:
+    if len(obj) == 1 and isinstance(obj.get(_NON_FINITE_KEY), str):
+        return float(obj[_NON_FINITE_KEY])
+    return obj
+
+
+def _pg_json_loads(text: str) -> Any:
+    if _NON_FINITE_KEY not in text:
+        return json.loads(text)
+    return json.loads(text, object_hook=_untag_non_finite)
 
 
 @asynccontextmanager

@@ -207,7 +207,7 @@ class OptimisationStudy(_Base):
     queue (studies-engine §4). ``NULL`` until the runtime queues a
     batch (build Phase 2)."""
 
-    state: Mapped[str] = mapped_column(sa.String(16), nullable=False, default="draft")
+    state: Mapped[str] = mapped_column(sa.String(32), nullable=False, default="draft")
 
     start_approver_user_id: Mapped[int | None] = mapped_column(
         sa.BigInteger().with_variant(sa.Integer(), "sqlite"),
