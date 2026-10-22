@@ -36,7 +36,7 @@ jobs:
           # the tip.
           fetch-depth: 0
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           # gitleaks-action only collects the (anonymous) license keepalive
           # ping when GITLEAKS_LICENSE is set. Leave it unset for the
